@@ -1,0 +1,7 @@
+{
+  "name": "hiphop-manager",
+  "private": true,
+  "scripts": {
+    "build": "echo \"Build step placeholder\""
+  }
+}
