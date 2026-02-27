@@ -10,7 +10,31 @@ body {
   font-family: system-ui, sans-serif;
 }
 
-/* Scrollbar custom hip hop */
+/* INPUT GLOBAL STYLE */
+input,
+select,
+textarea {
+  background-color: #18181b; /* zinc-900 */
+  color: #FFD700; /* oro */
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  padding: 8px 12px;
+  border-radius: 8px;
+  outline: none;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: #FFD700;
+  box-shadow: 0 0 0 2px rgba(255, 215, 0, 0.3);
+}
+
+/* Placeholder */
+::placeholder {
+  color: #888;
+}
+
+/* Scrollbar hip hop */
 ::-webkit-scrollbar {
   width: 8px;
 }
