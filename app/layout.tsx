@@ -1,3 +1,5 @@
+"use client"
+
 import "./globals.css"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
@@ -7,7 +9,7 @@ function Sidebar() {
   const pathname = usePathname()
 
   const linkClass = (path: string) =>
-    `block px-4 py-2 rounded transition ${
+    `block px-4 py-3 rounded transition ${
       pathname === path
         ? "bg-yellow-500 text-black font-bold shadow-lg"
         : "hover:bg-yellow-500 hover:text-black"
@@ -29,7 +31,7 @@ function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="space-y-3 text-white">
+      <nav className="space-y-2 text-white">
 
         <Link href="/" className={linkClass("/")}>
           Dashboard
@@ -43,16 +45,24 @@ function Sidebar() {
           Spese
         </Link>
 
+        <Link href="/insegnanti" className={linkClass("/insegnanti")}>
+          Insegnanti
+        </Link>
+
         <Link href="/soci" className={linkClass("/soci")}>
           Soci
         </Link>
 
         <Link href="/versamenti" className={linkClass("/versamenti")}>
-          Versamenti
+          Versamenti Soci
         </Link>
 
         <Link href="/affitto" className={linkClass("/affitto")}>
           Affitto
+        </Link>
+
+        <Link href="/certificati" className={linkClass("/certificati")}>
+          Certificati Medici
         </Link>
 
         <Link href="/chiusura" className={linkClass("/chiusura")}>
@@ -62,15 +72,10 @@ function Sidebar() {
       </nav>
 
       <div className="mt-auto text-xs text-gray-500 text-center">
-        Gestionale interno
+        Gestionale Interno
       </div>
     </aside>
   )
-}
-
-export const metadata = {
-  title: "Hip Hop Family Manager",
-  description: "Gestionale interno professionale",
 }
 
 export default function RootLayout({
@@ -81,21 +86,14 @@ export default function RootLayout({
   return (
     <html lang="it">
       <body className="bg-black text-white">
-
         <MeseProvider>
-
           <div className="flex min-h-screen">
-
             <Sidebar />
-
             <main className="flex-1 p-10">
               {children}
             </main>
-
           </div>
-
         </MeseProvider>
-
       </body>
     </html>
   )
