@@ -3,7 +3,22 @@ import { supabase } from "./supabaseClient"
 export async function calcolaQuotaSoci(mese: string) {
   const errori: string[] = []
 
-  // 1️⃣ Carica soci
+  // Controllo esistenza mese
+  const { data: meseData, error: meseError } = await supabase
+    .from("mesi")
+    .select("*")
+    .eq("mese", mese)
+    .single()
+
+  if (meseError || !meseData) {
+    throw new Error("Mese non trovato")
+  }
+
+  if (meseData.stato === "chiuso") {
+    return meseData.report_snapshot
+  }
+
+  // Soci
   const { data: soci, error: sociError } = await supabase
     .from("soci")
     .select("*")
@@ -12,7 +27,6 @@ export async function calcolaQuotaSoci(mese: string) {
     throw new Error("Errore caricamento soci")
   }
 
-  // 2️⃣ Verifica percentuali = 100
   const sommaPercentuali = soci.reduce(
     (acc, s) => acc + Number(s.percentuale),
     0
@@ -22,7 +36,7 @@ export async function calcolaQuotaSoci(mese: string) {
     errori.push("La somma delle percentuali soci non è 100")
   }
 
-  // 3️⃣ Movimenti mese
+  // Movimenti
   const { data: movimenti, error: movError } = await supabase
     .from("movimenti_finanziari")
     .select("*")
@@ -37,12 +51,10 @@ export async function calcolaQuotaSoci(mese: string) {
   )
 
   let perdita = 0
-
   if (risultato_operativo < 0) {
     perdita = Math.abs(risultato_operativo)
   }
 
-  // 4️⃣ Versamenti mese
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
@@ -50,7 +62,6 @@ export async function calcolaQuotaSoci(mese: string) {
 
   const versamentiPuliti = versamenti ?? []
 
-  // Se non c'è perdita → nessuna quota
   if (perdita === 0) {
     return {
       risultato_operativo,
@@ -62,12 +73,12 @@ export async function calcolaQuotaSoci(mese: string) {
     }
   }
 
-  // 5️⃣ Calcolo quota proporzionale
   let sommaQuote = 0
 
-  const sociCalcolati = soci.map((s, index) => {
-    const quotaRaw = perdita * (Number(s.percentuale) / 100)
-    const quota = Number(quotaRaw.toFixed(2))
+  const sociCalcolati = soci.map((s) => {
+    const quota = Number(
+      (perdita * (Number(s.percentuale) / 100)).toFixed(2)
+    )
 
     sommaQuote += quota
 
@@ -85,14 +96,12 @@ export async function calcolaQuotaSoci(mese: string) {
     }
   })
 
-  // 6️⃣ Correzione centesimi sull'ultimo socio
   const differenzaCentesimi = Number((perdita - sommaQuote).toFixed(2))
 
   if (differenzaCentesimi !== 0 && sociCalcolati.length > 0) {
     sociCalcolati[sociCalcolati.length - 1].quota_calcolata += differenzaCentesimi
   }
 
-  // 7️⃣ Calcolo differenze reali
   let totaleVersamenti = 0
   let tuttoCoperto = true
 
@@ -122,4 +131,26 @@ export async function calcolaQuotaSoci(mese: string) {
     chiudibile,
     errori
   }
+}
+
+export async function chiudiMeseServer(mese: string) {
+  const risultato = await calcolaQuotaSoci(mese)
+
+  if (!risultato.chiudibile) {
+    throw new Error("Il mese non è chiudibile.")
+  }
+
+  const { error } = await supabase
+    .from("mesi")
+    .update({
+      stato: "chiuso",
+      report_snapshot: risultato
+    })
+    .eq("mese", mese)
+
+  if (error) {
+    throw new Error("Errore chiusura mese")
+  }
+
+  return { success: true }
 }
