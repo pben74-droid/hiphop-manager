@@ -57,18 +57,22 @@ export default function AffittoPage() {
     setImportoAffitto(affittoData?.importo_totale || 0);
   };
 
+  const salvaAffitto = async () => {
+    await supabase
+      .from("affitto")
+      .upsert({
+        mese: mese,
+        importo_totale: importoAffitto
+      }, { onConflict: "mese" });
+
+    alert("Affitto salvato");
+    loadData();
+  };
+
   if (loading) return null;
 
   return (
-    <div
-      style={{
-        background: "#0a0a0a",
-        minHeight: "100vh",
-        color: "#FFD700",
-        padding: 30,
-        fontFamily: "Arial"
-      }}
-    >
+    <div style={{ padding: 30 }}>
       <h1>Modulo Affitto</h1>
 
       <div style={{ marginBottom: 20 }}>
@@ -82,51 +86,70 @@ export default function AffittoPage() {
         </button>
       </div>
 
-      <h2>Importo Affitto: € {importoAffitto.toFixed(2)}</h2>
-
-      <div style={{ marginTop: 20 }}>
-        {soci.map((s) => {
-          const quota =
-            importoAffitto *
-            (Number(s.quota_percentuale) / 100);
-
-          const versato = s.versato_affitto || 0;
-
-          const differenza = quota - versato;
-
-          const credito = versato > quota ? versato - quota : 0;
-
-          return (
-            <div
-              key={s.id}
-              style={{
-                border: "1px solid #FFD700",
-                padding: 10,
-                marginBottom: 10
-              }}
-            >
-              <strong>{s.nome}</strong><br />
-              Quota affitto: € {quota.toFixed(2)} <br />
-              Versato: € {versato.toFixed(2)} <br />
-              {differenza > 0 && (
-                <span style={{ color: "red" }}>
-                  Da versare: € {differenza.toFixed(2)}
-                </span>
-              )}
-              {credito > 0 && (
-                <span style={{ color: "lightgreen" }}>
-                  Credito mese prossimo: € {credito.toFixed(2)}
-                </span>
-              )}
-              {differenza <= 0 && credito === 0 && (
-                <span style={{ color: "lightgreen" }}>
-                  Affitto coperto
-                </span>
-              )}
-            </div>
-          );
-        })}
+      <div style={{ marginBottom: 20 }}>
+        <input
+          type="number"
+          value={importoAffitto}
+          onChange={(e) =>
+            setImportoAffitto(Number(e.target.value))
+          }
+          placeholder="Importo totale affitto"
+        />
+        <button
+          onClick={salvaAffitto}
+          style={{ marginLeft: 10 }}
+        >
+          Salva Affitto
+        </button>
       </div>
+
+      <h2>Ripartizione Soci</h2>
+
+      {soci.map((s) => {
+        const quota =
+          importoAffitto *
+          (Number(s.quota_percentuale) / 100);
+
+        const versato = s.versato_affitto || 0;
+
+        const differenza = quota - versato;
+        const credito =
+          versato > quota ? versato - quota : 0;
+
+        return (
+          <div
+            key={s.id}
+            style={{
+              border: "1px solid black",
+              padding: 10,
+              marginBottom: 10
+            }}
+          >
+            <strong>{s.nome}</strong>
+            <br />
+            Quota: € {quota.toFixed(2)}
+            <br />
+            Versato: € {versato.toFixed(2)}
+            <br />
+            {differenza > 0 && (
+              <span style={{ color: "red" }}>
+                Da versare: € {differenza.toFixed(2)}
+              </span>
+            )}
+            {credito > 0 && (
+              <span style={{ color: "green" }}>
+                Credito mese prossimo: €{" "}
+                {credito.toFixed(2)}
+              </span>
+            )}
+            {differenza <= 0 && credito === 0 && (
+              <span style={{ color: "green" }}>
+                Affitto coperto
+              </span>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
