@@ -40,26 +40,65 @@ export async function verificaMeseAperto(mese: string) {
 }
 
 /* =========================================
-   CALCOLO QUOTA SOCI
+   CALCOLO SALDI (CENTRALIZZATO)
 ========================================= */
-export async function calcolaQuotaSoci(mese: string) {
-  const { data: soci } = await supabase.from("soci").select("*")
-
+export async function calcolaSaldi(mese: string) {
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
+  const saldo_cassa = Number(
+    (
+      movimenti
+        ?.filter((m) => m.contenitore === "cassa_operativa")
+        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+    ).toFixed(2)
+  )
+
+  const saldo_banca = Number(
+    (
+      movimenti
+        ?.filter((m) => m.contenitore === "banca")
+        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+    ).toFixed(2)
+  )
+
+  return { saldo_cassa, saldo_banca }
+}
+
+/* =========================================
+   RISULTATO OPERATIVO (NO TRASFERIMENTI)
+========================================= */
+export async function calcolaRisultatoOperativo(mese: string) {
+  const { data: movimenti } = await supabase
+    .from("movimenti_finanziari")
+    .select("*")
+    .eq("mese", mese)
+
+  const risultato = Number(
+    (
+      movimenti
+        ?.filter((m) => m.categoria !== "trasferimento")
+        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+    ).toFixed(2)
+  )
+
+  return risultato
+}
+
+/* =========================================
+   CALCOLO QUOTA SOCI
+========================================= */
+export async function calcolaQuotaSoci(mese: string) {
+
+  const risultato_operativo = await calcolaRisultatoOperativo(mese)
+
+  const { data: soci } = await supabase.from("soci").select("*")
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
     .eq("mese", mese)
-
-  const risultato_operativo = Number(
-  movimenti
-    ?.filter((m) => m.categoria !== "trasferimento")
-    .reduce((acc, m) => acc + Number(m.importo), 0) || 0
-)
 
   if (risultato_operativo >= 0) {
     return {
@@ -86,7 +125,7 @@ export async function calcolaQuotaSoci(mese: string) {
       id: s.id,
       nome: s.nome,
       quota_calcolata: quota,
-      versato,
+      versato: Number(versato.toFixed(2)),
       differenza: Number((quota - versato).toFixed(2)),
     }
   })
@@ -95,14 +134,13 @@ export async function calcolaQuotaSoci(mese: string) {
     versamenti?.reduce((acc, v) => acc + Number(v.importo), 0) || 0
 
   const chiudibile =
-    Number((risultato_operativo + totaleVersamenti).toFixed(2)) === 0 &&
-    sociCalcolati?.every((s) => s.differenza === 0)
+    Number((risultato_operativo + totaleVersamenti).toFixed(2)) === 0
 
   return {
     risultato_operativo,
     perdita,
     soci: sociCalcolati,
-    totale_versamenti: totaleVersamenti,
+    totale_versamenti: Number(totaleVersamenti.toFixed(2)),
     chiudibile,
   }
 }
@@ -168,8 +206,8 @@ export async function generaSezioneAffitto(mese: string) {
       nome: s.nome,
       percentuale: s.quota_percentuale,
       quota,
-      versato,
-      credito_trasferito: creditoTrasferito,
+      versato: Number(versato.toFixed(2)),
+      credito_trasferito: Number(creditoTrasferito.toFixed(2)),
     }
   })
 
