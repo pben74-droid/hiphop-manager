@@ -1,66 +1,39 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
-import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
+import { PDFDocument, StandardFonts } from "pdf-lib"
 
-export const runtime = "nodejs"
+export async function GET(request: Request) {
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
-
-export async function GET(req: Request) {
-
-  const { searchParams } = new URL(req.url)
+  const { searchParams } = new URL(request.url)
   const mese = searchParams.get("mese")
 
   if (!mese) {
-    return NextResponse.json(
-      { error: "Mese mancante" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "Mese mancante" }, { status: 400 })
   }
 
-  /* ============================
-     SEZIONE OPERATIVA
-  ============================ */
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  /* ==============================
+     RECUPERO DATI
+  ============================== */
 
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
+    .order("data")
+
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
 
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
     .eq("mese", mese)
-
-  const risultato =
-    movimenti?.reduce(
-      (acc, m) => acc + Number(m.importo),
-      0
-    ) || 0
-
-  const totaleVersamenti =
-    versamenti?.reduce(
-      (acc, v) => acc + Number(v.importo),
-      0
-    ) || 0
-
-  const differenza = Number(
-    (risultato + totaleVersamenti).toFixed(2)
-  )
-
-  if (differenza !== 0) {
-    return NextResponse.json(
-      { error: "Differenza operativa diversa da 0. Report bloccato." },
-      { status: 400 }
-    )
-  }
-
-  /* ============================
-     SEZIONE AFFITTO
-  ============================ */
 
   const { data: affittoMese } = await supabase
     .from("affitto_mese")
@@ -68,23 +41,36 @@ export async function GET(req: Request) {
     .eq("mese", mese)
     .maybeSingle()
 
-  const { data: soci } = await supabase
-    .from("soci")
-    .select("*")
-
-  const { data: pagamentiAffitto } = await supabase
+  const { data: affittoPagamenti } = await supabase
     .from("affitto_pagamenti")
     .select("*")
     .eq("mese", mese)
 
-  const { data: crediti } = await supabase
-    .from("affitto_crediti")
-    .select("*")
-    .eq("mese_origine", mese)
+  /* ==============================
+     FILTRAGGI
+  ============================== */
 
-  /* ============================
+  const incassi = movimenti?.filter(
+    m => m.tipo === "incasso" && m.categoria !== "trasferimento"
+  ) || []
+
+  const speseVarie = movimenti?.filter(
+    m => m.tipo === "spesa" &&
+         m.categoria === "spesa_generica"
+  ) || []
+
+  const insegnanti = movimenti?.filter(
+    m => m.categoria === "insegnante"
+  ) || []
+
+  const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
+  const totaleSpese = movimenti
+    ?.filter(m => m.categoria !== "trasferimento")
+    .reduce((a, m) => a + Number(m.importo), 0) || 0
+
+  /* ==============================
      CREAZIONE PDF
-  ============================ */
+  ============================== */
 
   const pdfDoc = await PDFDocument.create()
   const page = pdfDoc.addPage([595, 842])
@@ -92,72 +78,80 @@ export async function GET(req: Request) {
 
   let y = 800
 
-  const drawText = (text: string) => {
+  const draw = (text: string) => {
     page.drawText(text, {
       x: 50,
       y,
-      size: 12,
-      font,
-      color: rgb(0, 0, 0),
+      size: 10,
+      font
     })
-    y -= 18
+    y -= 14
   }
 
-  drawText("HIP HOP FAMILY MANAGER")
-  drawText(`Report Mensile - ${mese}`)
-  y -= 15
+  draw("HIP HOP FAMILY MANAGER")
+  draw(`Report Mensile - ${mese}`)
+  y -= 10
 
-  /* ----- OPERATIVO ----- */
+  /* ==============================
+     INCASSI
+  ============================== */
 
-  drawText("=== SEZIONE OPERATIVO ===")
-  drawText(`Risultato operativo: ${risultato} €`)
-  drawText(`Totale versamenti soci: ${totaleVersamenti} €`)
-  drawText(`Differenza finale: ${differenza} €`)
-  y -= 20
+  draw("=== INCASSI ===")
+  incassi.forEach(i => {
+    draw(`${i.data} - ${i.descrizione} - ${Number(i.importo).toFixed(2)} €`)
+  })
+  y -= 10
 
-  /* ----- AFFITTO ----- */
+  /* ==============================
+     SPESE VARIE
+  ============================== */
+
+  draw("=== SPESE VARIE ===")
+  speseVarie.forEach(s => {
+    draw(`${s.data} - ${s.descrizione} - ${Math.abs(Number(s.importo)).toFixed(2)} €`)
+  })
+  y -= 10
+
+  /* ==============================
+     COMPENSI INSEGNANTI
+  ============================== */
+
+  draw("=== COMPENSI INSEGNANTI ===")
+  insegnanti.forEach(ins => {
+    draw(`${ins.data} - ${ins.descrizione} - ${Math.abs(Number(ins.importo)).toFixed(2)} €`)
+  })
+  y -= 10
+
+  /* ==============================
+     RIEPILOGO
+  ============================== */
+
+  draw("=== RIEPILOGO OPERATIVO ===")
+  draw(`Totale Incassi: ${totaleIncassi.toFixed(2)} €`)
+  draw(`Risultato Operativo: ${totaleSpese.toFixed(2)} €`)
+  y -= 10
+
+  /* ==============================
+     AFFITTO
+  ============================== */
 
   if (affittoMese) {
 
-    drawText("=== SEZIONE AFFITTO ===")
-    drawText(`Costo mensile: ${affittoMese.costo_mensile} €`)
-    y -= 10
+    draw("=== AFFITTO ===")
+    draw(`Costo Mensile: ${Number(affittoMese.costo_mensile).toFixed(2)} €`)
 
-    soci?.forEach((s) => {
-
-      const quota = Number(
-        (
-          affittoMese.costo_mensile *
-          (Number(s.quota_percentuale) / 100)
-        ).toFixed(2)
-      )
-
-      const versato =
-        pagamentiAffitto
-          ?.filter((p) => p.socio_id === s.id)
-          .reduce((acc, p) => acc + Number(p.importo), 0) || 0
-
-      const credito =
-        crediti
-          ?.filter((c) => c.socio_id === s.id)
-          .reduce((acc, c) => acc + Number(c.importo), 0) || 0
-
-      drawText(`${s.nome}`)
-      drawText(`Quota: ${quota} €`)
-      drawText(`Pagato: ${versato} €`)
-      drawText(`Credito trasferito: ${credito} €`)
-      y -= 10
+    affittoPagamenti?.forEach(p => {
+      draw(`Pagamento socio ${p.socio_id} - ${Number(p.importo).toFixed(2)} €`)
     })
   }
 
   const pdfBytes = await pdfDoc.save()
-
   const buffer = Buffer.from(pdfBytes)
 
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=report_${mese}.pdf`,
-    },
+      "Content-Disposition": `inline; filename=report_${mese}.pdf`
+    }
   })
 }
