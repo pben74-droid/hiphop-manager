@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { inizializzaMese } from "@/lib/gestioneMese";
 
-export default function SpesePage() {
+export default function Spese() {
   const [mese, setMese] = useState("2026-02");
-  const [statoMese, setStatoMese] = useState("aperto");
+  const [descrizione, setDescrizione] = useState("");
   const [importo, setImporto] = useState("");
-  const [metodo, setMetodo] = useState("contanti");
+  const [contenitore, setContenitore] = useState("cassa_operativa");
   const [spese, setSpese] = useState<any[]>([]);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [meseChiuso, setMeseChiuso] = useState(false);
 
   useEffect(() => {
-    loadData();
+    load();
   }, [mese]);
 
-  const loadData = async () => {
+  const load = async () => {
     await inizializzaMese(mese);
 
     const { data: meseData } = await supabase
@@ -24,59 +26,178 @@ export default function SpesePage() {
       .eq("mese", mese)
       .single();
 
-    if (meseData) setStatoMese(meseData.stato);
+    setMeseChiuso(meseData?.stato === "chiuso");
 
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese)
-      .eq("tipo", "spesa");
+      .eq("tipo", "spesa")
+      .order("data", { ascending: false });
 
     setSpese(data || []);
   };
 
-  const salva = async () => {
-    if (statoMese === "chiuso") return alert("Mese chiuso");
+  const salvaSpesa = async () => {
+    if (!descrizione || !importo) {
+      alert("Compila tutti i campi");
+      return;
+    }
 
-    await supabase.from("movimenti_finanziari").insert({
-      tipo: "spesa",
-      contenitore: metodo === "contanti" ? "cassa_operativa" : "banca",
-      importo: -Number(importo),
-      mese,
-      data: new Date().toISOString().split("T")[0],
-    });
+    if (meseChiuso) {
+      alert("Mese chiuso. Non puoi modificare.");
+      return;
+    }
 
-    setImporto("");
-    loadData();
+    if (editId) {
+      await supabase
+        .from("movimenti_finanziari")
+        .update({
+          descrizione,
+          importo: -Math.abs(Number(importo)),
+          contenitore,
+        })
+        .eq("id", editId);
+    } else {
+      await supabase.from("movimenti_finanziari").insert({
+        tipo: "spesa",
+        descrizione,
+        importo: -Math.abs(Number(importo)),
+        contenitore,
+        mese,
+        data: new Date().toISOString().split("T")[0],
+      });
+    }
+
+    resetForm();
+    load();
   };
 
-  const elimina = async (id: string) => {
-    if (statoMese === "chiuso") return;
-    await supabase.from("movimenti_finanziari").delete().eq("id", id);
-    loadData();
+  const eliminaSpesa = async (id: string) => {
+    if (meseChiuso) {
+      alert("Mese chiuso. Non puoi eliminare.");
+      return;
+    }
+
+    await supabase
+      .from("movimenti_finanziari")
+      .delete()
+      .eq("id", id);
+
+    load();
+  };
+
+  const modificaSpesa = (spesa: any) => {
+    setEditId(spesa.id);
+    setDescrizione(spesa.descrizione);
+    setImporto(Math.abs(spesa.importo).toString());
+    setContenitore(spesa.contenitore);
+  };
+
+  const resetForm = () => {
+    setEditId(null);
+    setDescrizione("");
+    setImporto("");
+    setContenitore("cassa_operativa");
   };
 
   return (
-    <div>
-      <h1>Spese</h1>
+    <div className="space-y-6">
 
-      <input type="month" value={mese} onChange={(e)=>setMese(e.target.value)} />
-      <p>Stato: {statoMese}</p>
+      <h1 className="text-2xl font-bold text-yellow-500">
+        Spese Operative
+      </h1>
 
-      <input type="number" value={importo} onChange={(e)=>setImporto(e.target.value)} />
-      <select value={metodo} onChange={(e)=>setMetodo(e.target.value)}>
-        <option value="contanti">Contanti</option>
-        <option value="banca">Banca</option>
-      </select>
+      <input
+        type="month"
+        value={mese}
+        onChange={(e) => setMese(e.target.value)}
+      />
 
-      <button onClick={salva}>Salva</button>
+      {/* FORM */}
+      <div className="bg-zinc-900 p-6 rounded-xl space-y-4">
 
-      {spese.map(s=>(
-        <div key={s.id}>
-          € {Math.abs(s.importo)}
-          {statoMese==="aperto" && <button onClick={()=>elimina(s.id)}>X</button>}
+        <input
+          placeholder="Descrizione spesa"
+          value={descrizione}
+          onChange={(e) => setDescrizione(e.target.value)}
+          disabled={meseChiuso}
+        />
+
+        <input
+          type="number"
+          placeholder="Importo"
+          value={importo}
+          onChange={(e) => setImporto(e.target.value)}
+          disabled={meseChiuso}
+        />
+
+        <select
+          value={contenitore}
+          onChange={(e) => setContenitore(e.target.value)}
+          disabled={meseChiuso}
+        >
+          <option value="cassa_operativa">Cassa Operativa</option>
+          <option value="banca">Banca</option>
+        </select>
+
+        <div className="flex gap-3">
+          <button
+            onClick={salvaSpesa}
+            className="bg-yellow-500 text-black px-4 py-2 rounded"
+            disabled={meseChiuso}
+          >
+            {editId ? "Aggiorna" : "Salva"}
+          </button>
+
+          {editId && (
+            <button
+              onClick={resetForm}
+              className="bg-zinc-700 px-4 py-2 rounded"
+            >
+              Annulla
+            </button>
+          )}
         </div>
-      ))}
+
+      </div>
+
+      {/* LISTA */}
+      <div className="bg-zinc-900 p-6 rounded-xl space-y-3">
+
+        {spese.map((s) => (
+          <div
+            key={s.id}
+            className="flex justify-between items-center border-b border-zinc-800 pb-2"
+          >
+            <div>
+              <div className="text-yellow-400">{s.descrizione}</div>
+              <div className="text-sm text-zinc-400">
+                € {Math.abs(s.importo).toFixed(2)} — {s.contenitore}
+              </div>
+            </div>
+
+            {!meseChiuso && (
+              <div className="flex gap-3 text-sm">
+                <button
+                  onClick={() => modificaSpesa(s)}
+                  className="text-yellow-500"
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => eliminaSpesa(s.id)}
+                  className="text-red-500"
+                >
+                  Elimina
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+
+      </div>
+
     </div>
   );
 }
