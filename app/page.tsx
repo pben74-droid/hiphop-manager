@@ -13,11 +13,10 @@ export default function Dashboard() {
   const [totIncassi, setTotIncassi] = useState(0);
   const [totSpese, setTotSpese] = useState(0);
 
-  // 🔐 Controllo login
+  // 🔐 Controllo autenticazione
   useEffect(() => {
     const checkUser = async () => {
       const { data } = await supabase.auth.getUser();
-
       if (!data.user) {
         router.push("/login");
       } else {
@@ -25,11 +24,10 @@ export default function Dashboard() {
         loadData();
       }
     };
-
     checkUser();
   }, []);
 
-  // 📊 Caricamento dati per mese
+  // 📊 Caricamento dati completi
   const loadData = async () => {
     const start = mese + "-01";
 
@@ -39,35 +37,57 @@ export default function Dashboard() {
 
     // Soci
     const { data: sociData } = await supabase.from("soci").select("*");
-    setSoci(sociData || []);
 
-    // Incassi
+    // Incassi mese
     const { data: incassi } = await supabase
       .from("incassi")
       .select("*")
       .gte("data", start)
       .lt("data", end);
 
-    // Spese
+    // Spese operative mese
     const { data: spese } = await supabase
       .from("spese")
       .select("*")
       .gte("data", start)
       .lt("data", end);
 
-    const totI =
+    // Versamenti operativi mese
+    const { data: versamenti } = await supabase
+      .from("versamenti_soci")
+      .select("*")
+      .eq("tipo", "operativo")
+      .eq("mese", mese);
+
+    const totaleIncassi =
       incassi?.reduce((sum, i) => sum + Number(i.importo), 0) || 0;
 
-    const totS =
+    const totaleSpese =
       spese?.reduce((sum, s) => sum + Number(s.importo), 0) || 0;
 
-    setTotIncassi(totI);
-    setTotSpese(totS);
+    setTotIncassi(totaleIncassi);
+    setTotSpese(totaleSpese);
+
+    // Calcolo versamenti per socio
+    const sociConVersamenti =
+      sociData?.map((s) => {
+        const totaleVersato =
+          versamenti
+            ?.filter((v) => v.socio_id === s.id)
+            .reduce((sum, v) => sum + Number(v.importo), 0) || 0;
+
+        return {
+          ...s,
+          versato_operativo: totaleVersato
+        };
+      }) || [];
+
+    setSoci(sociConVersamenti);
   };
 
   if (loading) return null;
 
-  const risultato = totIncassi - totSpese;
+  const risultatoOperativo = totIncassi - totSpese;
 
   return (
     <div
@@ -102,22 +122,46 @@ export default function Dashboard() {
       </div>
 
       <h2>Totale Incassi: € {totIncassi.toFixed(2)}</h2>
-      <h2>Totale Spese: € {totSpese.toFixed(2)}</h2>
+      <h2>Totale Spese Operative: € {totSpese.toFixed(2)}</h2>
       <h2>
-        Risultato Operativo: € {risultato.toFixed(2)}
+        Risultato Operativo: € {risultatoOperativo.toFixed(2)}
       </h2>
 
-      {risultato < 0 && (
-        <div style={{ marginTop: 20 }}>
-          <h3>Quota da versare per socio:</h3>
+      {risultatoOperativo < 0 && (
+        <div style={{ marginTop: 30 }}>
+          <h3>Situazione Soci</h3>
+
           {soci.map((s) => {
-            const quota =
-              Math.abs(risultato) *
+            const quotaTeorica =
+              Math.abs(risultatoOperativo) *
               (Number(s.quota_percentuale) / 100);
 
+            const versato = s.versato_operativo || 0;
+
+            const differenza = quotaTeorica - versato;
+
             return (
-              <div key={s.id}>
-                {s.nome} → € {quota.toFixed(2)}
+              <div
+                key={s.id}
+                style={{
+                  marginBottom: 15,
+                  padding: 10,
+                  border: "1px solid #FFD700"
+                }}
+              >
+                <strong>{s.nome}</strong><br />
+                Quota teorica: € {quotaTeorica.toFixed(2)} <br />
+                Versato: € {versato.toFixed(2)} <br />
+                <span
+                  style={{
+                    color: differenza > 0 ? "red" : "lightgreen"
+                  }}
+                >
+                  Da versare: €{" "}
+                  {differenza > 0
+                    ? differenza.toFixed(2)
+                    : "0.00"}
+                </span>
               </div>
             );
           })}
