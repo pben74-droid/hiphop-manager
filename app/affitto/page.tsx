@@ -2,201 +2,171 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { inizializzaMese } from "@/lib/gestioneMese";
 
 export default function AffittoPage() {
-  const router = useRouter();
-
-  const [loading, setLoading] = useState(true);
   const [mese, setMese] = useState("2026-02");
-  const [importoAffitto, setImportoAffitto] = useState(0);
-  const [soci, setSoci] = useState<any[]>([]);
-  const [nuoviVersamenti, setNuoviVersamenti] = useState<any>({});
+  const [statoMese, setStatoMese] = useState("aperto");
+
+  const [importoAffitto, setImportoAffitto] = useState("");
+  const [versamentoSocio, setVersamentoSocio] = useState("");
+
+  const [movimenti, setMovimenti] = useState<any[]>([]);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.push("/login");
-      } else {
-        setLoading(false);
-        loadData();
-      }
-    };
-    checkUser();
-  }, []);
+    loadData();
+  }, [mese]);
 
   const loadData = async () => {
-    const { data: sociData } = await supabase.from("soci").select("*");
+    await inizializzaMese(mese);
 
-    const { data: affittoData } = await supabase
-      .from("affitto")
+    const { data: meseData } = await supabase
+      .from("mesi")
       .select("*")
       .eq("mese", mese)
       .single();
 
-    const { data: versamenti } = await supabase
-      .from("versamenti_soci")
+    if (meseData) setStatoMese(meseData.stato);
+
+    const { data } = await supabase
+      .from("movimenti_finanziari")
       .select("*")
-      .eq("tipo", "affitto")
-      .eq("mese", mese);
+      .eq("mese", mese)
+      .eq("contenitore", "cassa_affitto");
 
-    const sociConDati =
-      sociData?.map((s) => {
-        const versato =
-          versamenti
-            ?.filter((v) => v.socio_id === s.id)
-            .reduce((sum, v) => sum + Number(v.importo), 0) || 0;
-
-        return {
-          ...s,
-          versato_affitto: versato
-        };
-      }) || [];
-
-    setSoci(sociConDati);
-    setImportoAffitto(affittoData?.importo_totale || 0);
+    setMovimenti(data || []);
   };
 
-  const salvaAffitto = async () => {
+  const registraVersamento = async () => {
+    if (statoMese === "chiuso") return alert("Mese chiuso");
+
+    await supabase.from("movimenti_finanziari").insert({
+      tipo: "versamento_affitto",
+      contenitore: "cassa_affitto",
+      importo: Number(versamentoSocio),
+      mese,
+      data: new Date().toISOString().split("T")[0],
+    });
+
+    setVersamentoSocio("");
+    loadData();
+  };
+
+  const pagaAffitto = async () => {
+    if (statoMese === "chiuso") return alert("Mese chiuso");
+
+    await supabase.from("movimenti_finanziari").insert({
+      tipo: "pagamento_affitto",
+      contenitore: "cassa_affitto",
+      importo: -Number(importoAffitto),
+      mese,
+      data: new Date().toISOString().split("T")[0],
+    });
+
+    setImportoAffitto("");
+    loadData();
+  };
+
+  const elimina = async (id: string) => {
+    if (statoMese === "chiuso") return;
+
     await supabase
-      .from("affitto")
-      .upsert(
-        {
-          mese: mese,
-          importo_totale: importoAffitto
-        },
-        { onConflict: "mese" }
-      );
-
-    alert("Affitto salvato");
-    loadData();
-  };
-
-  const registraVersamento = async (socioId: string) => {
-    const importo = Number(nuoviVersamenti[socioId]);
-
-    if (!importo || importo <= 0) {
-      alert("Importo non valido");
-      return;
-    }
-
-    await supabase.from("versamenti_soci").insert({
-      socio_id: socioId,
-      mese: mese,
-      importo: importo,
-      tipo: "affitto",
-      data: new Date().toISOString().split("T")[0]
-    });
-
-    setNuoviVersamenti({
-      ...nuoviVersamenti,
-      [socioId]: ""
-    });
+      .from("movimenti_finanziari")
+      .delete()
+      .eq("id", id);
 
     loadData();
   };
 
-  if (loading) return null;
+  const saldoAffitto = movimenti.reduce(
+    (s, m) => s + Number(m.importo),
+    0
+  );
 
   return (
-    <div style={{ padding: 30 }}>
-      <h1>Modulo Affitto</h1>
+    <div>
+      <h1>Gestione Affitto</h1>
 
-      <div style={{ marginBottom: 20 }}>
-        <input
-          type="month"
-          value={mese}
-          onChange={(e) => setMese(e.target.value)}
-        />
-        <button onClick={loadData} style={{ marginLeft: 10 }}>
-          Carica
-        </button>
-      </div>
+      <input
+        type="month"
+        value={mese}
+        onChange={(e) => setMese(e.target.value)}
+      />
 
-      <div style={{ marginBottom: 20 }}>
-        <input
-          type="number"
-          value={importoAffitto}
-          onChange={(e) =>
-            setImportoAffitto(Number(e.target.value))
-          }
-          placeholder="Importo totale affitto"
-        />
-        <button onClick={salvaAffitto} style={{ marginLeft: 10 }}>
-          Salva Affitto
-        </button>
-      </div>
+      <p>Stato mese: {statoMese}</p>
 
-      <h2>Ripartizione Soci</h2>
+      {statoMese === "chiuso" && (
+        <p style={{ color: "red" }}>Mese chiuso</p>
+      )}
 
-      {soci.map((s) => {
-        const quota =
-          importoAffitto *
-          (Number(s.quota_percentuale) / 100);
+      <hr />
 
-        const versato = s.versato_affitto || 0;
-        const differenza = quota - versato;
-        const credito =
-          versato > quota ? versato - quota : 0;
+      <h2>Versamento Soci (Contanti)</h2>
 
-        return (
-          <div
-            key={s.id}
-            style={{
-              border: "1px solid black",
-              padding: 10,
-              marginBottom: 15
-            }}
-          >
-            <strong>{s.nome}</strong>
-            <br />
-            Quota: € {quota.toFixed(2)}
-            <br />
-            Versato: € {versato.toFixed(2)}
-            <br />
+      <input
+        type="number"
+        placeholder="Importo"
+        value={versamentoSocio}
+        onChange={(e) => setVersamentoSocio(e.target.value)}
+        disabled={statoMese === "chiuso"}
+      />
 
-            {differenza > 0 && (
-              <span style={{ color: "red" }}>
-                Da versare: € {differenza.toFixed(2)}
-              </span>
-            )}
+      <button
+        onClick={registraVersamento}
+        disabled={statoMese === "chiuso"}
+      >
+        Registra Versamento
+      </button>
 
-            {credito > 0 && (
-              <span style={{ color: "green" }}>
-                Credito mese prossimo: €{" "}
-                {credito.toFixed(2)}
-              </span>
-            )}
+      <hr />
 
-            {differenza <= 0 && credito === 0 && (
-              <span style={{ color: "green" }}>
-                Affitto coperto
-              </span>
-            )}
+      <h2>Pagamento Affitto</h2>
 
-            <div style={{ marginTop: 10 }}>
-              <input
-                type="number"
-                placeholder="Versamento contanti"
-                value={nuoviVersamenti[s.id] || ""}
-                onChange={(e) =>
-                  setNuoviVersamenti({
-                    ...nuoviVersamenti,
-                    [s.id]: e.target.value
-                  })
-                }
-              />
-              <button
-                onClick={() => registraVersamento(s.id)}
-                style={{ marginLeft: 10 }}
-              >
-                Registra Versamento
-              </button>
-            </div>
-          </div>
-        );
-      })}
+      <input
+        type="number"
+        placeholder="Importo affitto"
+        value={importoAffitto}
+        onChange={(e) => setImportoAffitto(e.target.value)}
+        disabled={statoMese === "chiuso"}
+      />
+
+      <button
+        onClick={pagaAffitto}
+        disabled={statoMese === "chiuso"}
+      >
+        Paga Affitto
+      </button>
+
+      <hr />
+
+      <h2>Saldo Cassa Affitto</h2>
+      <strong>€ {saldoAffitto.toFixed(2)}</strong>
+
+      <hr />
+
+      <h2>Movimenti Affitto</h2>
+
+      {movimenti.map((m) => (
+        <div
+          key={m.id}
+          style={{
+            border: "1px solid black",
+            padding: 10,
+            marginBottom: 10,
+          }}
+        >
+          € {Number(m.importo).toFixed(2)} — {m.tipo}
+
+          {statoMese === "aperto" && (
+            <button
+              onClick={() => elimina(m.id)}
+              style={{ marginLeft: 10 }}
+            >
+              Elimina
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
