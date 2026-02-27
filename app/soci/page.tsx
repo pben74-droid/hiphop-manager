@@ -6,7 +6,7 @@ import { supabase } from "@/lib/supabaseClient"
 export default function SociPage() {
   const [soci, setSoci] = useState<any[]>([])
   const [nome, setNome] = useState("")
-  const [percentuale, setPercentuale] = useState("")
+  const [quotaPercentuale, setQuotaPercentuale] = useState("")
   const [editId, setEditId] = useState<string | null>(null)
   const [errore, setErrore] = useState("")
 
@@ -22,7 +22,7 @@ export default function SociPage() {
 
     if (error) {
       console.error(error)
-      setErrore("Errore caricamento soci")
+      setErrore(error.message)
       return
     }
 
@@ -32,7 +32,7 @@ export default function SociPage() {
   const handleSubmit = async () => {
     setErrore("")
 
-    if (!nome || !percentuale) {
+    if (!nome || !quotaPercentuale) {
       setErrore("Compila tutti i campi")
       return
     }
@@ -42,13 +42,13 @@ export default function SociPage() {
         .from("soci")
         .update({
           nome,
-          percentuale: Number(percentuale),
+          quota_percentuale: Number(quotaPercentuale),
         })
         .eq("id", editId)
 
       if (error) {
         console.error(error)
-        setErrore("Errore aggiornamento socio")
+        setErrore(error.message)
         return
       }
 
@@ -59,20 +59,19 @@ export default function SociPage() {
         .insert([
           {
             nome,
-            percentuale: Number(percentuale),
-            credito_affitto: 0,
+            quota_percentuale: Number(quotaPercentuale),
           },
         ])
 
       if (error) {
         console.error(error)
-        setErrore("Errore inserimento socio")
+        setErrore(error.message)
         return
       }
     }
 
     setNome("")
-    setPercentuale("")
+    setQuotaPercentuale("")
     await caricaSoci()
   }
 
@@ -84,7 +83,7 @@ export default function SociPage() {
 
     if (error) {
       console.error(error)
-      setErrore("Errore eliminazione socio")
+      setErrore(error.message)
       return
     }
 
@@ -94,11 +93,11 @@ export default function SociPage() {
   const handleEdit = (s: any) => {
     setEditId(s.id)
     setNome(s.nome)
-    setPercentuale(String(s.percentuale))
+    setQuotaPercentuale(String(s.quota_percentuale))
   }
 
   const totalePercentuali = soci.reduce(
-    (acc, s) => acc + Number(s.percentuale),
+    (acc, s) => acc + Number(s.quota_percentuale),
     0
   )
 
@@ -123,9 +122,9 @@ export default function SociPage() {
 
         <input
           type="number"
-          placeholder="Percentuale"
-          value={percentuale}
-          onChange={(e) => setPercentuale(e.target.value)}
+          placeholder="Quota percentuale"
+          value={quotaPercentuale}
+          onChange={(e) => setQuotaPercentuale(e.target.value)}
           className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
         />
 
@@ -145,7 +144,7 @@ export default function SociPage() {
         <thead>
           <tr className="bg-yellow-500 text-black">
             <th className="p-2">Nome</th>
-            <th className="p-2">Percentuale</th>
+            <th className="p-2">Quota %</th>
             <th className="p-2">Azioni</th>
           </tr>
         </thead>
@@ -153,7 +152,7 @@ export default function SociPage() {
           {soci.map((s) => (
             <tr key={s.id} className="border-t border-yellow-500">
               <td className="p-2">{s.nome}</td>
-              <td className="p-2">{s.percentuale}%</td>
+              <td className="p-2">{s.quota_percentuale}%</td>
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(s)}
