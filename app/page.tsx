@@ -2,40 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { inizializzaMese } from "@/lib/gestioneMese";
 
 export default function Dashboard() {
-  const router = useRouter();
-
-  const [loading, setLoading] = useState(true);
   const [mese, setMese] = useState("2026-02");
-  const [statoMese, setStatoMese] = useState("aperto");
-  const [soci, setSoci] = useState<any[]>([]);
-  const [saldoCassaOperativa, setSaldoCassaOperativa] = useState(0);
-  const [saldoBanca, setSaldoBanca] = useState(0);
+
   const [totIncassi, setTotIncassi] = useState(0);
   const [totSpese, setTotSpese] = useState(0);
+  const [risultato, setRisultato] = useState(0);
+
+  const [saldoCassa, setSaldoCassa] = useState(0);
+  const [saldoBanca, setSaldoBanca] = useState(0);
+  const [saldoAffitto, setSaldoAffitto] = useState(0);
+
+  const [statoMese, setStatoMese] = useState("aperto");
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.push("/login");
-      } else {
-        setLoading(false);
-        loadData();
-      }
-    };
-    checkUser();
-  }, []);
+    loadData();
+  }, [mese]);
 
   const loadData = async () => {
-    const { data: sociData } = await supabase.from("soci").select("*");
-
-    const { data: movimenti } = await supabase
-      .from("movimenti_finanziari")
-      .select("*")
-      .eq("mese", mese);
+    await inizializzaMese(mese);
 
     const { data: meseData } = await supabase
       .from("mesi")
@@ -43,84 +30,45 @@ export default function Dashboard() {
       .eq("mese", mese)
       .single();
 
-    if (!meseData) {
-      await supabase.from("mesi").insert({
-        mese,
-        stato: "aperto"
-      });
-      setStatoMese("aperto");
-    } else {
-      setStatoMese(meseData.stato);
-    }
+    if (meseData) setStatoMese(meseData.stato);
 
-    const incassi = movimenti?.filter(m => m.tipo === "incasso") || [];
-    const spese = movimenti?.filter(m => m.tipo === "spesa") || [];
-
-    const totaleIncassi =
-      incassi.reduce((sum, i) => sum + Number(i.importo), 0) || 0;
-
-    const totaleSpese =
-      Math.abs(spese.reduce((sum, s) => sum + Number(s.importo), 0)) || 0;
-
-    const cassaOperativa =
-      movimenti
-        ?.filter(m => m.contenitore === "cassa_operativa")
-        .reduce((sum, m) => sum + Number(m.importo), 0) || 0;
-
-    const banca =
-      movimenti
-        ?.filter(m => m.contenitore === "banca")
-        .reduce((sum, m) => sum + Number(m.importo), 0) || 0;
-
-    setSaldoCassaOperativa(cassaOperativa);
-    setSaldoBanca(banca);
-    setTotIncassi(totaleIncassi);
-    setTotSpese(totaleSpese);
-    setSoci(sociData || []);
-  };
-
-  const chiudiMese = async () => {
-    const risultatoOperativo = totIncassi - totSpese;
-
-    if (saldoCassaOperativa < 0 || saldoBanca < 0) {
-      alert("Non puoi chiudere: saldo negativo.");
-      return;
-    }
-
-    if (risultatoOperativo < 0) {
-      alert("Non puoi chiudere: quote soci non completamente versate.");
-      return;
-    }
-
-    await supabase
-      .from("mesi")
-      .update({ stato: "chiuso" })
+    const { data: movimenti } = await supabase
+      .from("movimenti_finanziari")
+      .select("*")
       .eq("mese", mese);
 
-    alert("Mese chiuso e storicizzato.");
-    loadData();
+    if (!movimenti) return;
+
+    const incassi = movimenti
+      .filter(m => m.tipo === "incasso")
+      .reduce((s, m) => s + Number(m.importo), 0);
+
+    const spese = Math.abs(
+      movimenti
+        .filter(m => m.tipo === "spesa")
+        .reduce((s, m) => s + Number(m.importo), 0)
+    );
+
+    const saldoOperativa = movimenti
+      .filter(m => m.contenitore === "cassa_operativa")
+      .reduce((s, m) => s + Number(m.importo), 0);
+
+    const saldoBancaCalc = movimenti
+      .filter(m => m.contenitore === "banca")
+      .reduce((s, m) => s + Number(m.importo), 0);
+
+    const saldoAffittoCalc = movimenti
+      .filter(m => m.contenitore === "cassa_affitto")
+      .reduce((s, m) => s + Number(m.importo), 0);
+
+    setTotIncassi(incassi);
+    setTotSpese(spese);
+    setRisultato(incassi - spese);
+
+    setSaldoCassa(saldoOperativa);
+    setSaldoBanca(saldoBancaCalc);
+    setSaldoAffitto(saldoAffittoCalc);
   };
-
-  const riapriMese = async () => {
-    const pwd = prompt("Inserisci password:");
-
-    if (pwd !== "Nmdcdnv74!") {
-      alert("Password errata.");
-      return;
-    }
-
-    await supabase
-      .from("mesi")
-      .update({ stato: "aperto" })
-      .eq("mese", mese);
-
-    alert("Mese riaperto.");
-    loadData();
-  };
-
-  if (loading) return null;
-
-  const risultatoOperativo = totIncassi - totSpese;
 
   return (
     <div style={{ padding: 30 }}>
@@ -131,27 +79,41 @@ export default function Dashboard() {
         value={mese}
         onChange={(e) => setMese(e.target.value)}
       />
-      <button onClick={loadData}>Carica</button>
 
-      <h3>Stato mese: {statoMese}</h3>
+      <p>Stato mese: {statoMese}</p>
 
-      <h2>Incassi: € {totIncassi.toFixed(2)}</h2>
-      <h2>Spese: € {totSpese.toFixed(2)}</h2>
-      <h2>Risultato: € {risultatoOperativo.toFixed(2)}</h2>
+      <hr />
 
-      <h3>Cassa Operativa: € {saldoCassaOperativa.toFixed(2)}</h3>
-      <h3>Banca: € {saldoBanca.toFixed(2)}</h3>
+      <h2>Operatività</h2>
 
-      {statoMese === "aperto" && (
-        <button onClick={chiudiMese} style={{ marginTop: 20 }}>
-          Chiudi Mese
-        </button>
+      <p>Totale Incassi: € {totIncassi.toFixed(2)}</p>
+      <p>Totale Spese: € {totSpese.toFixed(2)}</p>
+
+      <p>
+        Risultato Operativo:{" "}
+        <strong style={{ color: risultato < 0 ? "red" : "green" }}>
+          € {risultato.toFixed(2)}
+        </strong>
+      </p>
+
+      {risultato < 0 && (
+        <p style={{ color: "red" }}>
+          ⚠ I soci devono coprire la differenza.
+        </p>
       )}
 
-      {statoMese === "chiuso" && (
-        <button onClick={riapriMese} style={{ marginTop: 20 }}>
-          Riapri Mese (Password)
-        </button>
+      <hr />
+
+      <h2>Saldi Finanziari</h2>
+
+      <p>Cassa Operativa: € {saldoCassa.toFixed(2)}</p>
+      <p>Banca: € {saldoBanca.toFixed(2)}</p>
+      <p>Cassa Affitto: € {saldoAffitto.toFixed(2)}</p>
+
+      {saldoAffitto !== 0 && (
+        <p style={{ color: "orange" }}>
+          ⚠ Affitto non ancora bilanciato.
+        </p>
       )}
     </div>
   );
