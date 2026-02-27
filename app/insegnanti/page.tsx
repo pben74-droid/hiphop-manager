@@ -1,215 +1,229 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { inizializzaMese } from "@/lib/gestioneMese";
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
+import { verificaMeseAperto } from "@/lib/gestioneMese"
+import { useMese } from "@/lib/MeseContext"
 
-export default function Insegnanti() {
-  const [mese, setMese] = useState("2026-02");
+export default function InsegnantiPage() {
 
-  const [nome, setNome] = useState("");
-  const [ore, setOre] = useState("");
-  const [compenso, setCompenso] = useState("");
-  const [benzina, setBenzina] = useState("");
-  const [contenitore, setContenitore] = useState("cassa_operativa");
+  const { mese } = useMese()
 
-  const [lista, setLista] = useState<any[]>([]);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [meseChiuso, setMeseChiuso] = useState(false);
-
-  const totale =
-    Number(ore || 0) * Number(compenso || 0) +
-    Number(benzina || 0);
+  const [nome, setNome] = useState("")
+  const [ore, setOre] = useState("")
+  const [compensoOrario, setCompensoOrario] = useState("")
+  const [benzina, setBenzina] = useState("")
+  const [lista, setLista] = useState<any[]>([])
+  const [errore, setErrore] = useState("")
 
   useEffect(() => {
-    load();
-  }, [mese]);
+    caricaInsegnanti()
+  }, [mese])
 
-  const load = async () => {
-    await inizializzaMese(mese);
+  const caricaInsegnanti = async () => {
 
-    const { data: meseData } = await supabase
-      .from("mesi")
-      .select("*")
-      .eq("mese", mese)
-      .single();
-
-    setMeseChiuso(meseData?.stato === "chiuso");
-
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese)
       .eq("categoria", "insegnante")
-      .order("data", { ascending: false });
+      .order("data", { ascending: false })
 
-    setLista(data || []);
-  };
-
-  const salva = async () => {
-    if (!nome || !ore || !compenso) {
-      alert("Compila i campi obbligatori");
-      return;
+    if (error) {
+      setErrore(error.message)
+      return
     }
 
-    if (meseChiuso) return alert("Mese chiuso");
+    setLista(data || [])
+  }
 
-    const payload = {
-      tipo: "spesa",
-      categoria: "insegnante",
-      descrizione: nome,
-      ore: Number(ore),
-      compenso_orario: Number(compenso),
-      benzina: Number(benzina || 0),
-      importo: -Math.abs(totale),
-      contenitore,
-      mese,
-      data: new Date().toISOString().split("T")[0],
-    };
+  const registraCompenso = async () => {
 
-    if (editId) {
-      await supabase
+    try {
+
+      setErrore("")
+      await verificaMeseAperto(mese)
+
+      if (!nome || !ore || !compensoOrario) {
+        setErrore("Compila tutti i campi obbligatori")
+        return
+      }
+
+      const totale =
+        Number(ore) * Number(compensoOrario) +
+        Number(benzina || 0)
+
+      const { error } = await supabase
         .from("movimenti_finanziari")
-        .update(payload)
-        .eq("id", editId);
-    } else {
-      await supabase
-        .from("movimenti_finanziari")
-        .insert(payload);
+        .insert([
+          {
+            tipo: "spesa",
+            categoria: "insegnante",
+            descrizione: nome,
+            importo: -totale,
+            contenitore: "cassa_operativa",
+            mese: mese,
+            data: new Date().toISOString().split("T")[0],
+            ore: Number(ore),
+            compenso_orario: Number(compensoOrario),
+            benzina: Number(benzina || 0)
+          }
+        ])
+
+      if (error) {
+        setErrore(error.message)
+        return
+      }
+
+      setNome("")
+      setOre("")
+      setCompensoOrario("")
+      setBenzina("")
+
+      caricaInsegnanti()
+
+    } catch (err: any) {
+      setErrore(err.message)
     }
-
-    reset();
-    load();
-  };
+  }
 
   const elimina = async (id: string) => {
-    if (meseChiuso) return alert("Mese chiuso");
 
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("id", id);
+    try {
+      await verificaMeseAperto(mese)
 
-    load();
-  };
+      const { error } = await supabase
+        .from("movimenti_finanziari")
+        .delete()
+        .eq("id", id)
 
-  const modifica = (row: any) => {
-    setEditId(row.id);
-    setNome(row.descrizione);
-    setOre(row.ore?.toString() || "");
-    setCompenso(row.compenso_orario?.toString() || "");
-    setBenzina(row.benzina?.toString() || "");
-    setContenitore(row.contenitore);
-  };
+      if (error) {
+        setErrore(error.message)
+        return
+      }
 
-  const reset = () => {
-    setEditId(null);
-    setNome("");
-    setOre("");
-    setCompenso("");
-    setBenzina("");
-    setContenitore("cassa_operativa");
-  };
+      caricaInsegnanti()
+
+    } catch (err: any) {
+      setErrore(err.message)
+    }
+  }
+
+  const totaleInsegnanti =
+    lista.reduce((acc, i) => acc + Math.abs(Number(i.importo)), 0)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-10">
 
-      <h1 className="text-2xl font-bold text-yellow-500">
+      <h1 className="text-3xl font-bold text-yellow-500">
         Compensi Insegnanti
       </h1>
 
-      <input
-        type="month"
-        value={mese}
-        onChange={(e) => setMese(e.target.value)}
-      />
+      {errore && (
+        <div className="text-red-400">
+          {errore}
+        </div>
+      )}
 
-      <div className="bg-zinc-900 p-6 rounded-xl space-y-4">
+      {/* FORM INSERIMENTO */}
+
+      <div className="border border-yellow-500 p-6 rounded space-y-4">
 
         <input
+          type="text"
           placeholder="Nome insegnante"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          disabled={meseChiuso}
+          className="p-2 bg-black border border-yellow-500 rounded w-full"
         />
 
         <input
           type="number"
-          placeholder="Ore lavorate"
+          placeholder="Ore"
           value={ore}
           onChange={(e) => setOre(e.target.value)}
-          disabled={meseChiuso}
+          className="p-2 bg-black border border-yellow-500 rounded w-full"
         />
 
         <input
           type="number"
           placeholder="Compenso orario"
-          value={compenso}
-          onChange={(e) => setCompenso(e.target.value)}
-          disabled={meseChiuso}
+          value={compensoOrario}
+          onChange={(e) => setCompensoOrario(e.target.value)}
+          className="p-2 bg-black border border-yellow-500 rounded w-full"
         />
 
         <input
           type="number"
-          placeholder="Rimborso benzina"
+          placeholder="Benzina (opzionale)"
           value={benzina}
           onChange={(e) => setBenzina(e.target.value)}
-          disabled={meseChiuso}
+          className="p-2 bg-black border border-yellow-500 rounded w-full"
         />
 
-        <select
-          value={contenitore}
-          onChange={(e) => setContenitore(e.target.value)}
-          disabled={meseChiuso}
-        >
-          <option value="cassa_operativa">Cassa Operativa</option>
-          <option value="banca">Banca</option>
-        </select>
-
-        <div className="text-yellow-400 font-bold">
-          Totale: € {totale.toFixed(2)}
-        </div>
-
         <button
-          onClick={salva}
+          onClick={registraCompenso}
           className="bg-yellow-500 text-black px-4 py-2 rounded"
         >
-          {editId ? "Aggiorna" : "Salva"}
+          Registra Compenso
         </button>
 
       </div>
 
-      <div className="bg-zinc-900 p-6 rounded-xl space-y-3">
-        {lista.map(row => (
-          <div key={row.id} className="flex justify-between items-center">
-            <div>
-              <div className="text-yellow-400">{row.descrizione}</div>
-              <div className="text-sm text-zinc-400">
-                € {Math.abs(row.importo).toFixed(2)}
-              </div>
-            </div>
+      {/* RIEPILOGO */}
 
-            {!meseChiuso && (
-              <div className="flex gap-3">
-                <button
-                  onClick={() => modifica(row)}
-                  className="text-yellow-500"
-                >
-                  Modifica
-                </button>
-                <button
-                  onClick={() => elimina(row.id)}
-                  className="text-red-500"
-                >
-                  Elimina
-                </button>
-              </div>
-            )}
+      <div className="border border-yellow-500 p-6 rounded">
 
-          </div>
-        ))}
+        <h2 className="mb-4 text-xl">
+          Riepilogo Insegnanti
+        </h2>
+
+        <table className="w-full border border-yellow-500">
+
+          <thead>
+            <tr className="bg-yellow-500 text-black">
+              <th className="p-2">Data</th>
+              <th className="p-2">Insegnante</th>
+              <th className="p-2">Ore</th>
+              <th className="p-2">Compenso Orario</th>
+              <th className="p-2">Benzina</th>
+              <th className="p-2">Totale</th>
+              <th className="p-2">Azioni</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            {lista.map((i) => (
+              <tr key={i.id} className="border-t border-yellow-500">
+
+                <td className="p-2">{i.data}</td>
+                <td className="p-2">{i.descrizione}</td>
+                <td className="p-2">{i.ore}</td>
+                <td className="p-2">{i.compenso_orario} €</td>
+                <td className="p-2">{i.benzina} €</td>
+                <td className="p-2">{Math.abs(i.importo)} €</td>
+
+                <td className="p-2">
+                  <button
+                    onClick={() => elimina(i.id)}
+                    className="bg-red-500 px-3 py-1 rounded"
+                  >
+                    Elimina
+                  </button>
+                </td>
+
+              </tr>
+            ))}
+          </tbody>
+
+        </table>
+
+        <div className="mt-6 text-right font-bold text-yellow-500">
+          Totale Insegnanti: {totaleInsegnanti} €
+        </div>
+
       </div>
 
     </div>
-  );
+  )
 }
