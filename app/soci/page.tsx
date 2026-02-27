@@ -8,25 +8,37 @@ export default function SociPage() {
   const [nome, setNome] = useState("")
   const [percentuale, setPercentuale] = useState("")
   const [editId, setEditId] = useState<string | null>(null)
+  const [errore, setErrore] = useState("")
 
   useEffect(() => {
     caricaSoci()
   }, [])
 
   const caricaSoci = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("soci")
       .select("*")
       .order("nome")
+
+    if (error) {
+      console.error(error)
+      setErrore("Errore caricamento soci")
+      return
+    }
 
     setSoci(data || [])
   }
 
   const handleSubmit = async () => {
-    if (!nome || !percentuale) return
+    setErrore("")
+
+    if (!nome || !percentuale) {
+      setErrore("Compila tutti i campi")
+      return
+    }
 
     if (editId) {
-      await supabase
+      const { error } = await supabase
         .from("soci")
         .update({
           nome,
@@ -34,9 +46,15 @@ export default function SociPage() {
         })
         .eq("id", editId)
 
+      if (error) {
+        console.error(error)
+        setErrore("Errore aggiornamento socio")
+        return
+      }
+
       setEditId(null)
     } else {
-      await supabase
+      const { error } = await supabase
         .from("soci")
         .insert([
           {
@@ -45,18 +63,30 @@ export default function SociPage() {
             credito_affitto: 0,
           },
         ])
+
+      if (error) {
+        console.error(error)
+        setErrore("Errore inserimento socio")
+        return
+      }
     }
 
     setNome("")
     setPercentuale("")
-    caricaSoci()
+    await caricaSoci()
   }
 
   const handleDelete = async (id: string) => {
-    await supabase
+    const { error } = await supabase
       .from("soci")
       .delete()
       .eq("id", id)
+
+    if (error) {
+      console.error(error)
+      setErrore("Errore eliminazione socio")
+      return
+    }
 
     caricaSoci()
   }
@@ -64,7 +94,7 @@ export default function SociPage() {
   const handleEdit = (s: any) => {
     setEditId(s.id)
     setNome(s.nome)
-    setPercentuale(s.percentuale)
+    setPercentuale(String(s.percentuale))
   }
 
   const totalePercentuali = soci.reduce(
@@ -75,6 +105,12 @@ export default function SociPage() {
   return (
     <div className="p-10 text-white">
       <h1 className="text-3xl font-bold mb-6">Gestione Soci</h1>
+
+      {errore && (
+        <div className="mb-4 text-red-400">
+          {errore}
+        </div>
+      )}
 
       <div className="bg-black p-6 border border-yellow-500 rounded mb-10">
         <input
