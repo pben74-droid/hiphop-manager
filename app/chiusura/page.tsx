@@ -1,104 +1,58 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useState } from "react"
 
 export default function ChiusuraPage() {
-  const [mese, setMese] = useState("2026-02");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const chiudiMese = async () => {
-    // Prendo movimenti mese
-    const { data: movimenti } = await supabase
-      .from("movimenti_finanziari")
-      .select("*")
-      .eq("mese", mese);
+  const mese = "2026-02" // rendiamo dinamico dopo
 
-    if (!movimenti) return;
+  const handleChiusura = async () => {
+    try {
+      setLoading(true)
 
-    const saldoOperativo = movimenti
-      .filter(m => m.contenitore === "cassa_operativa" || m.contenitore === "banca")
-      .reduce((s, m) => s + Number(m.importo), 0);
-
-    const saldoAffitto = movimenti
-      .filter(m => m.contenitore === "cassa_affitto")
-      .reduce((s, m) => s + Number(m.importo), 0);
-
-    if (saldoOperativo < 0) {
-      alert("ERRORE: Differenza operativa negativa. I soci devono coprire il mese.");
-      return;
-    }
-
-    if (saldoAffitto !== 0) {
-      alert("ERRORE: Affitto non completamente coperto.");
-      return;
-    }
-
-    const saldoCassa = movimenti
-      .filter(m => m.contenitore === "cassa_operativa")
-      .reduce((s, m) => s + Number(m.importo), 0);
-
-    const saldoBanca = movimenti
-      .filter(m => m.contenitore === "banca")
-      .reduce((s, m) => s + Number(m.importo), 0);
-
-    await supabase
-      .from("mesi")
-      .update({
-        stato: "chiuso",
-        saldo_iniziale_cassa: saldoCassa,
-        saldo_iniziale_banca: saldoBanca
+      const res = await fetch("/api/chiudi-mese", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mese, password })
       })
-      .eq("mese", mese);
 
-    alert("Mese chiuso correttamente");
-  };
+      const data = await res.json()
 
-  const riapriMese = async () => {
-    if (password !== "Nmdcdnv74!") {
-      alert("Password errata");
-      return;
+      if (!res.ok) {
+        alert(data.error)
+        return
+      }
+
+      alert("Mese chiuso correttamente")
+
+    } catch (err: any) {
+      alert("Errore imprevisto")
+    } finally {
+      setLoading(false)
     }
-
-    await supabase
-      .from("mesi")
-      .update({ stato: "aperto" })
-      .eq("mese", mese);
-
-    alert("Mese riaperto");
-    setPassword("");
-  };
+  }
 
   return (
-    <div>
-      <h1>Chiusura Mese</h1>
-
-      <input
-        type="month"
-        value={mese}
-        onChange={(e) => setMese(e.target.value)}
-      />
-
-      <div style={{ marginTop: 20 }}>
-        <button onClick={chiudiMese}>
-          Chiudi Mese
-        </button>
-      </div>
-
-      <hr />
-
-      <h2>Riapri Mese (solo amministratore)</h2>
+    <div className="p-10 text-white">
+      <h1 className="text-3xl font-bold mb-6">Chiusura Mese</h1>
 
       <input
         type="password"
-        placeholder="Password"
+        placeholder="Password riapertura"
         value={password}
         onChange={(e) => setPassword(e.target.value)}
+        className="mb-4 p-2 bg-black border border-yellow-500 rounded w-full"
       />
 
-      <button onClick={riapriMese}>
-        Riapri
+      <button
+        onClick={handleChiusura}
+        disabled={loading}
+        className="bg-yellow-500 text-black px-6 py-3 rounded hover:bg-yellow-400"
+      >
+        {loading ? "Chiusura..." : "Chiudi Mese"}
       </button>
     </div>
-  );
+  )
 }
