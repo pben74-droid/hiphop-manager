@@ -1,127 +1,121 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { inizializzaMese } from "@/lib/gestioneMese";
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
+import { verificaMeseAperto, inizializzaMese } from "@/lib/gestioneMese"
 
-export default function Spese() {
-  const [mese, setMese] = useState("2026-02");
-  const [descrizione, setDescrizione] = useState("");
-  const [importo, setImporto] = useState("");
-  const [contenitore, setContenitore] = useState("cassa_operativa");
-  const [spese, setSpese] = useState<any[]>([]);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [meseChiuso, setMeseChiuso] = useState(false);
+export default function SpesePage() {
+  const [mese] = useState("2026-02")
+  const [movimenti, setMovimenti] = useState<any[]>([])
+  const [descrizione, setDescrizione] = useState("")
+  const [importo, setImporto] = useState("")
+  const [contenitore, setContenitore] = useState("cassa_operativa")
+  const [dataSpesa, setDataSpesa] = useState(
+    new Date().toISOString().split("T")[0]
+  )
+  const [loading, setLoading] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
 
   useEffect(() => {
-    load();
-  }, [mese]);
+    inizializzaMese(mese)
+    caricaMovimenti()
+  }, [mese])
 
-  const load = async () => {
-    await inizializzaMese(mese);
-
-    const { data: meseData } = await supabase
-      .from("mesi")
-      .select("*")
-      .eq("mese", mese)
-      .single();
-
-    setMeseChiuso(meseData?.stato === "chiuso");
-
+  const caricaMovimenti = async () => {
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese)
       .eq("tipo", "spesa")
-      .order("data", { ascending: false });
+      .order("data", { ascending: false })
 
-    setSpese(data || []);
-  };
+    setMovimenti(data || [])
+  }
 
-  const salvaSpesa = async () => {
-    if (!descrizione || !importo) {
-      alert("Compila tutti i campi");
-      return;
+  const handleSubmit = async () => {
+    try {
+      setLoading(true)
+      await verificaMeseAperto(mese)
+
+      const importoNegativo = -Math.abs(Number(importo))
+
+      if (editId) {
+        await supabase
+          .from("movimenti_finanziari")
+          .update({
+            descrizione,
+            importo: importoNegativo,
+            contenitore,
+            data: dataSpesa,
+          })
+          .eq("id", editId)
+
+        setEditId(null)
+      } else {
+        await supabase.from("movimenti_finanziari").insert([
+          {
+            tipo: "spesa",
+            categoria: "spesa_generica",
+            descrizione,
+            importo: importoNegativo,
+            contenitore,
+            mese,
+            data: dataSpesa,
+          },
+        ])
+      }
+
+      setDescrizione("")
+      setImporto("")
+      caricaMovimenti()
+    } catch (err: any) {
+      alert(err.message)
+    } finally {
+      setLoading(false)
     }
+  }
 
-    if (meseChiuso) {
-      alert("Mese chiuso. Non puoi modificare.");
-      return;
-    }
+  const handleDelete = async (id: string) => {
+    try {
+      await verificaMeseAperto(mese)
 
-    if (editId) {
       await supabase
         .from("movimenti_finanziari")
-        .update({
-          descrizione,
-          importo: -Math.abs(Number(importo)),
-          contenitore,
-        })
-        .eq("id", editId);
-    } else {
-      await supabase.from("movimenti_finanziari").insert({
-        tipo: "spesa",
-        descrizione,
-        importo: -Math.abs(Number(importo)),
-        contenitore,
-        mese,
-        data: new Date().toISOString().split("T")[0],
-      });
+        .delete()
+        .eq("id", id)
+
+      caricaMovimenti()
+    } catch (err: any) {
+      alert(err.message)
     }
+  }
 
-    resetForm();
-    load();
-  };
-
-  const eliminaSpesa = async (id: string) => {
-    if (meseChiuso) {
-      alert("Mese chiuso. Non puoi eliminare.");
-      return;
-    }
-
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("id", id);
-
-    load();
-  };
-
-  const modificaSpesa = (spesa: any) => {
-    setEditId(spesa.id);
-    setDescrizione(spesa.descrizione);
-    setImporto(Math.abs(spesa.importo).toString());
-    setContenitore(spesa.contenitore);
-  };
-
-  const resetForm = () => {
-    setEditId(null);
-    setDescrizione("");
-    setImporto("");
-    setContenitore("cassa_operativa");
-  };
+  const handleEdit = (mov: any) => {
+    setEditId(mov.id)
+    setDescrizione(mov.descrizione)
+    setImporto(Math.abs(mov.importo))
+    setContenitore(mov.contenitore)
+    setDataSpesa(mov.data)
+  }
 
   return (
-    <div className="space-y-6">
+    <div className="p-10 text-white">
+      <h1 className="text-3xl font-bold mb-6">Spese Operative</h1>
 
-      <h1 className="text-2xl font-bold text-yellow-500">
-        Spese Operative
-      </h1>
-
-      <input
-        type="month"
-        value={mese}
-        onChange={(e) => setMese(e.target.value)}
-      />
-
-      {/* FORM */}
-      <div className="bg-zinc-900 p-6 rounded-xl space-y-4">
+      <div className="bg-black p-6 rounded mb-10 border border-yellow-500">
+        <input
+          type="date"
+          value={dataSpesa}
+          onChange={(e) => setDataSpesa(e.target.value)}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+        />
 
         <input
-          placeholder="Descrizione spesa"
+          type="text"
+          placeholder="Descrizione"
           value={descrizione}
           onChange={(e) => setDescrizione(e.target.value)}
-          disabled={meseChiuso}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
         />
 
         <input
@@ -129,75 +123,64 @@ export default function Spese() {
           placeholder="Importo"
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
-          disabled={meseChiuso}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
         />
 
         <select
           value={contenitore}
           onChange={(e) => setContenitore(e.target.value)}
-          disabled={meseChiuso}
+          className="block mb-6 p-3 bg-black border border-yellow-500 rounded w-full"
         >
           <option value="cassa_operativa">Cassa Operativa</option>
           <option value="banca">Banca</option>
         </select>
 
-        <div className="flex gap-3">
-          <button
-            onClick={salvaSpesa}
-            className="bg-yellow-500 text-black px-4 py-2 rounded"
-            disabled={meseChiuso}
-          >
-            {editId ? "Aggiorna" : "Salva"}
-          </button>
-
-          {editId && (
-            <button
-              onClick={resetForm}
-              className="bg-zinc-700 px-4 py-2 rounded"
-            >
-              Annulla
-            </button>
-          )}
-        </div>
-
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="bg-yellow-500 text-black px-6 py-3 rounded hover:bg-yellow-400 transition"
+        >
+          {editId ? "Aggiorna Spesa" : "Registra Spesa"}
+        </button>
       </div>
 
-      {/* LISTA */}
-      <div className="bg-zinc-900 p-6 rounded-xl space-y-3">
+      <h2 className="text-2xl mb-4">Spese del mese</h2>
 
-        {spese.map((s) => (
-          <div
-            key={s.id}
-            className="flex justify-between items-center border-b border-zinc-800 pb-2"
-          >
-            <div>
-              <div className="text-yellow-400">{s.descrizione}</div>
-              <div className="text-sm text-zinc-400">
-                € {Math.abs(s.importo).toFixed(2)} — {s.contenitore}
-              </div>
-            </div>
-
-            {!meseChiuso && (
-              <div className="flex gap-3 text-sm">
+      <table className="w-full border border-yellow-500">
+        <thead>
+          <tr className="bg-yellow-500 text-black">
+            <th className="p-2">Data</th>
+            <th className="p-2">Descrizione</th>
+            <th className="p-2">Importo</th>
+            <th className="p-2">Contenitore</th>
+            <th className="p-2">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {movimenti.map((mov) => (
+            <tr key={mov.id} className="border-t border-yellow-500">
+              <td className="p-2">{mov.data}</td>
+              <td className="p-2">{mov.descrizione}</td>
+              <td className="p-2">{mov.importo} €</td>
+              <td className="p-2">{mov.contenitore}</td>
+              <td className="p-2 space-x-2">
                 <button
-                  onClick={() => modificaSpesa(s)}
-                  className="text-yellow-500"
+                  onClick={() => handleEdit(mov)}
+                  className="bg-blue-500 px-3 py-1 rounded"
                 >
                   Modifica
                 </button>
                 <button
-                  onClick={() => eliminaSpesa(s.id)}
-                  className="text-red-500"
+                  onClick={() => handleDelete(mov.id)}
+                  className="bg-red-500 px-3 py-1 rounded"
                 >
                   Elimina
                 </button>
-              </div>
-            )}
-          </div>
-        ))}
-
-      </div>
-
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  );
+  )
 }
