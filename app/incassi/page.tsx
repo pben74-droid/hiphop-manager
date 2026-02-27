@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabaseClient"
 import { verificaMeseAperto, inizializzaMese } from "@/lib/gestioneMese"
 
 export default function IncassiPage() {
-  const [mese] = useState("2026-02") // rendiamo dinamico dopo
+  const [mese] = useState("2026-02")
   const [descrizione, setDescrizione] = useState("")
   const [importo, setImporto] = useState("")
   const [contenitore, setContenitore] = useState("cassa_operativa")
@@ -19,8 +19,9 @@ export default function IncassiPage() {
     try {
       setLoading(true)
 
-      // 🔒 BLOCCO HARD
       await verificaMeseAperto(mese)
+
+      const oggi = new Date().toISOString().split("T")[0]
 
       const { error } = await supabase
         .from("movimenti_finanziari")
@@ -32,7 +33,7 @@ export default function IncassiPage() {
             importo: Number(importo),
             contenitore,
             mese,
-            data: new Date().toISOString(),
+            data: oggi,
           },
         ])
 
