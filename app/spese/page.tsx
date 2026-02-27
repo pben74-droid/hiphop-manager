@@ -8,7 +8,7 @@ export default function SpesePage() {
   const [mese] = useState("2026-02")
   const [movimenti, setMovimenti] = useState<any[]>([])
   const [descrizione, setDescrizione] = useState("")
-  const [importo, setImporto] = useState("")
+  const [importo, setImporto] = useState<string>("")
   const [contenitore, setContenitore] = useState("cassa_operativa")
   const [dataSpesa, setDataSpesa] = useState(
     new Date().toISOString().split("T")[0]
@@ -93,7 +93,7 @@ export default function SpesePage() {
   const handleEdit = (mov: any) => {
     setEditId(mov.id)
     setDescrizione(mov.descrizione)
-    setImporto(Math.abs(mov.importo))
+    setImporto(String(Math.abs(mov.importo))) // 🔥 FIX QUI
     setContenitore(mov.contenitore)
     setDataSpesa(mov.data)
   }
