@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
 
+export const runtime = "nodejs"
+
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -13,12 +15,15 @@ export async function GET(req: Request) {
   const mese = searchParams.get("mese")
 
   if (!mese) {
-    return NextResponse.json({ error: "Mese mancante" }, { status: 400 })
+    return NextResponse.json(
+      { error: "Mese mancante" },
+      { status: 400 }
+    )
   }
 
-  // =============================
-  // DATI OPERATIVI
-  // =============================
+  /* ============================
+     SEZIONE OPERATIVA
+  ============================ */
 
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
@@ -30,26 +35,32 @@ export async function GET(req: Request) {
     .select("*")
     .eq("mese", mese)
 
-  const risultato = movimenti?.reduce(
-    (acc, m) => acc + Number(m.importo),
-    0
-  ) || 0
+  const risultato =
+    movimenti?.reduce(
+      (acc, m) => acc + Number(m.importo),
+      0
+    ) || 0
 
-  const totaleVersamenti = versamenti?.reduce(
-    (acc, v) => acc + Number(v.importo),
-    0
-  ) || 0
+  const totaleVersamenti =
+    versamenti?.reduce(
+      (acc, v) => acc + Number(v.importo),
+      0
+    ) || 0
 
-  if (Number((risultato + totaleVersamenti).toFixed(2)) !== 0) {
+  const differenza = Number(
+    (risultato + totaleVersamenti).toFixed(2)
+  )
+
+  if (differenza !== 0) {
     return NextResponse.json(
       { error: "Differenza operativa diversa da 0. Report bloccato." },
       { status: 400 }
     )
   }
 
-  // =============================
-  // DATI AFFITTO
-  // =============================
+  /* ============================
+     SEZIONE AFFITTO
+  ============================ */
 
   const { data: affittoMese } = await supabase
     .from("affitto_mese")
@@ -57,7 +68,9 @@ export async function GET(req: Request) {
     .eq("mese", mese)
     .maybeSingle()
 
-  const { data: soci } = await supabase.from("soci").select("*")
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
 
   const { data: pagamentiAffitto } = await supabase
     .from("affitto_pagamenti")
@@ -69,9 +82,9 @@ export async function GET(req: Request) {
     .select("*")
     .eq("mese_origine", mese)
 
-  // =============================
-  // CREAZIONE PDF
-  // =============================
+  /* ============================
+     CREAZIONE PDF
+  ============================ */
 
   const pdfDoc = await PDFDocument.create()
   const page = pdfDoc.addPage([595, 842])
@@ -92,22 +105,31 @@ export async function GET(req: Request) {
 
   drawText("HIP HOP FAMILY MANAGER")
   drawText(`Report Mensile - ${mese}`)
-  y -= 10
+  y -= 15
+
+  /* ----- OPERATIVO ----- */
 
   drawText("=== SEZIONE OPERATIVO ===")
   drawText(`Risultato operativo: ${risultato} €`)
   drawText(`Totale versamenti soci: ${totaleVersamenti} €`)
-  drawText(`Differenza finale: ${risultato + totaleVersamenti} €`)
+  drawText(`Differenza finale: ${differenza} €`)
   y -= 20
 
+  /* ----- AFFITTO ----- */
+
   if (affittoMese) {
+
     drawText("=== SEZIONE AFFITTO ===")
     drawText(`Costo mensile: ${affittoMese.costo_mensile} €`)
     y -= 10
 
     soci?.forEach((s) => {
+
       const quota = Number(
-        (affittoMese.costo_mensile * (s.quota_percentuale / 100)).toFixed(2)
+        (
+          affittoMese.costo_mensile *
+          (Number(s.quota_percentuale) / 100)
+        ).toFixed(2)
       )
 
       const versato =
@@ -130,7 +152,9 @@ export async function GET(req: Request) {
 
   const pdfBytes = await pdfDoc.save()
 
-  return new NextResponse(pdfBytes, {
+  const buffer = Buffer.from(pdfBytes)
+
+  return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename=report_${mese}.pdf`,
