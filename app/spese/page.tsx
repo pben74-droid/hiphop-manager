@@ -7,7 +7,8 @@ import { useMese } from "@/lib/MeseContext"
 
 export default function SpesePage() {
 
-  const { mese } = useMese()
+  const meseContext = useMese()
+  const mese = meseContext?.mese
 
   const [categorie, setCategorie] = useState<any[]>([])
   const [categoriaSelezionata, setCategoriaSelezionata] = useState("")
@@ -17,43 +18,67 @@ export default function SpesePage() {
   const [lista, setLista] = useState<any[]>([])
   const [nuovaCategoria, setNuovaCategoria] = useState("")
   const [errore, setErrore] = useState("")
+  const [loading, setLoading] = useState(true)
 
+  /* ===========================
+     DEBUG
+  =========================== */
   useEffect(() => {
+    console.log("Mese ricevuto:", mese)
+  }, [mese])
+
+  /* ===========================
+     CARICAMENTO DATI
+  =========================== */
+  useEffect(() => {
+    if (!mese) return
     caricaCategorie()
-  }, [])
-
-  useEffect(() => {
     caricaSpese()
   }, [mese])
 
   const caricaCategorie = async () => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("categorie_spese")
       .select("*")
       .eq("attiva", true)
       .order("nome")
+
+    if (error) {
+      console.error("Errore categorie:", error.message)
+      setErrore(error.message)
+      return
+    }
 
     setCategorie(data || [])
   }
 
   const caricaSpese = async () => {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese)
       .in("categoria", ["spesa_generica", "trasferimento"])
       .order("data", { ascending: false })
 
-    // Mostriamo solo la riga banca nei trasferimenti
+    if (error) {
+      console.error("Errore spese:", error.message)
+      setErrore(error.message)
+      return
+    }
+
     const filtrate = (data || []).filter((m) => {
       if (m.categoria !== "trasferimento") return true
       return m.contenitore === "banca"
     })
 
     setLista(filtrate)
+    setLoading(false)
   }
 
+  /* ===========================
+     AGGIUNGI CATEGORIA
+  =========================== */
   const aggiungiCategoria = async () => {
 
     if (!nuovaCategoria) return
@@ -62,17 +87,23 @@ export default function SpesePage() {
       .from("categorie_spese")
       .insert([{ nome: nuovaCategoria }])
 
-    if (!error) {
-      setNuovaCategoria("")
-      caricaCategorie()
+    if (error) {
+      setErrore(error.message)
+      return
     }
+
+    setNuovaCategoria("")
+    caricaCategorie()
   }
 
+  /* ===========================
+     REGISTRA SPESA
+  =========================== */
   const registraSpesa = async () => {
 
     try {
 
-      setErrore("")
+      if (!mese) return
       await verificaMeseAperto(mese)
 
       if (!categoriaSelezionata || !importo) {
@@ -84,7 +115,6 @@ export default function SpesePage() {
 
       if (categoriaSelezionata === "Prelevamento banca") {
 
-        // Movimento banca negativo
         await supabase.from("movimenti_finanziari").insert([
           {
             tipo: "spesa",
@@ -97,7 +127,6 @@ export default function SpesePage() {
           }
         ])
 
-        // Movimento cassa positivo
         await supabase.from("movimenti_finanziari").insert([
           {
             tipo: "incasso",
@@ -123,7 +152,6 @@ export default function SpesePage() {
             data: dataSpesa
           }
         ])
-
       }
 
       setImporto("")
@@ -137,20 +165,24 @@ export default function SpesePage() {
     }
   }
 
-  const elimina = async (id: string, categoria: string) => {
+  /* ===========================
+     ELIMINA
+  =========================== */
+  const elimina = async (id: string) => {
+
+    if (!mese) return
 
     await verificaMeseAperto(mese)
 
-    if (categoria === "trasferimento") {
+    const { data } = await supabase
+      .from("movimenti_finanziari")
+      .select("*")
+      .eq("id", id)
+      .single()
 
-      // elimina entrambe le righe
-      const { data } = await supabase
-        .from("movimenti_finanziari")
-        .select("*")
-        .eq("id", id)
-        .single()
+    if (!data) return
 
-      if (!data) return
+    if (data.categoria === "trasferimento") {
 
       await supabase
         .from("movimenti_finanziari")
@@ -158,7 +190,6 @@ export default function SpesePage() {
         .eq("mese", mese)
         .eq("categoria", "trasferimento")
         .eq("data", data.data)
-        .eq("importo", Math.abs(data.importo))
 
     } else {
 
@@ -172,6 +203,14 @@ export default function SpesePage() {
     caricaSpese()
   }
 
+  if (!mese) {
+    return <div className="text-yellow-500">Caricamento mese...</div>
+  }
+
+  if (loading) {
+    return <div className="text-yellow-500">Caricamento spese...</div>
+  }
+
   return (
     <div className="space-y-10">
 
@@ -180,8 +219,6 @@ export default function SpesePage() {
       </h1>
 
       {errore && <div className="text-red-400">{errore}</div>}
-
-      {/* INSERIMENTO */}
 
       <div className="border border-yellow-500 p-6 rounded space-y-4">
 
@@ -192,20 +229,11 @@ export default function SpesePage() {
         >
           <option value="">Seleziona categoria</option>
           {categorie.map((c) => (
-            <option key={c.id}>{c.nome}</option>
+            <option key={c.id} value={c.nome}>
+              {c.nome}
+            </option>
           ))}
         </select>
-
-        {categoriaSelezionata !== "Prelevamento banca" && (
-          <select
-            value={contenitore}
-            onChange={(e) => setContenitore(e.target.value)}
-            className="p-2 bg-black border border-yellow-500 rounded w-full"
-          >
-            <option value="cassa_operativa">Cassa Operativa</option>
-            <option value="banca">Banca</option>
-          </select>
-        )}
 
         <input
           type="number"
@@ -231,31 +259,6 @@ export default function SpesePage() {
 
       </div>
 
-      {/* AGGIUNGI CATEGORIA */}
-
-      <div className="border border-yellow-500 p-6 rounded space-y-4">
-
-        <h2>Aggiungi Nuova Categoria</h2>
-
-        <input
-          type="text"
-          placeholder="Nome categoria"
-          value={nuovaCategoria}
-          onChange={(e) => setNuovaCategoria(e.target.value)}
-          className="p-2 bg-black border border-yellow-500 rounded w-full"
-        />
-
-        <button
-          onClick={aggiungiCategoria}
-          className="bg-yellow-500 text-black px-4 py-2 rounded"
-        >
-          Aggiungi Categoria
-        </button>
-
-      </div>
-
-      {/* ELENCO */}
-
       <div className="border border-yellow-500 p-6 rounded">
 
         <h2 className="mb-4">Elenco Spese</h2>
@@ -266,7 +269,6 @@ export default function SpesePage() {
             <tr className="bg-yellow-500 text-black">
               <th className="p-2">Data</th>
               <th className="p-2">Descrizione</th>
-              <th className="p-2">Contenitore</th>
               <th className="p-2">Importo</th>
               <th className="p-2">Azioni</th>
             </tr>
@@ -277,13 +279,12 @@ export default function SpesePage() {
               <tr key={s.id} className="border-t border-yellow-500">
                 <td className="p-2">{s.data}</td>
                 <td className="p-2">{s.descrizione}</td>
-                <td className="p-2">{s.contenitore}</td>
                 <td className="p-2">
                   {Math.abs(Number(s.importo)).toFixed(2)} €
                 </td>
                 <td className="p-2">
                   <button
-                    onClick={() => elimina(s.id, s.categoria)}
+                    onClick={() => elimina(s.id)}
                     className="bg-red-500 px-3 py-1 rounded"
                   >
                     Elimina
