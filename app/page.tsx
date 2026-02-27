@@ -3,19 +3,42 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
-import { calcolaQuotaSoci } from "@/lib/gestioneMese"
+import { calcolaQuotaSoci, inizializzaMese } from "@/lib/gestioneMese"
 
 export default function Dashboard() {
-  const [mese] = useState("2026-02")
+  const oggi = new Date()
+  const meseCorrente = `${oggi.getFullYear()}-${String(
+    oggi.getMonth() + 1
+  ).padStart(2, "0")}`
+
+  const [mese, setMese] = useState(meseCorrente)
   const [riepilogo, setRiepilogo] = useState<any>(null)
   const [movimenti, setMovimenti] = useState<any[]>([])
   const [affitto, setAffitto] = useState<any[]>([])
+  const [mesiDisponibili, setMesiDisponibili] = useState<string[]>([])
+
+  useEffect(() => {
+    caricaMesi()
+  }, [])
 
   useEffect(() => {
     caricaDati()
-  }, [])
+  }, [mese])
+
+  const caricaMesi = async () => {
+    const { data } = await supabase
+      .from("mesi")
+      .select("mese")
+      .order("mese", { ascending: false })
+
+    if (data) {
+      setMesiDisponibili(data.map((m) => m.mese))
+    }
+  }
 
   const caricaDati = async () => {
+    await inizializzaMese(mese)
+
     const risultato = await calcolaQuotaSoci(mese)
     setRiepilogo(risultato)
 
@@ -38,24 +61,25 @@ export default function Dashboard() {
 
   // 🔹 OPERATIVO
   const totaleIncassi = movimenti
-    .filter(m => m.tipo === "incasso")
+    .filter((m) => m.tipo === "incasso")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
   const totaleSpese = movimenti
-    .filter(m => m.tipo === "spesa")
+    .filter((m) => m.tipo === "spesa")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
-  // 🔹 CONTENITORI
-  const saldoCassa = movimenti
-    .filter(m => m.contenitore === "cassa_operativa")
+  // 🔹 CASSA OPERATIVA
+  const saldoCassaOperativa = movimenti
+    .filter((m) => m.contenitore === "cassa_operativa")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
+  // 🔹 BANCA
   const saldoBanca = movimenti
-    .filter(m => m.contenitore === "banca")
+    .filter((m) => m.contenitore === "banca")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
-  // 🔹 AFFITTO
-  const totaleAffittoVersato = affitto.reduce(
+  // 🔹 CASSA AFFITTO
+  const saldoCassaAffitto = affitto.reduce(
     (acc, a) => acc + Number(a.versato || 0),
     0
   )
@@ -66,6 +90,22 @@ export default function Dashboard() {
       <h1 className="text-4xl font-bold">
         HIP HOP FAMILY MANAGER
       </h1>
+
+      {/* SELETTORE MESE */}
+      <div>
+        <label className="mr-4">Seleziona mese:</label>
+        <select
+          value={mese}
+          onChange={(e) => setMese(e.target.value)}
+          className="bg-black border border-yellow-500 p-2 rounded"
+        >
+          {mesiDisponibili.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </div>
 
       {/* OPERATIVO */}
       <div className="border border-yellow-500 p-6 rounded">
@@ -80,17 +120,24 @@ export default function Dashboard() {
         </p>
       </div>
 
-      {/* CONTENITORI */}
-      <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-2xl mb-4">🏦 Contenitori</h2>
-        <p>Cassa Operativa: {saldoCassa} €</p>
-        <p>Banca: {saldoBanca} €</p>
-      </div>
+      {/* CONTENITORI SEPARATI */}
+      <div className="grid grid-cols-3 gap-6">
 
-      {/* AFFITTO */}
-      <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-2xl mb-4">🏠 Affitto</h2>
-        <p>Versato totale: {totaleAffittoVersato} €</p>
+        <div className="border border-yellow-500 p-6 rounded">
+          <h2 className="text-xl mb-2">💵 Cassa Operativa</h2>
+          <p>{saldoCassaOperativa} €</p>
+        </div>
+
+        <div className="border border-yellow-500 p-6 rounded">
+          <h2 className="text-xl mb-2">🏦 Banca</h2>
+          <p>{saldoBanca} €</p>
+        </div>
+
+        <div className="border border-yellow-500 p-6 rounded">
+          <h2 className="text-xl mb-2">🏠 Cassa Affitto</h2>
+          <p>{saldoCassaAffitto} €</p>
+        </div>
+
       </div>
 
       {/* SOCI */}
