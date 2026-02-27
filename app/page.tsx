@@ -9,6 +9,7 @@ export default function Dashboard() {
 
   const [loading, setLoading] = useState(true);
   const [mese, setMese] = useState("2026-02");
+  const [statoMese, setStatoMese] = useState("aperto");
   const [soci, setSoci] = useState<any[]>([]);
   const [saldoCassaOperativa, setSaldoCassaOperativa] = useState(0);
   const [saldoBanca, setSaldoBanca] = useState(0);
@@ -29,14 +30,28 @@ export default function Dashboard() {
   }, []);
 
   const loadData = async () => {
-    // SOCI
     const { data: sociData } = await supabase.from("soci").select("*");
 
-    // MOVIMENTI FINANZIARI DEL MESE
     const { data: movimenti } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese);
+
+    const { data: meseData } = await supabase
+      .from("mesi")
+      .select("*")
+      .eq("mese", mese)
+      .single();
+
+    if (!meseData) {
+      await supabase.from("mesi").insert({
+        mese,
+        stato: "aperto"
+      });
+      setStatoMese("aperto");
+    } else {
+      setStatoMese(meseData.stato);
+    }
 
     const incassi = movimenti?.filter(m => m.tipo === "incasso") || [];
     const spese = movimenti?.filter(m => m.tipo === "spesa") || [];
@@ -64,152 +79,43 @@ export default function Dashboard() {
     setSoci(sociData || []);
   };
 
-  if (loading) return null;
+  const chiudiMese = async () => {
+    const risultatoOperativo = totIncassi - totSpese;
 
-  const risultatoOperativo = totIncassi - totSpese;
+    if (saldoCassaOperativa < 0 || saldoBanca < 0) {
+      alert("Non puoi chiudere: saldo negativo.");
+      return;
+    }
 
-  return (
-    <div
-      style={{
-        background: "#0a0a0a",
-        minHeight: "100vh",
-        color: "#FFD700",
-        padding: 30
-      }}
-    >
-      <h1>Dashboard Operativa</h1>
+    if (risultatoOperativo < 0) {
+      alert("Non puoi chiudere: quote soci non completamente versate.");
+      return;
+    }
 
-      <div style={{ marginBottom: 20 }}>
-        <input
-          type="month"
-          value={mese}
-          onChange={(e) => setMese(e.target.value)}
-        />
-        <button
-          onClick={loadData}
-          style={{ marginLeft: 10 }}
-        >
-          Carica Dati
-        </button>
-      </div>
-
-      <h2>Totale Incassi: € {totIncassi.toFixed(2)}</h2>
-      <h2>Totale Spese: € {totSpese.toFixed(2)}</h2>
-      <h2>
-        Risultato Operativo: € {risultatoOperativo.toFixed(2)}
-      </h2>
-
-      <hr style={{ margin: "20px 0" }} />
-
-      <h2>Saldi Finanziari</h2>
-      <h3>Cassa Operativa: € {saldoCassaOperativa.toFixed(2)}</h3>
-      <h3>Banca: € {saldoBanca.toFixed(2)}</h3>
-
-      <hr style={{ margin: "20px 0" }} />
-
-      {risultatoOperativo < 0 && (
-        <>
-          <h2>Ripartizione Soci</h2>
-
-          {soci.map((s) => {
-            const quota =
-              Math.abs(risultatoOperativo) *
-              (Number(s.quota_percentuale) / 100);
-
-            return (
-              <div
-                key={s.id}
-                style={{
-                  border: "1px solid #FFD700",
-                  padding: 10,
-                  marginBottom: 10
-                }}
-              >
-                <strong>{s.nome}</strong><br />
-                Quota da versare: € {quota.toFixed(2)}
-              </div>
-            );
-          })}
-        </>
-      )}
-
-      {saldoCassaOperativa < 0 && (
-        <div style={{ color: "red", marginTop: 20 }}>
-          ⚠ ATTENZIONE: Cassa operativa negativa
-        </div>
-      )}
-
-      {saldoBanca < 0 && (
-        <div style={{ color: "red" }}>
-          ⚠ ATTENZIONE: Banca negativa
-        </div>
-      )}
-    </div>
-  );
-}"use client";
-
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
-
-export default function Dashboard() {
-  const router = useRouter();
-
-  const [loading, setLoading] = useState(true);
-  const [mese, setMese] = useState("2026-02");
-  const [soci, setSoci] = useState<any[]>([]);
-  const [saldoCassaOperativa, setSaldoCassaOperativa] = useState(0);
-  const [saldoBanca, setSaldoBanca] = useState(0);
-  const [totIncassi, setTotIncassi] = useState(0);
-  const [totSpese, setTotSpese] = useState(0);
-
-  useEffect(() => {
-    const checkUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
-        router.push("/login");
-      } else {
-        setLoading(false);
-        loadData();
-      }
-    };
-    checkUser();
-  }, []);
-
-  const loadData = async () => {
-    // SOCI
-    const { data: sociData } = await supabase.from("soci").select("*");
-
-    // MOVIMENTI FINANZIARI DEL MESE
-    const { data: movimenti } = await supabase
-      .from("movimenti_finanziari")
-      .select("*")
+    await supabase
+      .from("mesi")
+      .update({ stato: "chiuso" })
       .eq("mese", mese);
 
-    const incassi = movimenti?.filter(m => m.tipo === "incasso") || [];
-    const spese = movimenti?.filter(m => m.tipo === "spesa") || [];
+    alert("Mese chiuso e storicizzato.");
+    loadData();
+  };
 
-    const totaleIncassi =
-      incassi.reduce((sum, i) => sum + Number(i.importo), 0) || 0;
+  const riapriMese = async () => {
+    const pwd = prompt("Inserisci password:");
 
-    const totaleSpese =
-      Math.abs(spese.reduce((sum, s) => sum + Number(s.importo), 0)) || 0;
+    if (pwd !== "Nmdcdnv74!") {
+      alert("Password errata.");
+      return;
+    }
 
-    const cassaOperativa =
-      movimenti
-        ?.filter(m => m.contenitore === "cassa_operativa")
-        .reduce((sum, m) => sum + Number(m.importo), 0) || 0;
+    await supabase
+      .from("mesi")
+      .update({ stato: "aperto" })
+      .eq("mese", mese);
 
-    const banca =
-      movimenti
-        ?.filter(m => m.contenitore === "banca")
-        .reduce((sum, m) => sum + Number(m.importo), 0) || 0;
-
-    setSaldoCassaOperativa(cassaOperativa);
-    setSaldoBanca(banca);
-    setTotIncassi(totaleIncassi);
-    setTotSpese(totaleSpese);
-    setSoci(sociData || []);
+    alert("Mese riaperto.");
+    loadData();
   };
 
   if (loading) return null;
@@ -217,80 +123,35 @@ export default function Dashboard() {
   const risultatoOperativo = totIncassi - totSpese;
 
   return (
-    <div
-      style={{
-        background: "#0a0a0a",
-        minHeight: "100vh",
-        color: "#FFD700",
-        padding: 30
-      }}
-    >
+    <div style={{ padding: 30 }}>
       <h1>Dashboard Operativa</h1>
 
-      <div style={{ marginBottom: 20 }}>
-        <input
-          type="month"
-          value={mese}
-          onChange={(e) => setMese(e.target.value)}
-        />
-        <button
-          onClick={loadData}
-          style={{ marginLeft: 10 }}
-        >
-          Carica Dati
-        </button>
-      </div>
+      <input
+        type="month"
+        value={mese}
+        onChange={(e) => setMese(e.target.value)}
+      />
+      <button onClick={loadData}>Carica</button>
 
-      <h2>Totale Incassi: € {totIncassi.toFixed(2)}</h2>
-      <h2>Totale Spese: € {totSpese.toFixed(2)}</h2>
-      <h2>
-        Risultato Operativo: € {risultatoOperativo.toFixed(2)}
-      </h2>
+      <h3>Stato mese: {statoMese}</h3>
 
-      <hr style={{ margin: "20px 0" }} />
+      <h2>Incassi: € {totIncassi.toFixed(2)}</h2>
+      <h2>Spese: € {totSpese.toFixed(2)}</h2>
+      <h2>Risultato: € {risultatoOperativo.toFixed(2)}</h2>
 
-      <h2>Saldi Finanziari</h2>
       <h3>Cassa Operativa: € {saldoCassaOperativa.toFixed(2)}</h3>
       <h3>Banca: € {saldoBanca.toFixed(2)}</h3>
 
-      <hr style={{ margin: "20px 0" }} />
-
-      {risultatoOperativo < 0 && (
-        <>
-          <h2>Ripartizione Soci</h2>
-
-          {soci.map((s) => {
-            const quota =
-              Math.abs(risultatoOperativo) *
-              (Number(s.quota_percentuale) / 100);
-
-            return (
-              <div
-                key={s.id}
-                style={{
-                  border: "1px solid #FFD700",
-                  padding: 10,
-                  marginBottom: 10
-                }}
-              >
-                <strong>{s.nome}</strong><br />
-                Quota da versare: € {quota.toFixed(2)}
-              </div>
-            );
-          })}
-        </>
+      {statoMese === "aperto" && (
+        <button onClick={chiudiMese} style={{ marginTop: 20 }}>
+          Chiudi Mese
+        </button>
       )}
 
-      {saldoCassaOperativa < 0 && (
-        <div style={{ color: "red", marginTop: 20 }}>
-          ⚠ ATTENZIONE: Cassa operativa negativa
-        </div>
-      )}
-
-      {saldoBanca < 0 && (
-        <div style={{ color: "red" }}>
-          ⚠ ATTENZIONE: Banca negativa
-        </div>
+      {statoMese === "chiuso" && (
+        <button onClick={riapriMese} style={{ marginTop: 20 }}>
+          Riapri Mese (Password)
+        </button>
       )}
     </div>
   );
