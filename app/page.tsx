@@ -181,7 +181,14 @@ export default function Dashboard() {
           </tbody>
         </table>
       </div>
-
+<div className="pt-6">
+  <button
+    onClick={() => window.open(`/api/report?mese=${mese}`, "_blank")}
+    className="bg-yellow-500 text-black px-6 py-3 rounded font-bold"
+  >
+    Genera Report PDF
+  </button>
+</div>
     </div>
   )
 }
