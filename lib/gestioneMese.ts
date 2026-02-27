@@ -1,57 +1,67 @@
-import { supabase } from "@/lib/supabaseClient";
+import { supabase } from "./supabaseClient"
 
-export async function inizializzaMese(mese: string) {
-  // Controllo se esiste già
-  const { data: meseData } = await supabase
-    .from("mesi")
+export async function calcolaQuotaSoci(mese: string) {
+  const errori: string[] = []
+
+  // 1️⃣ Carica soci
+  const { data: soci, error: sociError } = await supabase
+    .from("soci")
+    .select("*")
+
+  if (sociError || !soci) {
+    throw new Error("Errore caricamento soci")
+  }
+
+  // 2️⃣ Verifica percentuali = 100
+  const sommaPercentuali = soci.reduce(
+    (acc, s) => acc + Number(s.percentuale),
+    0
+  )
+
+  if (Number(sommaPercentuali.toFixed(2)) !== 100) {
+    errori.push("La somma delle percentuali soci non è 100")
+  }
+
+  // 3️⃣ Carica movimenti del mese
+  const { data: movimenti, error: movError } = await supabase
+    .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
-    .single();
 
-  if (meseData) {
-    return meseData;
+  if (movError || !movimenti) {
+    throw new Error("Errore caricamento movimenti")
   }
 
-  // Creo il mese
-  await supabase.from("mesi").insert({
-    mese,
-    stato: "aperto",
-  });
+  // 4️⃣ Calcolo risultato operativo
+  const risultato_operativo = movimenti.reduce(
+    (acc, m) => acc + Number(m.importo),
+    0
+  )
 
-  // Calcolo mese precedente
-  const dataMese = new Date(mese + "-01");
-  dataMese.setMonth(dataMese.getMonth() - 1);
-  const mesePrecedente = dataMese.toISOString().slice(0, 7);
+  const risultatoArrotondato = Number(risultato_operativo.toFixed(2))
 
-  const { data: prevData } = await supabase
-    .from("mesi")
+  let perdita = 0
+
+  if (risultatoArrotondato < 0) {
+    perdita = Math.abs(risultatoArrotondato)
+  }
+
+  // 5️⃣ Carica versamenti soci del mese
+  const { data: versamenti, error: versError } = await supabase
+    .from("versamenti_soci")
     .select("*")
-    .eq("mese", mesePrecedente)
-    .single();
+    .eq("mese", mese)
 
-  // Se mese precedente chiuso → trasferisco saldi
-  if (prevData && prevData.stato === "chiuso") {
-
-    if (prevData.saldo_iniziale_cassa > 0) {
-      await supabase.from("movimenti_finanziari").insert({
-        tipo: "saldo_iniziale",
-        contenitore: "cassa_operativa",
-        importo: prevData.saldo_iniziale_cassa,
-        mese,
-        data: new Date().toISOString().split("T")[0],
-      });
-    }
-
-    if (prevData.saldo_iniziale_banca > 0) {
-      await supabase.from("movimenti_finanziari").insert({
-        tipo: "saldo_iniziale",
-        contenitore: "banca",
-        importo: prevData.saldo_iniziale_banca,
-        mese,
-        data: new Date().toISOString().split("T")[0],
-      });
-    }
+  if (versError) {
+    throw new Error("Errore caricamento versamenti")
   }
 
-  return { mese, stato: "aperto" };
+  return {
+    risultato_operativo: risultatoArrotondato,
+    perdita,
+    soci,
+    movimenti,
+    versamenti: versamenti ?? [],
+    errori
+  }
 }
