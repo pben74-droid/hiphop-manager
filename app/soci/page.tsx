@@ -1,88 +1,141 @@
-"use client";
+"use client"
 
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
 
 export default function SociPage() {
-  const [soci, setSoci] = useState<any[]>([]);
-  const [nome, setNome] = useState("");
-  const [quota, setQuota] = useState("");
-
-  const loadSoci = async () => {
-    const { data } = await supabase.from("soci").select("*");
-    setSoci(data || []);
-  };
+  const [soci, setSoci] = useState<any[]>([])
+  const [nome, setNome] = useState("")
+  const [percentuale, setPercentuale] = useState("")
+  const [editId, setEditId] = useState<string | null>(null)
 
   useEffect(() => {
-    loadSoci();
-  }, []);
+    caricaSoci()
+  }, [])
 
-  const salvaSocio = async () => {
-    const percentuale = Number(quota);
+  const caricaSoci = async () => {
+    const { data } = await supabase
+      .from("soci")
+      .select("*")
+      .order("nome")
 
-    if (!nome || !percentuale) {
-      alert("Dati non validi");
-      return;
+    setSoci(data || [])
+  }
+
+  const handleSubmit = async () => {
+    if (!nome || !percentuale) return
+
+    if (editId) {
+      await supabase
+        .from("soci")
+        .update({
+          nome,
+          percentuale: Number(percentuale),
+        })
+        .eq("id", editId)
+
+      setEditId(null)
+    } else {
+      await supabase
+        .from("soci")
+        .insert([
+          {
+            nome,
+            percentuale: Number(percentuale),
+            credito_affitto: 0,
+          },
+        ])
     }
 
-    await supabase.from("soci").insert({
-      nome,
-      quota_percentuale: percentuale,
-    });
+    setNome("")
+    setPercentuale("")
+    caricaSoci()
+  }
 
-    setNome("");
-    setQuota("");
-    loadSoci();
-  };
+  const handleDelete = async (id: string) => {
+    await supabase
+      .from("soci")
+      .delete()
+      .eq("id", id)
 
-  const eliminaSocio = async (id: string) => {
-    await supabase.from("soci").delete().eq("id", id);
-    loadSoci();
-  };
+    caricaSoci()
+  }
+
+  const handleEdit = (s: any) => {
+    setEditId(s.id)
+    setNome(s.nome)
+    setPercentuale(s.percentuale)
+  }
+
+  const totalePercentuali = soci.reduce(
+    (acc, s) => acc + Number(s.percentuale),
+    0
+  )
 
   return (
-    <div>
-      <h1>Gestione Soci</h1>
+    <div className="p-10 text-white">
+      <h1 className="text-3xl font-bold mb-6">Gestione Soci</h1>
 
-      <div style={{ marginBottom: 20 }}>
+      <div className="bg-black p-6 border border-yellow-500 rounded mb-10">
         <input
+          type="text"
           placeholder="Nome socio"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
         />
 
         <input
           type="number"
-          placeholder="Quota %"
-          value={quota}
-          onChange={(e) => setQuota(e.target.value)}
+          placeholder="Percentuale"
+          value={percentuale}
+          onChange={(e) => setPercentuale(e.target.value)}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
         />
 
-        <button onClick={salvaSocio}>
-          Aggiungi Socio
+        <button
+          onClick={handleSubmit}
+          className="bg-yellow-500 text-black px-6 py-3 rounded hover:bg-yellow-400 transition"
+        >
+          {editId ? "Aggiorna Socio" : "Aggiungi Socio"}
         </button>
       </div>
 
-      <h2>Elenco Soci</h2>
+      <h2 className="text-xl mb-4">
+        Totale Percentuali: {totalePercentuali}%
+      </h2>
 
-      {soci.map((s) => (
-        <div
-          key={s.id}
-          style={{
-            border: "1px solid black",
-            padding: 10,
-            marginBottom: 10,
-          }}
-        >
-          {s.nome} — {s.quota_percentuale} %
-          <button
-            onClick={() => eliminaSocio(s.id)}
-            style={{ marginLeft: 10 }}
-          >
-            Elimina
-          </button>
-        </div>
-      ))}
+      <table className="w-full border border-yellow-500">
+        <thead>
+          <tr className="bg-yellow-500 text-black">
+            <th className="p-2">Nome</th>
+            <th className="p-2">Percentuale</th>
+            <th className="p-2">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {soci.map((s) => (
+            <tr key={s.id} className="border-t border-yellow-500">
+              <td className="p-2">{s.nome}</td>
+              <td className="p-2">{s.percentuale}%</td>
+              <td className="p-2 space-x-2">
+                <button
+                  onClick={() => handleEdit(s)}
+                  className="bg-blue-500 px-3 py-1 rounded"
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => handleDelete(s.id)}
+                  className="bg-red-500 px-3 py-1 rounded"
+                >
+                  Elimina
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  );
+  )
 }
