@@ -1,21 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { inizializzaMese } from "@/lib/gestioneMese";
 
-export default function IncassiPage() {
+export default function Incassi() {
   const [mese, setMese] = useState("2026-02");
-  const [statoMese, setStatoMese] = useState("aperto");
+  const [descrizione, setDescrizione] = useState("");
   const [importo, setImporto] = useState("");
-  const [metodo, setMetodo] = useState("contanti");
+  const [contenitore, setContenitore] = useState("cassa_operativa");
   const [incassi, setIncassi] = useState<any[]>([]);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [meseChiuso, setMeseChiuso] = useState(false);
 
   useEffect(() => {
-    loadData();
+    load();
   }, [mese]);
 
-  const loadData = async () => {
+  const load = async () => {
     await inizializzaMese(mese);
 
     const { data: meseData } = await supabase
@@ -24,59 +26,122 @@ export default function IncassiPage() {
       .eq("mese", mese)
       .single();
 
-    if (meseData) setStatoMese(meseData.stato);
+    setMeseChiuso(meseData?.stato === "chiuso");
 
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese)
-      .eq("tipo", "incasso");
+      .eq("tipo", "incasso")
+      .order("data", { ascending: false });
 
     setIncassi(data || []);
   };
 
   const salva = async () => {
-    if (statoMese === "chiuso") return alert("Mese chiuso");
+    if (!descrizione || !importo) return alert("Compila i campi");
 
-    await supabase.from("movimenti_finanziari").insert({
-      tipo: "incasso",
-      contenitore: metodo === "contanti" ? "cassa_operativa" : "banca",
-      importo: Number(importo),
-      mese,
-      data: new Date().toISOString().split("T")[0],
-    });
+    if (meseChiuso) return alert("Mese chiuso");
 
-    setImporto("");
-    loadData();
+    if (editId) {
+      await supabase
+        .from("movimenti_finanziari")
+        .update({ descrizione, importo: Number(importo), contenitore })
+        .eq("id", editId);
+    } else {
+      await supabase.from("movimenti_finanziari").insert({
+        tipo: "incasso",
+        descrizione,
+        importo: Number(importo),
+        contenitore,
+        mese,
+        data: new Date().toISOString().split("T")[0],
+      });
+    }
+
+    reset();
+    load();
   };
 
   const elimina = async (id: string) => {
-    if (statoMese === "chiuso") return;
+    if (meseChiuso) return alert("Mese chiuso");
+
     await supabase.from("movimenti_finanziari").delete().eq("id", id);
-    loadData();
+    load();
+  };
+
+  const modifica = (row: any) => {
+    setEditId(row.id);
+    setDescrizione(row.descrizione);
+    setImporto(row.importo.toString());
+    setContenitore(row.contenitore);
+  };
+
+  const reset = () => {
+    setEditId(null);
+    setDescrizione("");
+    setImporto("");
+    setContenitore("cassa_operativa");
   };
 
   return (
-    <div>
-      <h1>Incassi</h1>
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold text-yellow-500">Incassi</h1>
 
-      <input type="month" value={mese} onChange={(e)=>setMese(e.target.value)} />
-      <p>Stato: {statoMese}</p>
+      <input type="month" value={mese} onChange={e => setMese(e.target.value)} />
 
-      <input type="number" value={importo} onChange={(e)=>setImporto(e.target.value)} />
-      <select value={metodo} onChange={(e)=>setMetodo(e.target.value)}>
-        <option value="contanti">Contanti</option>
-        <option value="banca">Banca</option>
-      </select>
+      <div className="bg-zinc-900 p-6 rounded-xl space-y-4">
 
-      <button onClick={salva}>Salva</button>
+        <input
+          placeholder="Descrizione incasso"
+          value={descrizione}
+          onChange={e => setDescrizione(e.target.value)}
+          disabled={meseChiuso}
+        />
 
-      {incassi.map(i=>(
-        <div key={i.id}>
-          € {i.importo}
-          {statoMese==="aperto" && <button onClick={()=>elimina(i.id)}>X</button>}
-        </div>
-      ))}
+        <input
+          type="number"
+          placeholder="Importo"
+          value={importo}
+          onChange={e => setImporto(e.target.value)}
+          disabled={meseChiuso}
+        />
+
+        <select
+          value={contenitore}
+          onChange={e => setContenitore(e.target.value)}
+          disabled={meseChiuso}
+        >
+          <option value="cassa_operativa">Contanti</option>
+          <option value="banca">Banca / POS</option>
+        </select>
+
+        <button
+          onClick={salva}
+          className="bg-yellow-500 text-black px-4 py-2 rounded"
+        >
+          {editId ? "Aggiorna" : "Salva"}
+        </button>
+      </div>
+
+      <div className="bg-zinc-900 p-6 rounded-xl space-y-3">
+        {incassi.map(row => (
+          <div key={row.id} className="flex justify-between items-center">
+            <div>
+              <div className="text-yellow-400">{row.descrizione}</div>
+              <div className="text-sm text-zinc-400">
+                € {row.importo.toFixed(2)} — {row.contenitore}
+              </div>
+            </div>
+            {!meseChiuso && (
+              <div className="flex gap-3 text-sm">
+                <button onClick={() => modifica(row)} className="text-yellow-500">Modifica</button>
+                <button onClick={() => elimina(row.id)} className="text-red-500">Elimina</button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
