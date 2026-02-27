@@ -11,6 +11,7 @@ export default function AffittoPage() {
   const [mese, setMese] = useState("2026-02");
   const [importoAffitto, setImportoAffitto] = useState(0);
   const [soci, setSoci] = useState<any[]>([]);
+  const [nuoviVersamenti, setNuoviVersamenti] = useState<any>({});
 
   useEffect(() => {
     const checkUser = async () => {
@@ -60,12 +61,39 @@ export default function AffittoPage() {
   const salvaAffitto = async () => {
     await supabase
       .from("affitto")
-      .upsert({
-        mese: mese,
-        importo_totale: importoAffitto
-      }, { onConflict: "mese" });
+      .upsert(
+        {
+          mese: mese,
+          importo_totale: importoAffitto
+        },
+        { onConflict: "mese" }
+      );
 
     alert("Affitto salvato");
+    loadData();
+  };
+
+  const registraVersamento = async (socioId: string) => {
+    const importo = Number(nuoviVersamenti[socioId]);
+
+    if (!importo || importo <= 0) {
+      alert("Importo non valido");
+      return;
+    }
+
+    await supabase.from("versamenti_soci").insert({
+      socio_id: socioId,
+      mese: mese,
+      importo: importo,
+      tipo: "affitto",
+      data: new Date().toISOString().split("T")[0]
+    });
+
+    setNuoviVersamenti({
+      ...nuoviVersamenti,
+      [socioId]: ""
+    });
+
     loadData();
   };
 
@@ -95,10 +123,7 @@ export default function AffittoPage() {
           }
           placeholder="Importo totale affitto"
         />
-        <button
-          onClick={salvaAffitto}
-          style={{ marginLeft: 10 }}
-        >
+        <button onClick={salvaAffitto} style={{ marginLeft: 10 }}>
           Salva Affitto
         </button>
       </div>
@@ -111,7 +136,6 @@ export default function AffittoPage() {
           (Number(s.quota_percentuale) / 100);
 
         const versato = s.versato_affitto || 0;
-
         const differenza = quota - versato;
         const credito =
           versato > quota ? versato - quota : 0;
@@ -122,7 +146,7 @@ export default function AffittoPage() {
             style={{
               border: "1px solid black",
               padding: 10,
-              marginBottom: 10
+              marginBottom: 15
             }}
           >
             <strong>{s.nome}</strong>
@@ -131,22 +155,45 @@ export default function AffittoPage() {
             <br />
             Versato: € {versato.toFixed(2)}
             <br />
+
             {differenza > 0 && (
               <span style={{ color: "red" }}>
                 Da versare: € {differenza.toFixed(2)}
               </span>
             )}
+
             {credito > 0 && (
               <span style={{ color: "green" }}>
                 Credito mese prossimo: €{" "}
                 {credito.toFixed(2)}
               </span>
             )}
+
             {differenza <= 0 && credito === 0 && (
               <span style={{ color: "green" }}>
                 Affitto coperto
               </span>
             )}
+
+            <div style={{ marginTop: 10 }}>
+              <input
+                type="number"
+                placeholder="Versamento contanti"
+                value={nuoviVersamenti[s.id] || ""}
+                onChange={(e) =>
+                  setNuoviVersamenti({
+                    ...nuoviVersamenti,
+                    [s.id]: e.target.value
+                  })
+                }
+              />
+              <button
+                onClick={() => registraVersamento(s.id)}
+                style={{ marginLeft: 10 }}
+              >
+                Registra Versamento
+              </button>
+            </div>
           </div>
         );
       })}
