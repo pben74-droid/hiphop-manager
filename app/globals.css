@@ -2,11 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Background generale */
 body {
+  background-color: #000;
+  color: white;
   margin: 0;
   padding: 0;
   font-family: system-ui, sans-serif;
-  background-color: black;
-  color: white;
+}
+
+/* Scrollbar custom hip hop */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #FFD700;
+  border-radius: 10px;
 }
