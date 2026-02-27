@@ -1,93 +1,200 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { inizializzaMese } from "@/lib/gestioneMese";
+import { useEffect, useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
+import { verificaMeseAperto, inizializzaMese } from "@/lib/gestioneMese"
 
-export default function Versamenti() {
-  const [mese, setMese] = useState("2026-02");
-  const [nome, setNome] = useState("");
-  const [importo, setImporto] = useState("");
-  const [lista, setLista] = useState<any[]>([]);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [meseChiuso, setMeseChiuso] = useState(false);
+export default function VersamentiPage() {
+  const oggi = new Date()
+  const meseCorrente = `${oggi.getFullYear()}-${String(
+    oggi.getMonth() + 1
+  ).padStart(2, "0")}`
 
-  useEffect(() => { load(); }, [mese]);
+  const [mese] = useState(meseCorrente)
+  const [soci, setSoci] = useState<any[]>([])
+  const [versamenti, setVersamenti] = useState<any[]>([])
+  const [socioId, setSocioId] = useState("")
+  const [importo, setImporto] = useState("")
+  const [dataVersamento, setDataVersamento] = useState(
+    new Date().toISOString().split("T")[0]
+  )
+  const [editId, setEditId] = useState<string | null>(null)
+  const [errore, setErrore] = useState("")
 
-  const load = async () => {
-    await inizializzaMese(mese);
+  useEffect(() => {
+    inizializzaMese(mese)
+    caricaSoci()
+    caricaVersamenti()
+  }, [])
 
-    const { data: meseData } = await supabase.from("mesi").select("*").eq("mese", mese).single();
-    setMeseChiuso(meseData?.stato === "chiuso");
-
+  const caricaSoci = async () => {
     const { data } = await supabase
-      .from("movimenti_finanziari")
+      .from("soci")
+      .select("*")
+      .order("nome")
+
+    setSoci(data || [])
+  }
+
+  const caricaVersamenti = async () => {
+    const { data } = await supabase
+      .from("versamenti_soci")
       .select("*")
       .eq("mese", mese)
-      .eq("categoria", "versamento_socio");
+      .order("data", { ascending: false })
 
-    setLista(data || []);
-  };
+    setVersamenti(data || [])
+  }
 
-  const salva = async () => {
-    if (!nome || !importo) return alert("Compila i campi");
-    if (meseChiuso) return alert("Mese chiuso");
+  const handleSubmit = async () => {
+    setErrore("")
 
-    const payload = {
-      tipo: "incasso",
-      categoria: "versamento_socio",
-      descrizione: nome,
-      importo: Number(importo),
-      contenitore: "cassa_operativa",
-      mese,
-      data: new Date().toISOString().split("T")[0],
-    };
-
-    if (editId) {
-      await supabase.from("movimenti_finanziari").update(payload).eq("id", editId);
-    } else {
-      await supabase.from("movimenti_finanziari").insert(payload);
+    if (!socioId || !importo) {
+      setErrore("Compila tutti i campi")
+      return
     }
 
-    setNome("");
-    setImporto("");
-    setEditId(null);
-    load();
-  };
+    try {
+      await verificaMeseAperto(mese)
 
-  const elimina = async (id: string) => {
-    if (meseChiuso) return alert("Mese chiuso");
-    await supabase.from("movimenti_finanziari").delete().eq("id", id);
-    load();
-  };
+      if (editId) {
+        await supabase
+          .from("versamenti_soci")
+          .update({
+            socio_id: socioId,
+            importo: Number(importo),
+            data: dataVersamento,
+          })
+          .eq("id", editId)
+
+        setEditId(null)
+      } else {
+        await supabase
+          .from("versamenti_soci")
+          .insert([
+            {
+              socio_id: socioId,
+              importo: Number(importo),
+              mese,
+              data: dataVersamento,
+            },
+          ])
+      }
+
+      setImporto("")
+      setSocioId("")
+      caricaVersamenti()
+    } catch (err: any) {
+      setErrore(err.message)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    try {
+      await verificaMeseAperto(mese)
+
+      await supabase
+        .from("versamenti_soci")
+        .delete()
+        .eq("id", id)
+
+      caricaVersamenti()
+    } catch (err: any) {
+      setErrore(err.message)
+    }
+  }
+
+  const handleEdit = (v: any) => {
+    setEditId(v.id)
+    setSocioId(v.socio_id)
+    setImporto(String(v.importo))
+    setDataVersamento(v.data)
+  }
+
+  const getNomeSocio = (id: string) => {
+    const socio = soci.find((s) => s.id === id)
+    return socio ? socio.nome : ""
+  }
 
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold text-yellow-500">Versamenti Soci</h1>
+    <div className="p-10 text-white">
+      <h1 className="text-3xl font-bold mb-6">Versamenti Soci</h1>
 
-      <input type="month" value={mese} onChange={e => setMese(e.target.value)} />
+      {errore && <div className="mb-4 text-red-400">{errore}</div>}
 
-      <div className="bg-zinc-900 p-6 rounded-xl space-y-4">
-        <input placeholder="Nome socio" value={nome} onChange={e => setNome(e.target.value)} disabled={meseChiuso} />
-        <input type="number" placeholder="Importo versato" value={importo} onChange={e => setImporto(e.target.value)} disabled={meseChiuso} />
+      <div className="bg-black p-6 border border-yellow-500 rounded mb-10">
 
-        <button onClick={salva} className="bg-yellow-500 text-black px-4 py-2 rounded">
-          {editId ? "Aggiorna" : "Salva"}
+        <input
+          type="date"
+          value={dataVersamento}
+          onChange={(e) => setDataVersamento(e.target.value)}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+        />
+
+        <select
+          value={socioId}
+          onChange={(e) => setSocioId(e.target.value)}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+        >
+          <option value="">Seleziona socio</option>
+          {soci.map((s) => (
+            <option key={s.id} value={s.id}>
+              {s.nome}
+            </option>
+          ))}
+        </select>
+
+        <input
+          type="number"
+          placeholder="Importo"
+          value={importo}
+          onChange={(e) => setImporto(e.target.value)}
+          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+        />
+
+        <button
+          onClick={handleSubmit}
+          className="bg-yellow-500 text-black px-6 py-3 rounded hover:bg-yellow-400 transition"
+        >
+          {editId ? "Aggiorna Versamento" : "Registra Versamento"}
         </button>
       </div>
 
-      <div className="bg-zinc-900 p-6 rounded-xl space-y-3">
-        {lista.map(row => (
-          <div key={row.id} className="flex justify-between">
-            <div className="text-yellow-400">
-              {row.descrizione} — € {row.importo.toFixed(2)}
-            </div>
-            {!meseChiuso && (
-              <button onClick={() => elimina(row.id)} className="text-red-500">Elimina</button>
-            )}
-          </div>
-        ))}
-      </div>
+      <h2 className="text-xl mb-4">Versamenti del mese</h2>
+
+      <table className="w-full border border-yellow-500">
+        <thead>
+          <tr className="bg-yellow-500 text-black">
+            <th className="p-2">Data</th>
+            <th className="p-2">Socio</th>
+            <th className="p-2">Importo</th>
+            <th className="p-2">Azioni</th>
+          </tr>
+        </thead>
+        <tbody>
+          {versamenti.map((v) => (
+            <tr key={v.id} className="border-t border-yellow-500">
+              <td className="p-2">{v.data}</td>
+              <td className="p-2">{getNomeSocio(v.socio_id)}</td>
+              <td className="p-2">{v.importo} €</td>
+              <td className="p-2 space-x-2">
+                <button
+                  onClick={() => handleEdit(v)}
+                  className="bg-blue-500 px-3 py-1 rounded"
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => handleDelete(v.id)}
+                  className="bg-red-500 px-3 py-1 rounded"
+                >
+                  Elimina
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
-  );
+  )
 }
