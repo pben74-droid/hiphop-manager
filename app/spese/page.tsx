@@ -2,39 +2,30 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { inizializzaMese } from "@/lib/gestioneMese";
 
 export default function SpesePage() {
   const [mese, setMese] = useState("2026-02");
   const [statoMese, setStatoMese] = useState("aperto");
-  const [spese, setSpese] = useState<any[]>([]);
-
-  const [descrizione, setDescrizione] = useState("");
   const [importo, setImporto] = useState("");
   const [metodo, setMetodo] = useState("contanti");
+  const [spese, setSpese] = useState<any[]>([]);
 
   useEffect(() => {
     loadData();
   }, [mese]);
 
   const loadData = async () => {
-    // Stato mese
+    await inizializzaMese(mese);
+
     const { data: meseData } = await supabase
       .from("mesi")
       .select("*")
       .eq("mese", mese)
       .single();
 
-    if (meseData) {
-      setStatoMese(meseData.stato);
-    } else {
-      await supabase.from("mesi").insert({
-        mese,
-        stato: "aperto",
-      });
-      setStatoMese("aperto");
-    }
+    if (meseData) setStatoMese(meseData.stato);
 
-    // Spese del mese (movimenti finanziari tipo spesa)
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
@@ -44,48 +35,24 @@ export default function SpesePage() {
     setSpese(data || []);
   };
 
-  const salvaSpesa = async () => {
-    if (statoMese === "chiuso") {
-      alert("Mese chiuso. Modifiche non consentite.");
-      return;
-    }
+  const salva = async () => {
+    if (statoMese === "chiuso") return alert("Mese chiuso");
 
-    const valore = Number(importo);
-    if (!descrizione || !valore || valore <= 0) {
-      alert("Dati non validi");
-      return;
-    }
-
-    const oggi = new Date().toISOString().split("T")[0];
-
-    // Salvo come movimento negativo
     await supabase.from("movimenti_finanziari").insert({
       tipo: "spesa",
-      contenitore:
-        metodo === "contanti"
-          ? "cassa_operativa"
-          : "banca",
-      importo: -valore,
-      data: oggi,
+      contenitore: metodo === "contanti" ? "cassa_operativa" : "banca",
+      importo: -Number(importo),
       mese,
+      data: new Date().toISOString().split("T")[0],
     });
 
-    setDescrizione("");
     setImporto("");
     loadData();
   };
 
-  const eliminaSpesa = async (id: string) => {
-    if (statoMese === "chiuso") {
-      alert("Mese chiuso.");
-      return;
-    }
-
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("id", id);
-
+  const elimina = async (id: string) => {
+    if (statoMese === "chiuso") return;
+    await supabase.from("movimenti_finanziari").delete().eq("id", id);
     loadData();
   };
 
@@ -93,73 +60,21 @@ export default function SpesePage() {
     <div>
       <h1>Spese</h1>
 
-      <input
-        type="month"
-        value={mese}
-        onChange={(e) => setMese(e.target.value)}
-      />
+      <input type="month" value={mese} onChange={(e)=>setMese(e.target.value)} />
+      <p>Stato: {statoMese}</p>
 
-      <h3>Stato mese: {statoMese}</h3>
+      <input type="number" value={importo} onChange={(e)=>setImporto(e.target.value)} />
+      <select value={metodo} onChange={(e)=>setMetodo(e.target.value)}>
+        <option value="contanti">Contanti</option>
+        <option value="banca">Banca</option>
+      </select>
 
-      {statoMese === "chiuso" && (
-        <div style={{ color: "red" }}>
-          Mese chiuso. Inserimenti bloccati.
-        </div>
-      )}
+      <button onClick={salva}>Salva</button>
 
-      <div style={{ marginTop: 20 }}>
-        <input
-          placeholder="Descrizione"
-          value={descrizione}
-          onChange={(e) => setDescrizione(e.target.value)}
-          disabled={statoMese === "chiuso"}
-        />
-
-        <input
-          type="number"
-          placeholder="Importo"
-          value={importo}
-          onChange={(e) => setImporto(e.target.value)}
-          disabled={statoMese === "chiuso"}
-        />
-
-        <select
-          value={metodo}
-          onChange={(e) => setMetodo(e.target.value)}
-          disabled={statoMese === "chiuso"}
-        >
-          <option value="contanti">Contanti</option>
-          <option value="banca">Banca</option>
-        </select>
-
-        <button
-          onClick={salvaSpesa}
-          disabled={statoMese === "chiuso"}
-        >
-          Aggiungi
-        </button>
-      </div>
-
-      <h2 style={{ marginTop: 30 }}>Elenco Spese</h2>
-
-      {spese.map((s) => (
-        <div
-          key={s.id}
-          style={{
-            border: "1px solid black",
-            padding: 10,
-            marginBottom: 10,
-          }}
-        >
-          € {Math.abs(Number(s.importo)).toFixed(2)} — {s.contenitore}
-          {statoMese === "aperto" && (
-            <button
-              onClick={() => eliminaSpesa(s.id)}
-              style={{ marginLeft: 10 }}
-            >
-              Elimina
-            </button>
-          )}
+      {spese.map(s=>(
+        <div key={s.id}>
+          € {Math.abs(s.importo)}
+          {statoMese==="aperto" && <button onClick={()=>elimina(s.id)}>X</button>}
         </div>
       ))}
     </div>
