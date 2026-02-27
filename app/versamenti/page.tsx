@@ -22,8 +22,6 @@ export default function VersamentiPage() {
   }, [mese])
 
   const caricaTutto = async () => {
-
-    // 🔹 Carica sempre tutti i soci
     const { data: sociData } = await supabase
       .from("soci")
       .select("*")
@@ -31,11 +29,9 @@ export default function VersamentiPage() {
 
     setSoci(sociData || [])
 
-    // 🔹 Carica quota (se esiste)
     const quota = await calcolaQuotaSoci(mese)
     setQuotaData(quota)
 
-    // 🔹 Carica versamenti
     const { data: vers } = await supabase
       .from("versamenti_soci")
       .select("*")
@@ -47,11 +43,22 @@ export default function VersamentiPage() {
 
   const getResiduo = (id: string) => {
     const socioQuota = quotaData?.soci?.find((s: any) => s.id === id)
-    return socioQuota ? socioQuota.differenza : "-"
+    return socioQuota ? Number(socioQuota.differenza) : 0
   }
 
   const handleSubmit = async () => {
+    if (!socioId || !importo) return
+
     await verificaMeseAperto(mese)
+
+    const residuo = getResiduo(socioId)
+
+    if (residuo <= 0) return
+
+    if (Number(importo) > residuo) {
+      alert(`Il massimo versabile è ${residuo} €`)
+      return
+    }
 
     await supabase.from("versamenti_soci").insert([
       {
@@ -66,6 +73,8 @@ export default function VersamentiPage() {
     setSocioId("")
     caricaTutto()
   }
+
+  const perdita = quotaData?.perdita ?? 0
 
   return (
     <div className="space-y-10">
@@ -89,11 +98,22 @@ export default function VersamentiPage() {
           className="block mb-4 p-2 bg-black border border-yellow-500 rounded w-full"
         >
           <option value="">Seleziona socio</option>
-          {soci.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.nome} | Residuo: {getResiduo(s.id)} €
-            </option>
-          ))}
+
+          {soci.map((s) => {
+            const residuo = getResiduo(s.id)
+            const disabilitato = perdita === 0 || residuo <= 0
+
+            return (
+              <option
+                key={s.id}
+                value={s.id}
+                disabled={disabilitato}
+              >
+                {s.nome} | Residuo: {residuo} €
+                {disabilitato ? " (Coperto)" : ""}
+              </option>
+            )
+          })}
         </select>
 
         <input
