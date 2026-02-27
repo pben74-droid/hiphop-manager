@@ -216,3 +216,40 @@ export async function generaSezioneAffitto(mese: string) {
     soci: dettaglio,
   }
 }
+/* =========================================
+   RIEPILOGO OPERATIVO DETTAGLIATO
+========================================= */
+export async function calcolaRiepilogoOperativo(mese: string) {
+
+  const { data: movimenti } = await supabase
+    .from("movimenti_finanziari")
+    .select("*")
+    .eq("mese", mese)
+
+  const incassi = Number(
+    (
+      movimenti
+        ?.filter(m =>
+          m.tipo === "incasso" &&
+          m.categoria !== "trasferimento"
+        )
+        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+    ).toFixed(2)
+  )
+
+  const spese = Number(
+    (
+      movimenti
+        ?.filter(m =>
+          m.tipo === "spesa" &&
+          m.categoria !== "trasferimento"
+        )
+        .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0) || 0
+    ).toFixed(2)
+  )
+
+  return {
+    totale_incassi: incassi,
+    totale_spese: spese
+  }
+}
