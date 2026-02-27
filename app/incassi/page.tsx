@@ -9,6 +9,9 @@ export default function IncassiPage() {
   const [descrizione, setDescrizione] = useState("")
   const [importo, setImporto] = useState("")
   const [contenitore, setContenitore] = useState("cassa_operativa")
+  const [dataIncasso, setDataIncasso] = useState(
+    new Date().toISOString().split("T")[0]
+  )
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
@@ -21,8 +24,6 @@ export default function IncassiPage() {
 
       await verificaMeseAperto(mese)
 
-      const oggi = new Date().toISOString().split("T")[0]
-
       const { error } = await supabase
         .from("movimenti_finanziari")
         .insert([
@@ -33,7 +34,7 @@ export default function IncassiPage() {
             importo: Number(importo),
             contenitore,
             mese,
-            data: oggi,
+            data: dataIncasso,
           },
         ])
 
@@ -43,7 +44,6 @@ export default function IncassiPage() {
 
       setDescrizione("")
       setImporto("")
-
     } catch (err: any) {
       alert(err.message)
     } finally {
@@ -54,6 +54,13 @@ export default function IncassiPage() {
   return (
     <div className="p-10 text-white">
       <h1 className="text-3xl font-bold mb-6">Incassi</h1>
+
+      <input
+        type="date"
+        value={dataIncasso}
+        onChange={(e) => setDataIncasso(e.target.value)}
+        className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+      />
 
       <input
         type="text"
