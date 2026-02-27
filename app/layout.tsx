@@ -1,16 +1,16 @@
+"use client";
+
 import "./globals.css";
 import Link from "next/link";
-
-export const metadata = {
-  title: "Hip Hop Family Manager",
-  description: "Gestionale Interno",
-};
+import { usePathname } from "next/navigation";
 
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+
   return (
     <html lang="it">
       <body className="bg-black text-white">
@@ -38,16 +38,17 @@ export default function RootLayout({
             </div>
 
             {/* MENU */}
-            <nav className="flex flex-col gap-4 text-sm font-medium">
+            <nav className="flex flex-col gap-2 text-sm font-medium">
 
-              <MenuLink href="/" label="Dashboard" />
-              <MenuLink href="/incassi" label="Incassi" />
-              <MenuLink href="/spese" label="Spese" />
-              <MenuLink href="/versamenti" label="Versamenti Soci" />
-              <MenuLink href="/affitto" label="Affitto" />
-              <MenuLink href="/report" label="Report PDF" />
-              <MenuLink href="/certificati" label="Certificati Medici" />
-              <MenuLink href="/chiusura" label="Chiusura Mese" red />
+              <MenuLink href="/" label="Dashboard" pathname={pathname} />
+              <MenuLink href="/incassi" label="Incassi" pathname={pathname} />
+              <MenuLink href="/spese" label="Spese" pathname={pathname} />
+              <MenuLink href="/insegnanti" label="Insegnanti" pathname={pathname} />
+              <MenuLink href="/versamenti" label="Versamenti Soci" pathname={pathname} />
+              <MenuLink href="/affitto" label="Affitto" pathname={pathname} />
+              <MenuLink href="/report" label="Report PDF" pathname={pathname} />
+              <MenuLink href="/certificati" label="Certificati Medici" pathname={pathname} />
+              <MenuLink href="/chiusura" label="Chiusura Mese" pathname={pathname} red />
 
             </nav>
 
@@ -72,20 +73,29 @@ export default function RootLayout({
 function MenuLink({
   href,
   label,
+  pathname,
   red = false,
 }: {
   href: string;
   label: string;
+  pathname: string;
   red?: boolean;
 }) {
+  const active = pathname === href;
+
   return (
     <Link
       href={href}
       className={`
-        px-3 py-2 rounded-md transition
-        ${red 
-          ? "text-red-500 hover:bg-red-500/10 hover:text-red-400" 
-          : "hover:bg-yellow-500/10 hover:text-yellow-500"
+        px-3 py-2 rounded-md transition-all duration-200
+        ${
+          red
+            ? active
+              ? "bg-red-600/20 text-red-400 border-l-4 border-red-500"
+              : "text-red-500 hover:bg-red-500/10 hover:text-red-400"
+            : active
+            ? "bg-yellow-500/10 text-yellow-400 border-l-4 border-yellow-500 shadow-gold"
+            : "hover:bg-yellow-500/10 hover:text-yellow-500"
         }
       `}
     >
