@@ -56,8 +56,10 @@ export async function calcolaQuotaSoci(mese: string) {
     .eq("mese", mese)
 
   const risultato_operativo = Number(
-    movimenti?.reduce((acc, m) => acc + Number(m.importo), 0) || 0
-  )
+  movimenti
+    ?.filter((m) => m.categoria !== "trasferimento")
+    .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+)
 
   if (risultato_operativo >= 0) {
     return {
