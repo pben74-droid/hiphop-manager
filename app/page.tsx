@@ -1,20 +1,17 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import Link from "next/link"
 import { supabase } from "@/lib/supabaseClient"
 import { calcolaQuotaSoci, inizializzaMese } from "@/lib/gestioneMese"
+import { useMese } from "@/lib/MeseContext"
 
 export default function Dashboard() {
-  const oggi = new Date()
-  const meseCorrente = `${oggi.getFullYear()}-${String(
-    oggi.getMonth() + 1
-  ).padStart(2, "0")}`
+  const { mese, setMese } = useMese()
 
-  const [mese, setMese] = useState(meseCorrente)
   const [riepilogo, setRiepilogo] = useState<any>(null)
   const [movimenti, setMovimenti] = useState<any[]>([])
   const [affitto, setAffitto] = useState<any[]>([])
+  const [versamenti, setVersamenti] = useState<any[]>([])
   const [mesiDisponibili, setMesiDisponibili] = useState<string[]>([])
 
   useEffect(() => {
@@ -31,9 +28,7 @@ export default function Dashboard() {
       .select("mese")
       .order("mese", { ascending: false })
 
-    if (data) {
-      setMesiDisponibili(data.map((m) => m.mese))
-    }
+    if (data) setMesiDisponibili(data.map((m) => m.mese))
   }
 
   const caricaDati = async () => {
@@ -55,11 +50,18 @@ export default function Dashboard() {
       .eq("mese", mese)
 
     setAffitto(aff || [])
+
+    const { data: vers } = await supabase
+      .from("versamenti_soci")
+      .select("*")
+      .eq("mese", mese)
+      .order("data", { ascending: false })
+
+    setVersamenti(vers || [])
   }
 
-  if (!riepilogo) return <div className="p-10 text-white">Caricamento...</div>
+  if (!riepilogo) return <div className="p-10">Caricamento...</div>
 
-  // 🔹 OPERATIVO
   const totaleIncassi = movimenti
     .filter((m) => m.tipo === "incasso")
     .reduce((acc, m) => acc + Number(m.importo), 0)
@@ -68,27 +70,24 @@ export default function Dashboard() {
     .filter((m) => m.tipo === "spesa")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
-  // 🔹 CASSA OPERATIVA
   const saldoCassaOperativa = movimenti
     .filter((m) => m.contenitore === "cassa_operativa")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
-  // 🔹 BANCA
   const saldoBanca = movimenti
     .filter((m) => m.contenitore === "banca")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
-  // 🔹 CASSA AFFITTO
   const saldoCassaAffitto = affitto.reduce(
     (acc, a) => acc + Number(a.versato || 0),
     0
   )
 
   return (
-    <div className="p-10 text-white space-y-10">
+    <div className="space-y-10">
 
-      <h1 className="text-4xl font-bold">
-        HIP HOP FAMILY MANAGER
+      <h1 className="text-4xl font-bold text-yellow-500">
+        Dashboard Finanziaria
       </h1>
 
       {/* SELETTORE MESE */}
@@ -109,90 +108,78 @@ export default function Dashboard() {
 
       {/* OPERATIVO */}
       <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-2xl mb-4">📊 Operativo</h2>
-        <p>Totale Incassi: <span className="text-green-400">{totaleIncassi} €</span></p>
-        <p>Totale Spese: <span className="text-red-400">{totaleSpese} €</span></p>
+        <h2 className="text-xl mb-4">Operativo</h2>
+        <p>Incassi: {totaleIncassi} €</p>
+        <p>Spese: {totaleSpese} €</p>
         <p>
-          Risultato Operativo:{" "}
+          Risultato:{" "}
           <span className={riepilogo.risultato_operativo >= 0 ? "text-green-400" : "text-red-400"}>
             {riepilogo.risultato_operativo} €
           </span>
         </p>
       </div>
 
-      {/* CONTENITORI SEPARATI */}
+      {/* CONTENITORI */}
       <div className="grid grid-cols-3 gap-6">
-
         <div className="border border-yellow-500 p-6 rounded">
-          <h2 className="text-xl mb-2">💵 Cassa Operativa</h2>
+          <h3>Cassa Operativa</h3>
           <p>{saldoCassaOperativa} €</p>
         </div>
 
         <div className="border border-yellow-500 p-6 rounded">
-          <h2 className="text-xl mb-2">🏦 Banca</h2>
+          <h3>Banca</h3>
           <p>{saldoBanca} €</p>
         </div>
 
         <div className="border border-yellow-500 p-6 rounded">
-          <h2 className="text-xl mb-2">🏠 Cassa Affitto</h2>
+          <h3>Cassa Affitto</h3>
           <p>{saldoCassaAffitto} €</p>
         </div>
-
       </div>
 
-      {/* SOCI */}
+      {/* SITUAZIONE SOCI */}
       <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-2xl mb-4">👥 Situazione Soci</h2>
+        <h2 className="text-xl mb-4">Situazione Soci</h2>
 
         {riepilogo.perdita > 0 ? (
           riepilogo.soci.map((s: any) => (
             <div key={s.id} className="flex justify-between mb-2">
               <span>{s.nome}</span>
               <span>
-                Quota: {s.quota_calcolata} € | Versato: {s.versato} € |{" "}
-                <span className={s.differenza === 0 ? "text-green-400" : "text-red-400"}>
-                  Diff: {s.differenza} €
-                </span>
+                Dovuto: {s.quota_calcolata} € | Versato: {s.versato} € | Diff: {s.differenza} €
               </span>
             </div>
           ))
         ) : (
-          <p className="text-green-400">Nessuna perdita da coprire</p>
+          <p>Nessuna perdita</p>
         )}
-
-        <p className="mt-4">
-          Stato chiusura:{" "}
-          <span className={riepilogo.chiudibile ? "text-green-400" : "text-red-400"}>
-            {riepilogo.chiudibile ? "CHIUDIBILE" : "NON CHIUDIBILE"}
-          </span>
-        </p>
       </div>
 
-      {/* NAV */}
-      <div className="grid grid-cols-2 gap-6">
-        <Link href="/incassi">
-          <div className="bg-black border border-yellow-500 p-6 rounded hover:bg-yellow-500 hover:text-black transition cursor-pointer">
-            💰 Incassi
-          </div>
-        </Link>
+      {/* RIEPILOGO VERSAMENTI */}
+      <div className="border border-yellow-500 p-6 rounded">
+        <h2 className="text-xl mb-4">Versamenti del Mese</h2>
 
-        <Link href="/spese">
-          <div className="bg-black border border-yellow-500 p-6 rounded hover:bg-yellow-500 hover:text-black transition cursor-pointer">
-            🧾 Spese
-          </div>
-        </Link>
-
-        <Link href="/soci">
-          <div className="bg-black border border-yellow-500 p-6 rounded hover:bg-yellow-500 hover:text-black transition cursor-pointer">
-            👥 Soci
-          </div>
-        </Link>
-
-        <Link href="/chiusura">
-          <div className="bg-black border border-yellow-500 p-6 rounded hover:bg-yellow-500 hover:text-black transition cursor-pointer">
-            🔒 Chiusura
-          </div>
-        </Link>
+        <table className="w-full border border-yellow-500">
+          <thead>
+            <tr className="bg-yellow-500 text-black">
+              <th className="p-2">Data</th>
+              <th className="p-2">Socio</th>
+              <th className="p-2">Importo</th>
+            </tr>
+          </thead>
+          <tbody>
+            {versamenti.map((v) => {
+              const socio = riepilogo.soci.find((s: any) => s.id === v.socio_id)
+              return (
+                <tr key={v.id} className="border-t border-yellow-500">
+                  <td className="p-2">{v.data}</td>
+                  <td className="p-2">{socio?.nome}</td>
+                  <td className="p-2">{v.importo} €</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
     </div>
