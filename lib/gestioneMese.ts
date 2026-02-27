@@ -1,31 +1,58 @@
 import { supabase } from "./supabaseClient"
 
+/* =========================================
+   INIZIALIZZA MESE (se non esiste lo crea)
+========================================= */
+export async function inizializzaMese(mese: string) {
+  const { data } = await supabase
+    .from("mesi")
+    .select("*")
+    .eq("mese", mese)
+    .maybeSingle()
+
+  if (!data) {
+    const { error } = await supabase
+      .from("mesi")
+      .insert([
+        {
+          mese,
+          stato: "aperto",
+          saldo_cassa: 0,
+          saldo_banca: 0
+        }
+      ])
+
+    if (error) {
+      throw new Error("Errore inizializzazione mese")
+    }
+  }
+
+  return true
+}
+
+/* =========================================
+   CALCOLO QUOTA SOCI
+========================================= */
 export async function calcolaQuotaSoci(mese: string) {
   const errori: string[] = []
 
-  // Controllo esistenza mese
-  const { data: meseData, error: meseError } = await supabase
+  const { data: meseData } = await supabase
     .from("mesi")
     .select("*")
     .eq("mese", mese)
     .single()
 
-  if (meseError || !meseData) {
-    throw new Error("Mese non trovato")
-  }
+  if (!meseData) throw new Error("Mese non trovato")
 
   if (meseData.stato === "chiuso") {
     return meseData.report_snapshot
   }
 
-  // Soci
-  const { data: soci, error: sociError } = await supabase
+  const { data: soci } = await supabase
     .from("soci")
     .select("*")
 
-  if (sociError || !soci) {
-    throw new Error("Errore caricamento soci")
-  }
+  if (!soci) throw new Error("Errore caricamento soci")
 
   const sommaPercentuali = soci.reduce(
     (acc, s) => acc + Number(s.percentuale),
@@ -33,18 +60,15 @@ export async function calcolaQuotaSoci(mese: string) {
   )
 
   if (Number(sommaPercentuali.toFixed(2)) !== 100) {
-    errori.push("La somma delle percentuali soci non è 100")
+    errori.push("Somma percentuali soci diversa da 100")
   }
 
-  // Movimenti
-  const { data: movimenti, error: movError } = await supabase
+  const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
-  if (movError || !movimenti) {
-    throw new Error("Errore caricamento movimenti")
-  }
+  if (!movimenti) throw new Error("Errore caricamento movimenti")
 
   const risultato_operativo = Number(
     movimenti.reduce((acc, m) => acc + Number(m.importo), 0).toFixed(2)
@@ -109,10 +133,7 @@ export async function calcolaQuotaSoci(mese: string) {
     s.differenza = Number((s.quota_calcolata - s.versato).toFixed(2))
     totaleVersamenti += s.versato
 
-    if (s.differenza !== 0) {
-      tuttoCoperto = false
-    }
-
+    if (s.differenza !== 0) tuttoCoperto = false
     if (s.differenza < 0) {
       errori.push(`Il socio ${s.nome} ha versato più del dovuto`)
     }
@@ -133,11 +154,14 @@ export async function calcolaQuotaSoci(mese: string) {
   }
 }
 
+/* =========================================
+   CHIUSURA MESE SERVER
+========================================= */
 export async function chiudiMeseServer(mese: string) {
   const risultato = await calcolaQuotaSoci(mese)
 
   if (!risultato.chiudibile) {
-    throw new Error("Il mese non è chiudibile.")
+    throw new Error("Il mese non è chiudibile")
   }
 
   const { error } = await supabase
@@ -148,9 +172,7 @@ export async function chiudiMeseServer(mese: string) {
     })
     .eq("mese", mese)
 
-  if (error) {
-    throw new Error("Errore chiusura mese")
-  }
+  if (error) throw new Error("Errore chiusura mese")
 
   return { success: true }
 }
