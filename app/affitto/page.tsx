@@ -9,9 +9,8 @@ export default function AffittoPage() {
   const { mese } = useMese()
 
   const [soci, setSoci] = useState<any[]>([])
-  const [affittoRecords, setAffittoRecords] = useState<any[]>([])
   const [costoMensile, setCostoMensile] = useState<number>(0)
-  const [errore, setErrore] = useState("")
+  const [pagamenti, setPagamenti] = useState<any[]>([])
 
   useEffect(() => {
     caricaDati()
@@ -27,95 +26,107 @@ export default function AffittoPage() {
     setSoci(sociData || [])
 
     const { data: affittoData } = await supabase
-      .from("affitto")
+      .from("affitto_mese")
+      .select("*")
+      .eq("mese", mese)
+      .maybeSingle()
+
+    if (affittoData) {
+      setCostoMensile(Number(affittoData.costo_mensile))
+    }
+
+    const { data: pagamentiData } = await supabase
+      .from("affitto_pagamenti")
       .select("*")
       .eq("mese", mese)
 
-    setAffittoRecords(affittoData || [])
-
-    if (affittoData && affittoData.length > 0) {
-      setCostoMensile(Number(affittoData[0].costo_mensile))
-    }
+    setPagamenti(pagamentiData || [])
   }
 
-  const getVersato = (socioId: string) => {
-    const record = affittoRecords.find(a => a.socio_id === socioId)
-    return record ? Number(record.versato) : 0
+  const salvaCostoMensile = async () => {
+    await verificaMeseAperto(mese)
+
+    await supabase.from("affitto_mese").upsert([
+      {
+        mese,
+        costo_mensile: costoMensile
+      }
+    ])
   }
 
   const quotaSocio = (percentuale: number) => {
     return Number((costoMensile * (percentuale / 100)).toFixed(2))
   }
 
+  const getVersato = (socioId: string) => {
+    return pagamenti
+      .filter(p => p.socio_id === socioId)
+      .reduce((acc, p) => acc + Number(p.importo), 0)
+  }
+
   const registraPagamento = async (socio: any) => {
-    try {
-      await verificaMeseAperto(mese)
+    await verificaMeseAperto(mese)
 
-      const quota = quotaSocio(Number(socio.quota_percentuale))
+    const quota = quotaSocio(Number(socio.quota_percentuale))
 
-      await supabase.from("affitto").upsert([
-        {
-          mese,
-          socio_id: socio.id,
-          costo_mensile: costoMensile,
-          versato: quota,
-          data: new Date().toISOString().split("T")[0],
-        }
-      ])
+    await supabase.from("affitto_pagamenti").insert([
+      {
+        mese,
+        socio_id: socio.id,
+        importo: quota,
+        data: new Date().toISOString().split("T")[0]
+      }
+    ])
 
-      caricaDati()
-    } catch (err: any) {
-      setErrore(err.message)
-    }
+    caricaDati()
   }
 
   const annullaPagamento = async (socioId: string) => {
-    try {
-      await verificaMeseAperto(mese)
+    await verificaMeseAperto(mese)
 
-      await supabase
-        .from("affitto")
-        .delete()
-        .eq("mese", mese)
-        .eq("socio_id", socioId)
+    await supabase
+      .from("affitto_pagamenti")
+      .delete()
+      .eq("mese", mese)
+      .eq("socio_id", socioId)
 
-      caricaDati()
-    } catch (err: any) {
-      setErrore(err.message)
-    }
+    caricaDati()
   }
 
   return (
     <div className="space-y-10">
 
-      <h1 className="text-3xl font-bold text-yellow-500">
+      <h1 className="text-3xl text-yellow-500 font-bold">
         Gestione Affitto
       </h1>
 
-      {errore && <div className="text-red-400">{errore}</div>}
-
-      {/* Importo affitto */}
       <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-xl mb-4">Importo Affitto Mensile</h2>
+        <h2 className="mb-4">Importo Affitto Mensile</h2>
 
         <input
           type="number"
           value={costoMensile}
           onChange={(e) => setCostoMensile(Number(e.target.value))}
-          className="p-2 bg-black border border-yellow-500 rounded w-full"
+          className="p-2 bg-black border border-yellow-500 rounded w-full mb-4"
         />
+
+        <button
+          onClick={salvaCostoMensile}
+          className="bg-yellow-500 text-black px-4 py-2 rounded"
+        >
+          Salva Importo
+        </button>
       </div>
 
-      {/* Elenco Soci */}
       <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-xl mb-4">Ripartizione Soci</h2>
+        <h2 className="mb-4">Ripartizione Soci</h2>
 
         <table className="w-full border border-yellow-500">
           <thead>
             <tr className="bg-yellow-500 text-black">
               <th className="p-2">Socio</th>
               <th className="p-2">% Possesso</th>
-              <th className="p-2">Quota Affitto</th>
+              <th className="p-2">Quota</th>
               <th className="p-2">Versato</th>
               <th className="p-2">Stato</th>
               <th className="p-2">Azioni</th>
@@ -141,14 +152,13 @@ export default function AffittoPage() {
                       onClick={() => registraPagamento(s)}
                       className="bg-green-500 text-black px-3 py-1 rounded"
                     >
-                      Registra Pagamento
+                      Registra
                     </button>
-
                     <button
                       onClick={() => annullaPagamento(s.id)}
                       className="bg-red-500 px-3 py-1 rounded"
                     >
-                      Annulla Pagamento
+                      Annulla
                     </button>
                   </td>
                 </tr>
