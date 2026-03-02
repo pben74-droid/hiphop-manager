@@ -2,300 +2,205 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { verificaMeseAperto } from "@/lib/gestioneMese"
 import { useMese } from "@/lib/MeseContext"
+import { verificaMeseChiuso } from "@/lib/gestioneMese"
 
 export default function SpesePage() {
 
-  const meseContext = useMese()
-  const mese = meseContext?.mese
+  const { mese } = useMese()
 
-  const [categorie, setCategorie] = useState<any[]>([])
-  const [categoriaSelezionata, setCategoriaSelezionata] = useState("")
+  const [bloccato, setBloccato] = useState(false)
+  const [descrizione, setDescrizione] = useState("")
   const [importo, setImporto] = useState("")
-  const [dataSpesa, setDataSpesa] = useState("")
+  const [categoria, setCategoria] = useState("spesa_generica")
   const [contenitore, setContenitore] = useState("cassa_operativa")
-  const [lista, setLista] = useState<any[]>([])
-  const [nuovaCategoria, setNuovaCategoria] = useState("")
-  const [errore, setErrore] = useState("")
+  const [spese, setSpese] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
-  /* ===========================
-     DEBUG
-  =========================== */
-  useEffect(() => {
-    console.log("Mese ricevuto:", mese)
-  }, [mese])
-
-  /* ===========================
-     CARICAMENTO DATI
-  =========================== */
   useEffect(() => {
     if (!mese) return
-    caricaCategorie()
-    caricaSpese()
+    inizializza()
   }, [mese])
 
-  const caricaCategorie = async () => {
-    const { data, error } = await supabase
-      .from("categorie_spese")
-      .select("*")
-      .eq("attiva", true)
-      .order("nome")
+  const inizializza = async () => {
 
-    if (error) {
-      console.error("Errore categorie:", error.message)
-      setErrore(error.message)
-      return
-    }
+    setLoading(true)
 
-    setCategorie(data || [])
-  }
-
-  const caricaSpese = async () => {
-
-    const { data, error } = await supabase
-      .from("movimenti_finanziari")
-      .select("*")
-      .eq("mese", mese)
-      .in("categoria", ["spesa_generica", "trasferimento"])
-      .order("data", { ascending: false })
-
-    if (error) {
-      console.error("Errore spese:", error.message)
-      setErrore(error.message)
-      return
-    }
-
-    const filtrate = (data || []).filter((m) => {
-      if (m.categoria !== "trasferimento") return true
-      return m.contenitore === "banca"
-    })
-
-    setLista(filtrate)
-    setLoading(false)
-  }
-
-  /* ===========================
-     AGGIUNGI CATEGORIA
-  =========================== */
-  const aggiungiCategoria = async () => {
-
-    if (!nuovaCategoria) return
-
-    const { error } = await supabase
-      .from("categorie_spese")
-      .insert([{ nome: nuovaCategoria }])
-
-    if (error) {
-      setErrore(error.message)
-      return
-    }
-
-    setNuovaCategoria("")
-    caricaCategorie()
-  }
-
-  /* ===========================
-     REGISTRA SPESA
-  =========================== */
-  const registraSpesa = async () => {
-
-    try {
-
-      if (!mese) return
-      await verificaMeseAperto(mese)
-
-      if (!categoriaSelezionata || !importo) {
-        setErrore("Compila tutti i campi")
-        return
-      }
-
-      const imp = Number(importo)
-
-      if (categoriaSelezionata === "Prelevamento banca") {
-
-        await supabase.from("movimenti_finanziari").insert([
-          {
-            tipo: "spesa",
-            categoria: "trasferimento",
-            descrizione: "Prelevamento banca",
-            importo: -imp,
-            contenitore: "banca",
-            mese,
-            data: dataSpesa
-          }
-        ])
-
-        await supabase.from("movimenti_finanziari").insert([
-          {
-            tipo: "incasso",
-            categoria: "trasferimento",
-            descrizione: "Prelevamento banca",
-            importo: imp,
-            contenitore: "cassa_operativa",
-            mese,
-            data: dataSpesa
-          }
-        ])
-
-      } else {
-
-        await supabase.from("movimenti_finanziari").insert([
-          {
-            tipo: "spesa",
-            categoria: "spesa_generica",
-            descrizione: categoriaSelezionata,
-            importo: -imp,
-            contenitore,
-            mese,
-            data: dataSpesa
-          }
-        ])
-      }
-
-      setImporto("")
-      setCategoriaSelezionata("")
-      setDataSpesa("")
-
-      caricaSpese()
-
-    } catch (err: any) {
-      setErrore(err.message)
-    }
-  }
-
-  /* ===========================
-     ELIMINA
-  =========================== */
-  const elimina = async (id: string) => {
-
-    if (!mese) return
-
-    await verificaMeseAperto(mese)
+    const chiuso = await verificaMeseChiuso(mese)
+    setBloccato(chiuso)
 
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
-      .eq("id", id)
-      .single()
+      .eq("mese", mese)
+      .eq("tipo", "spesa")
+      .neq("categoria", "insegnante") // escludo insegnanti
+      .order("data", { ascending: false })
 
-    if (!data) return
+    setSpese(data || [])
+    setLoading(false)
+  }
 
-    if (data.categoria === "trasferimento") {
+  const salva = async () => {
 
-      await supabase
-        .from("movimenti_finanziari")
-        .delete()
-        .eq("mese", mese)
-        .eq("categoria", "trasferimento")
-        .eq("data", data.data)
+    if (bloccato) return
+
+    if (!descrizione || !importo) {
+      alert("Compila i campi")
+      return
+    }
+
+    const valore = Number(importo)
+
+    // 🔁 PRELEVAMENTO BANCA
+    if (categoria === "prelevamento_banca") {
+
+      // banca -X
+      await supabase.from("movimenti_finanziari").insert({
+        tipo: "spesa",
+        categoria: "trasferimento",
+        descrizione: "Prelevamento banca",
+        importo: -valore,
+        contenitore: "banca",
+        mese,
+        data: new Date().toISOString().slice(0, 10)
+      })
+
+      // cassa +X
+      await supabase.from("movimenti_finanziari").insert({
+        tipo: "incasso",
+        categoria: "trasferimento",
+        descrizione: "Prelevamento banca",
+        importo: valore,
+        contenitore: "cassa_operativa",
+        mese,
+        data: new Date().toISOString().slice(0, 10)
+      })
 
     } else {
 
-      await supabase
-        .from("movimenti_finanziari")
-        .delete()
-        .eq("id", id)
-
+      await supabase.from("movimenti_finanziari").insert({
+        tipo: "spesa",
+        categoria,
+        descrizione,
+        importo: -valore,
+        contenitore,
+        mese,
+        data: new Date().toISOString().slice(0, 10)
+      })
     }
 
-    caricaSpese()
+    setDescrizione("")
+    setImporto("")
+    inizializza()
   }
 
-  if (!mese) {
-    return <div className="text-yellow-500">Caricamento mese...</div>
+  const elimina = async (id: string) => {
+
+    if (bloccato) return
+
+    await supabase
+      .from("movimenti_finanziari")
+      .delete()
+      .eq("id", id)
+
+    inizializza()
   }
 
   if (loading) {
-    return <div className="text-yellow-500">Caricamento spese...</div>
+    return <div className="p-6 text-yellow-500">Caricamento...</div>
+  }
+
+  if (bloccato) {
+    return (
+      <div className="p-6 text-red-500 font-bold">
+        Mese chiuso. Modifiche non consentite.
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-10">
+    <div className="p-6 space-y-6">
 
-      <h1 className="text-3xl font-bold text-yellow-500">
-        Spese Generiche
+      <h1 className="text-2xl text-yellow-500 font-bold">
+        Spese – {mese}
       </h1>
 
-      {errore && <div className="text-red-400">{errore}</div>}
+      {/* FORM */}
+      <div className="border border-yellow-500 p-4 rounded space-y-3">
 
-      <div className="border border-yellow-500 p-6 rounded space-y-4">
-
-        <select
-          value={categoriaSelezionata}
-          onChange={(e) => setCategoriaSelezionata(e.target.value)}
-          className="p-2 bg-black border border-yellow-500 rounded w-full"
-        >
-          <option value="">Seleziona categoria</option>
-          {categorie.map((c) => (
-            <option key={c.id} value={c.nome}>
-              {c.nome}
-            </option>
-          ))}
-        </select>
+        <input
+          type="text"
+          placeholder="Descrizione"
+          value={descrizione}
+          onChange={(e) => setDescrizione(e.target.value)}
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+        />
 
         <input
           type="number"
+          step="0.01"
           placeholder="Importo"
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
-          className="p-2 bg-black border border-yellow-500 rounded w-full"
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         />
 
-        <input
-          type="date"
-          value={dataSpesa}
-          onChange={(e) => setDataSpesa(e.target.value)}
-          className="p-2 bg-black border border-yellow-500 rounded w-full"
-        />
+        <select
+          value={categoria}
+          onChange={(e) => setCategoria(e.target.value)}
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+        >
+          <option value="spesa_generica">Spesa Generica</option>
+          <option value="commissione_pos">Commissione POS</option>
+          <option value="tessera_socio">Emissione Tessera</option>
+          <option value="cancelleria">Acquisto Cancelleria</option>
+          <option value="prelevamento_banca">Prelevamento Banca</option>
+        </select>
+
+        {categoria !== "prelevamento_banca" && (
+          <select
+            value={contenitore}
+            onChange={(e) => setContenitore(e.target.value)}
+            className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          >
+            <option value="cassa_operativa">Cassa Operativa</option>
+            <option value="banca">Banca</option>
+          </select>
+        )}
 
         <button
-          onClick={registraSpesa}
+          onClick={salva}
           className="bg-yellow-500 text-black px-4 py-2 rounded"
         >
           Registra Spesa
         </button>
-
       </div>
 
-      <div className="border border-yellow-500 p-6 rounded">
+      {/* ELENCO */}
+      <div className="border border-yellow-500 p-4 rounded">
+        <h2 className="text-lg mb-4">Elenco Spese</h2>
 
-        <h2 className="mb-4">Elenco Spese</h2>
+        {spese.map(s => (
+          <div
+            key={s.id}
+            className="flex justify-between items-center border-b border-yellow-500 py-2"
+          >
+            <div>
+              <p>{s.descrizione}</p>
+              <p className="text-red-500">
+                {Number(s.importo).toFixed(2)} €
+              </p>
+            </div>
 
-        <table className="w-full border border-yellow-500">
-
-          <thead>
-            <tr className="bg-yellow-500 text-black">
-              <th className="p-2">Data</th>
-              <th className="p-2">Descrizione</th>
-              <th className="p-2">Importo</th>
-              <th className="p-2">Azioni</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            {lista.map((s) => (
-              <tr key={s.id} className="border-t border-yellow-500">
-                <td className="p-2">{s.data}</td>
-                <td className="p-2">{s.descrizione}</td>
-                <td className="p-2">
-                  {Math.abs(Number(s.importo)).toFixed(2)} €
-                </td>
-                <td className="p-2">
-                  <button
-                    onClick={() => elimina(s.id)}
-                    className="bg-red-500 px-3 py-1 rounded"
-                  >
-                    Elimina
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-
-        </table>
-
+            <button
+              onClick={() => elimina(s.id)}
+              className="bg-red-500 px-3 py-1 rounded"
+            >
+              Elimina
+            </button>
+          </div>
+        ))}
       </div>
 
     </div>
