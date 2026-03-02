@@ -62,7 +62,6 @@ export default function VersamentiPage() {
     const valore = Number(importo)
     const oggi = new Date().toISOString().slice(0, 10)
 
-    // 🔹 1. Salvo versamento per ripartizione soci
     const { error: erroreVersamento } = await supabase
       .from("versamenti_soci")
       .insert({
@@ -78,7 +77,6 @@ export default function VersamentiPage() {
       return
     }
 
-    // 🔹 2. Salvo movimento reale di cassa
     const { error: erroreMovimento } = await supabase
       .from("movimenti_finanziari")
       .insert({
@@ -104,6 +102,25 @@ export default function VersamentiPage() {
 
     if (bloccato) return
 
+    // 1️⃣ Recupero il versamento prima di eliminarlo
+    const { data: versamento } = await supabase
+      .from("versamenti_soci")
+      .select("*")
+      .eq("id", id)
+      .single()
+
+    if (!versamento) return
+
+    // 2️⃣ Elimino movimento finanziario collegato
+    await supabase
+      .from("movimenti_finanziari")
+      .delete()
+      .eq("mese", versamento.mese)
+      .eq("categoria", "versamento_socio")
+      .eq("importo", versamento.importo)
+      .eq("data", versamento.data)
+
+    // 3️⃣ Elimino versamento socio
     await supabase
       .from("versamenti_soci")
       .delete()
@@ -131,7 +148,6 @@ export default function VersamentiPage() {
         Versamenti Soci – {mese}
       </h1>
 
-      {/* FORM */}
       <div className="border border-yellow-500 p-4 rounded space-y-3">
 
         <select
@@ -164,7 +180,6 @@ export default function VersamentiPage() {
         </button>
       </div>
 
-      {/* RIEPILOGO SOCI */}
       {riepilogo && (
         <div className="border border-yellow-500 p-4 rounded">
           <h2 className="text-lg mb-4">Ripartizione</h2>
@@ -178,7 +193,13 @@ export default function VersamentiPage() {
               <span>
                 Quota: {s.quota_calcolata.toFixed(2)} € | 
                 Versato: {s.versato.toFixed(2)} € | 
-                <span className={s.differenza === 0 ? "text-green-400" : "text-red-500 font-bold"}>
+                <span className={
+                  s.differenza > 0
+                    ? "text-green-400 font-bold"
+                    : s.differenza < 0
+                    ? "text-red-500 font-bold"
+                    : "text-gray-300"
+                }>
                   Differenza: {s.differenza.toFixed(2)} €
                 </span>
               </span>
@@ -187,7 +208,6 @@ export default function VersamentiPage() {
         </div>
       )}
 
-      {/* ELENCO VERSAMENTI */}
       <div className="border border-yellow-500 p-4 rounded">
         <h2 className="text-lg mb-4">Elenco Versamenti</h2>
 
