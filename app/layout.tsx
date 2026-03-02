@@ -2,98 +2,75 @@
 
 import "./globals.css"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { ReactNode } from "react"
 import { MeseProvider } from "@/lib/MeseContext"
-
-function Sidebar() {
-  const pathname = usePathname()
-
-  const linkClass = (path: string) =>
-    `block px-4 py-3 rounded transition ${
-      pathname === path
-        ? "bg-yellow-500 text-black font-bold shadow-lg"
-        : "hover:bg-yellow-500 hover:text-black"
-    }`
-
-  return (
-    <aside className="w-64 bg-black border-r border-yellow-500 flex flex-col p-6">
-
-      {/* Logo */}
-      <div className="mb-10 text-center">
-        <img
-          src="/LOGO_DEFINITIVO_TRASPARENTE.png"
-          alt="Logo"
-          className="mx-auto mb-4"
-        />
-        <h1 className="text-yellow-500 font-bold text-lg tracking-wider">
-          HIP HOP FAMILY
-        </h1>
-      </div>
-
-      {/* Navigation */}
-      <nav className="space-y-2 text-white">
-
-        <Link href="/" className={linkClass("/")}>
-          Dashboard
-        </Link>
-
-        <Link href="/incassi" className={linkClass("/incassi")}>
-          Incassi
-        </Link>
-
-        <Link href="/spese" className={linkClass("/spese")}>
-          Spese
-        </Link>
-
-        <Link href="/insegnanti" className={linkClass("/insegnanti")}>
-          Insegnanti
-        </Link>
-
-        <Link href="/soci" className={linkClass("/soci")}>
-          Soci
-        </Link>
-
-        <Link href="/versamenti" className={linkClass("/versamenti")}>
-          Versamenti Soci
-        </Link>
-
-        <Link href="/affitto" className={linkClass("/affitto")}>
-          Affitto
-        </Link>
-
-        <Link href="/certificati" className={linkClass("/certificati")}>
-          Certificati Medici
-        </Link>
-
-        <Link href="/chiusura" className={linkClass("/chiusura")}>
-          Chiusura Mese
-        </Link>
-
-      </nav>
-
-      <div className="mt-auto text-xs text-gray-500 text-center">
-        Gestionale Interno
-      </div>
-    </aside>
-  )
-}
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   return (
     <html lang="it">
       <body className="bg-black text-white">
+
         <MeseProvider>
+
           <div className="flex min-h-screen">
-            <Sidebar />
-            <main className="flex-1 p-10">
+
+            {/* SIDEBAR */}
+            <aside className="w-64 bg-black border-r border-yellow-500 p-6 space-y-6">
+
+              <div className="text-2xl font-bold text-yellow-500">
+                HIP HOP FAMILY
+              </div>
+
+              <nav className="flex flex-col space-y-3">
+
+                <Link href="/" className="hover:text-yellow-500">
+                  Dashboard
+                </Link>
+
+                <Link href="/incassi" className="hover:text-yellow-500">
+                  Incassi
+                </Link>
+
+                <Link href="/spese" className="hover:text-yellow-500">
+                  Spese
+                </Link>
+
+                <Link href="/insegnanti" className="hover:text-yellow-500">
+                  Insegnanti
+                </Link>
+
+                <Link href="/versamenti" className="hover:text-yellow-500">
+                  Versamenti Soci
+                </Link>
+
+                <Link href="/affitto" className="hover:text-yellow-500">
+                  Affitto
+                </Link>
+
+                <Link href="/banca" className="hover:text-yellow-500">
+                  Banca
+                </Link>
+
+                <Link href="/cassa" className="hover:text-yellow-500">
+                  Cassa
+                </Link>
+
+              </nav>
+            </aside>
+
+            {/* CONTENUTO */}
+            <main className="flex-1 p-8">
               {children}
             </main>
+
           </div>
+
         </MeseProvider>
+
       </body>
     </html>
   )
