@@ -2,26 +2,33 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { verificaMeseAperto, calcolaQuotaSoci } from "@/lib/gestioneMese"
 import { useMese } from "@/lib/MeseContext"
+import { verificaMeseChiuso, calcolaQuotaSoci } from "@/lib/gestioneMese"
 
 export default function VersamentiPage() {
+
   const { mese } = useMese()
 
+  const [bloccato, setBloccato] = useState(false)
   const [soci, setSoci] = useState<any[]>([])
-  const [quotaData, setQuotaData] = useState<any>(null)
-  const [versamenti, setVersamenti] = useState<any[]>([])
-  const [socioId, setSocioId] = useState("")
+  const [socioSelezionato, setSocioSelezionato] = useState("")
   const [importo, setImporto] = useState("")
-  const [dataVersamento, setDataVersamento] = useState(
-    new Date().toISOString().split("T")[0]
-  )
+  const [versamenti, setVersamenti] = useState<any[]>([])
+  const [riepilogo, setRiepilogo] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    caricaTutto()
+    if (!mese) return
+    inizializza()
   }, [mese])
 
-  const caricaTutto = async () => {
+  const inizializza = async () => {
+
+    setLoading(true)
+
+    const chiuso = await verificaMeseChiuso(mese)
+    setBloccato(chiuso)
+
     const { data: sociData } = await supabase
       .from("soci")
       .select("*")
@@ -29,132 +36,156 @@ export default function VersamentiPage() {
 
     setSoci(sociData || [])
 
-    const quota = await calcolaQuotaSoci(mese)
-    setQuotaData(quota)
-
-    const { data: vers } = await supabase
+    const { data: versamentiData } = await supabase
       .from("versamenti_soci")
       .select("*")
       .eq("mese", mese)
       .order("data", { ascending: false })
 
-    setVersamenti(vers || [])
+    setVersamenti(versamentiData || [])
+
+    const quota = await calcolaQuotaSoci(mese)
+    setRiepilogo(quota)
+
+    setLoading(false)
   }
 
-  const getResiduo = (id: string) => {
-    const socioQuota = quotaData?.soci?.find((s: any) => s.id === id)
-    return socioQuota ? Number(socioQuota.differenza) : 0
-  }
+  const salva = async () => {
 
-  const handleSubmit = async () => {
-    if (!socioId || !importo) return
+    if (bloccato) return
 
-    await verificaMeseAperto(mese)
-
-    const residuo = getResiduo(socioId)
-
-    if (residuo <= 0) return
-
-    if (Number(importo) > residuo) {
-      alert(`Il massimo versabile è ${residuo} €`)
+    if (!socioSelezionato || !importo) {
+      alert("Compila i campi")
       return
     }
 
-    await supabase.from("versamenti_soci").insert([
-      {
-        socio_id: socioId,
-        importo: Number(importo),
-        mese,
-        data: dataVersamento,
-      },
-    ])
+    await supabase.from("versamenti_soci").insert({
+      mese,
+      socio_id: socioSelezionato,
+      importo: Number(importo),
+      data: new Date().toISOString().slice(0, 10)
+    })
 
     setImporto("")
-    setSocioId("")
-    caricaTutto()
+    inizializza()
   }
 
-  const perdita = quotaData?.perdita ?? 0
+  const elimina = async (id: string) => {
+
+    if (bloccato) return
+
+    await supabase
+      .from("versamenti_soci")
+      .delete()
+      .eq("id", id)
+
+    inizializza()
+  }
+
+  if (loading) {
+    return <div className="p-6 text-yellow-500">Caricamento...</div>
+  }
+
+  if (bloccato) {
+    return (
+      <div className="p-6 text-red-500 font-bold">
+        Mese chiuso. Modifiche non consentite.
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-10">
+    <div className="p-6 space-y-6">
 
-      <h1 className="text-3xl font-bold text-yellow-500">
-        Versamenti Soci
+      <h1 className="text-2xl text-yellow-500 font-bold">
+        Versamenti Soci – {mese}
       </h1>
 
-      <div className="border border-yellow-500 p-6 rounded">
-
-        <input
-          type="date"
-          value={dataVersamento}
-          onChange={(e) => setDataVersamento(e.target.value)}
-          className="block mb-4 p-2 bg-black border border-yellow-500 rounded w-full"
-        />
+      {/* FORM */}
+      <div className="border border-yellow-500 p-4 rounded space-y-3">
 
         <select
-          value={socioId}
-          onChange={(e) => setSocioId(e.target.value)}
-          className="block mb-4 p-2 bg-black border border-yellow-500 rounded w-full"
+          value={socioSelezionato}
+          onChange={(e) => setSocioSelezionato(e.target.value)}
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         >
-          <option value="">Seleziona socio</option>
-
-          {soci.map((s) => {
-            const residuo = getResiduo(s.id)
-            const disabilitato = perdita === 0 || residuo <= 0
-
-            return (
-              <option
-                key={s.id}
-                value={s.id}
-                disabled={disabilitato}
-              >
-                {s.nome} | Residuo: {residuo} €
-                {disabilitato ? " (Coperto)" : ""}
-              </option>
-            )
-          })}
+          <option value="">Seleziona Socio</option>
+          {soci.map(s => (
+            <option key={s.id} value={s.id}>
+              {s.nome}
+            </option>
+          ))}
         </select>
 
         <input
           type="number"
+          step="0.01"
           placeholder="Importo"
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
-          className="block mb-4 p-2 bg-black border border-yellow-500 rounded w-full"
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         />
 
         <button
-          onClick={handleSubmit}
-          className="bg-yellow-500 text-black px-6 py-3 rounded"
+          onClick={salva}
+          className="bg-yellow-500 text-black px-4 py-2 rounded"
         >
-          Registra
+          Registra Versamento
         </button>
       </div>
 
-      <table className="w-full border border-yellow-500">
-        <thead>
-          <tr className="bg-yellow-500 text-black">
-            <th className="p-2">Data</th>
-            <th className="p-2">Mese</th>
-            <th className="p-2">Socio</th>
-            <th className="p-2">Importo</th>
-          </tr>
-        </thead>
-        <tbody>
-          {versamenti.map((v) => {
-            const socio = soci.find((s) => s.id === v.socio_id)
-            return (
-              <tr key={v.id}>
-                <td className="p-2">{v.data}</td>
-                <td className="p-2">{v.mese}</td>
-                <td className="p-2">{socio?.nome}</td>
-                <td className="p-2">{v.importo} €</td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+      {/* RIEPILOGO SOCI */}
+      {riepilogo && (
+        <div className="border border-yellow-500 p-4 rounded">
+          <h2 className="text-lg mb-4">Ripartizione</h2>
+
+          {riepilogo.soci.map((s: any) => (
+            <div
+              key={s.id}
+              className="flex justify-between border-b border-yellow-500 py-2"
+            >
+              <span>{s.nome}</span>
+              <span>
+                Quota: {s.quota_calcolata.toFixed(2)} € | 
+                Versato: {s.versato.toFixed(2)} € | 
+                <span className={s.differenza === 0 ? "text-green-400" : "text-red-500 font-bold"}>
+                  Differenza: {s.differenza.toFixed(2)} €
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* ELENCO VERSAMENTI */}
+      <div className="border border-yellow-500 p-4 rounded">
+        <h2 className="text-lg mb-4">Elenco Versamenti</h2>
+
+        {versamenti.map(v => {
+
+          const socio = soci.find(s => s.id === v.socio_id)
+
+          return (
+            <div
+              key={v.id}
+              className="flex justify-between items-center border-b border-yellow-500 py-2"
+            >
+              <div>
+                <p>{socio?.nome}</p>
+                <p>{Number(v.importo).toFixed(2)} €</p>
+                <p className="text-sm text-gray-400">{v.data}</p>
+              </div>
+
+              <button
+                onClick={() => elimina(v.id)}
+                className="bg-red-500 px-3 py-1 rounded"
+              >
+                Elimina
+              </button>
+            </div>
+          )
+        })}
+      </div>
 
     </div>
   )
