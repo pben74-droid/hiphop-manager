@@ -60,11 +60,11 @@ export async function GET(request: Request) {
     m => m.categoria === "insegnante"
   ) || []
 
-  const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
-
   const risultatoOperativo = movimenti
     ?.filter(m => m.categoria !== "trasferimento")
     .reduce((a, m) => a + Number(m.importo), 0) || 0
+
+  const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
 
   /* =========================
      PDF
@@ -74,94 +74,121 @@ export async function GET(request: Request) {
   const page = pdfDoc.addPage([595, 842])
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 
-  let y = 810
+  let y = 800
 
-  const drawLine = () => {
-    page.drawLine({
-      start: { x: 40, y },
-      end: { x: 555, y },
-      thickness: 1,
-      color: rgb(0.8, 0.8, 0.8)
-    })
-    y -= 10
+  const drawText = (text: string, x: number, size = 10) => {
+    page.drawText(text, { x, y, size, font })
   }
 
-  const draw = (text: string, size = 10, bold = false) => {
-    page.drawText(text, {
-      x: 50,
-      y,
-      size,
-      font
+  const newLine = (space = 18) => {
+    y -= space
+  }
+
+  const drawTableHeader = (columns: string[]) => {
+    let x = 50
+    columns.forEach(col => {
+      drawText(col, x, 10)
+      x += 120
     })
-    y -= size + 4
+    newLine(15)
+  }
+
+  const drawRow = (columns: string[]) => {
+    let x = 50
+    columns.forEach(col => {
+      drawText(col, x, 9)
+      x += 120
+    })
+    newLine(14)
+  }
+
+  const drawSectionTitle = (title: string) => {
+    newLine(10)
+    drawText(title, 50, 12)
+    newLine(18)
   }
 
   /* =========================
      HEADER
   ========================= */
 
-  draw("HIP HOP FAMILY MANAGER", 16)
-  draw(`Report Mensile: ${mese}`, 12)
-  draw(`Generato il: ${new Date().toLocaleDateString()}`, 10)
-  y -= 10
-  drawLine()
+  drawText("HIP HOP FAMILY MANAGER", 50, 16)
+  newLine(22)
+  drawText(`Report Mensile: ${mese}`, 50, 12)
+  newLine(16)
+  drawText(`Generato il: ${new Date().toLocaleDateString()}`, 50, 10)
+  newLine(25)
 
   /* =========================
      INCASSI
   ========================= */
 
-  draw("INCASSI", 12)
+  drawSectionTitle("INCASSI")
+  drawTableHeader(["Data", "Descrizione", "Contenitore", "Importo"])
+
   incassi.forEach(i => {
-    draw(`${i.data} | ${i.descrizione} | ${i.contenitore} | ${Number(i.importo).toFixed(2)} €`)
+    drawRow([
+      i.data,
+      i.descrizione,
+      i.contenitore,
+      `${Number(i.importo).toFixed(2)} €`
+    ])
   })
-  y -= 8
-  drawLine()
 
   /* =========================
      SPESE VARIE
   ========================= */
 
-  draw("SPESE VARIE", 12)
+  drawSectionTitle("SPESE VARIE")
+  drawTableHeader(["Data", "Descrizione", "Contenitore", "Importo"])
+
   speseVarie.forEach(s => {
-    draw(`${s.data} | ${s.descrizione} | ${Math.abs(Number(s.importo)).toFixed(2)} €`)
+    drawRow([
+      s.data,
+      s.descrizione,
+      s.contenitore,
+      `${Math.abs(Number(s.importo)).toFixed(2)} €`
+    ])
   })
-  y -= 8
-  drawLine()
 
   /* =========================
      INSEGNANTI
   ========================= */
 
-  draw("COMPENSI INSEGNANTI", 12)
+  drawSectionTitle("COMPENSI INSEGNANTI")
+  drawTableHeader(["Data", "Insegnante", "Importo"])
+
   insegnanti.forEach(ins => {
-    draw(`${ins.data} | ${ins.descrizione} | ${Math.abs(Number(ins.importo)).toFixed(2)} €`)
+    drawRow([
+      ins.data,
+      ins.descrizione,
+      `${Math.abs(Number(ins.importo)).toFixed(2)} €`
+    ])
   })
-  y -= 8
-  drawLine()
 
   /* =========================
      RIEPILOGO OPERATIVO
   ========================= */
 
-  draw("RIEPILOGO OPERATIVO", 12)
-  draw(`Totale Incassi: ${totaleIncassi.toFixed(2)} €`)
-  draw(`Risultato Operativo: ${risultatoOperativo.toFixed(2)} €`)
-  y -= 8
-  drawLine()
+  drawSectionTitle("RIEPILOGO OPERATIVO")
+
+  drawRow(["Totale Incassi", "", "", `${totaleIncassi.toFixed(2)} €`])
+  drawRow(["Risultato Operativo", "", "", `${risultatoOperativo.toFixed(2)} €`])
 
   /* =========================
      RIPARTIZIONE SOCI
   ========================= */
 
-  draw("RIPARTIZIONE SOCI", 12)
-
   if (risultatoOperativo < 0) {
+
+    drawSectionTitle("RIPARTIZIONE SPESE TRA SOCI")
+    drawTableHeader(["Socio", "Quota", "Versato", "Differenza"])
 
     const perdita = Math.abs(risultatoOperativo)
 
     soci?.forEach(s => {
 
-      const quota = (perdita * (Number(s.quota_percentuale) / 100))
+      const quota = perdita * (Number(s.quota_percentuale) / 100)
 
       const versato = versamenti
         ?.filter(v => v.socio_id === s.id)
@@ -169,14 +196,14 @@ export async function GET(request: Request) {
 
       const differenza = quota - versato
 
-      draw(
-        `${s.nome} | ${s.quota_percentuale}% | ${quota.toFixed(2)} € | ${versato.toFixed(2)} € | ${differenza.toFixed(2)} €`
-      )
+      drawRow([
+        s.nome,
+        `${quota.toFixed(2)} €`,
+        `${versato.toFixed(2)} €`,
+        `${differenza.toFixed(2)} €`
+      ])
     })
   }
-
-  y -= 8
-  drawLine()
 
   /* =========================
      AFFITTO
@@ -184,8 +211,11 @@ export async function GET(request: Request) {
 
   if (affittoMese) {
 
-    draw("AFFITTO (GESTIONE SEPARATA)", 12)
-    draw(`Costo Mensile: ${Number(affittoMese.costo_mensile).toFixed(2)} €`)
+    drawSectionTitle("AFFITTO (GESTIONE SEPARATA)")
+    drawRow(["Costo Mensile", "", "", `${Number(affittoMese.costo_mensile).toFixed(2)} €`])
+    newLine(10)
+
+    drawTableHeader(["Socio", "Quota", "Versato"])
 
     soci?.forEach(s => {
 
@@ -196,9 +226,11 @@ export async function GET(request: Request) {
         ?.filter(p => p.socio_id === s.id)
         .reduce((a, p) => a + Number(p.importo), 0) || 0
 
-      draw(
-        `${s.nome} | ${quota.toFixed(2)} € | Versato: ${versato.toFixed(2)} €`
-      )
+      drawRow([
+        s.nome,
+        `${quota.toFixed(2)} €`,
+        `${versato.toFixed(2)} €`
+      ])
     })
   }
 
