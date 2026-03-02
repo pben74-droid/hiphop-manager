@@ -15,6 +15,7 @@ export default function DashboardPage() {
 
   const { mese, setMese } = useMese()
 
+  const [listaMesi, setListaMesi] = useState<string[]>([])
   const [saldoCassa, setSaldoCassa] = useState(0)
   const [saldoBanca, setSaldoBanca] = useState(0)
   const [riepilogo, setRiepilogo] = useState<any>(null)
@@ -24,9 +25,19 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+    caricaListaMesi()
+  }, [])
+
+  useEffect(() => {
     if (!mese) return
     caricaDashboard()
   }, [mese])
+
+  const caricaListaMesi = async () => {
+    const res = await fetch("/api/mesi")
+    const data = await res.json()
+    setListaMesi(data.map((m: any) => m.mese))
+  }
 
   const caricaDashboard = async () => {
     try {
@@ -110,13 +121,18 @@ export default function DashboardPage() {
           )}
         </div>
 
-        {/* SELETTORE MESE */}
-        <input
-          type="month"
+        {/* SELECT MESI (sostituisce input month) */}
+        <select
           value={mese}
           onChange={(e) => setMese(e.target.value)}
           className="bg-black text-white border border-yellow-500 p-2 rounded"
-        />
+        >
+          {listaMesi.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
 
       </div>
 
