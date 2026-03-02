@@ -1,21 +1,28 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useContext, useState, useEffect } from "react"
+import { inizializzaMese } from "./gestioneMese"
 
-type MeseContextType = {
+interface MeseContextType {
   mese: string
   setMese: (mese: string) => void
 }
 
 const MeseContext = createContext<MeseContextType | undefined>(undefined)
 
-export function MeseProvider({ children }: { children: ReactNode }) {
-  const oggi = new Date()
-  const meseCorrente = `${oggi.getFullYear()}-${String(
-    oggi.getMonth() + 1
-  ).padStart(2, "0")}`
+export function MeseProvider({ children }: { children: React.ReactNode }) {
 
-  const [mese, setMese] = useState(meseCorrente)
+  const meseCorrente = new Date().toISOString().slice(0, 7)
+
+  const [mese, setMeseState] = useState<string>(meseCorrente)
+
+  useEffect(() => {
+    inizializzaMese(mese)
+  }, [mese])
+
+  const setMese = (nuovoMese: string) => {
+    setMeseState(nuovoMese)
+  }
 
   return (
     <MeseContext.Provider value={{ mese, setMese }}>
@@ -27,7 +34,7 @@ export function MeseProvider({ children }: { children: ReactNode }) {
 export function useMese() {
   const context = useContext(MeseContext)
   if (!context) {
-    throw new Error("useMese deve essere usato dentro MeseProvider")
+    throw new Error("useMese must be used within MeseProvider")
   }
   return context
 }
