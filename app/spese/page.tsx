@@ -34,7 +34,8 @@ export default function SpesePage() {
       .select("*")
       .eq("mese", mese)
       .eq("tipo", "spesa")
-      .neq("categoria", "insegnante") // escludo insegnanti
+      .neq("categoria", "insegnante")
+      .neq("categoria", "trasferimento")
       .order("data", { ascending: false })
 
     setSpese(data || [])
@@ -52,7 +53,6 @@ export default function SpesePage() {
 
     const valore = Number(importo)
 
-    // 🔁 PRELEVAMENTO BANCA
     if (categoria === "prelevamento_banca") {
 
       // banca -X
@@ -107,20 +107,20 @@ export default function SpesePage() {
     inizializza()
   }
 
-  if (loading) {
-    return <div className="p-6 text-yellow-500">Caricamento...</div>
-  }
+  const speseCassa = spese.filter(s => s.contenitore === "cassa_operativa")
+  const speseBanca = spese.filter(s => s.contenitore === "banca")
 
-  if (bloccato) {
-    return (
-      <div className="p-6 text-red-500 font-bold">
-        Mese chiuso. Modifiche non consentite.
-      </div>
-    )
-  }
+  const totale = (lista: any[]) =>
+    lista.reduce((acc, s) => acc + Math.abs(Number(s.importo)), 0)
+
+  if (loading)
+    return <div className="p-6 text-yellow-500">Caricamento...</div>
+
+  if (bloccato)
+    return <div className="p-6 text-red-500 font-bold">Mese chiuso</div>
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
 
       <h1 className="text-2xl text-yellow-500 font-bold">
         Spese – {mese}
@@ -177,28 +177,34 @@ export default function SpesePage() {
         </button>
       </div>
 
-      {/* ELENCO */}
+      {/* CASSA */}
       <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg mb-4">Elenco Spese</h2>
+        <h2 className="text-lg font-bold mb-2">
+          Spese Cassa – Totale {totale(speseCassa).toFixed(2)} €
+        </h2>
 
-        {spese.map(s => (
-          <div
-            key={s.id}
-            className="flex justify-between items-center border-b border-yellow-500 py-2"
-          >
-            <div>
-              <p>{s.descrizione}</p>
-              <p className="text-red-500">
-                {Number(s.importo).toFixed(2)} €
-              </p>
-            </div>
+        {speseCassa.map(s => (
+          <div key={s.id} className="flex justify-between py-1">
+            <span>{s.descrizione}</span>
+            <span className="text-red-500">
+              {Math.abs(Number(s.importo)).toFixed(2)} €
+            </span>
+          </div>
+        ))}
+      </div>
 
-            <button
-              onClick={() => elimina(s.id)}
-              className="bg-red-500 px-3 py-1 rounded"
-            >
-              Elimina
-            </button>
+      {/* BANCA */}
+      <div className="border border-yellow-500 p-4 rounded">
+        <h2 className="text-lg font-bold mb-2">
+          Spese Banca – Totale {totale(speseBanca).toFixed(2)} €
+        </h2>
+
+        {speseBanca.map(s => (
+          <div key={s.id} className="flex justify-between py-1">
+            <span>{s.descrizione}</span>
+            <span className="text-red-500">
+              {Math.abs(Number(s.importo)).toFixed(2)} €
+            </span>
           </div>
         ))}
       </div>
