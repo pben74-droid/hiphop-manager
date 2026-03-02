@@ -7,7 +7,7 @@ export async function inizializzaMese(mese: string) {
 
   const { data: meseEsistente } = await supabase
     .from("mesi")
-    .select("*")
+    .select("id")
     .eq("mese", mese)
     .maybeSingle()
 
@@ -137,8 +137,10 @@ export async function calcolaQuotaSoci(mese: string) {
 
   const sociCalcolo = soci?.map(s => {
 
+    const percentuale = Number(s.quota_percentuale) || 0
+
     const quota_calcolata =
-      perdita * (Number(s.quota_percentuale) / 100)
+      perdita * (percentuale / 100)
 
     const versato = versamenti
       ?.filter(v => v.socio_id === s.id)
@@ -191,9 +193,11 @@ export async function generaSezioneAffitto(mese: string) {
 
   const sociAffitto = soci?.map(s => {
 
+    const percentuale = Number(s.quota_percentuale) || 0
+
     const quota =
       Number(affittoMese.costo_mensile) *
-      (Number(s.quota_percentuale) / 100)
+      (percentuale / 100)
 
     const versato = pagamenti
       ?.filter(p => p.socio_id === s.id)
@@ -234,13 +238,14 @@ export async function chiudiMeseServer(mese: string) {
 
   const riepilogo = await calcolaQuotaSoci(mese)
 
+  // Blocca solo se manca copertura
   if (riepilogo.differenza_finale < 0) {
     throw new Error("Mancano versamenti per coprire la perdita")
   }
 
   const saldi = await calcolaSaldi(mese)
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("mesi")
     .update({
       stato: "chiuso",
@@ -248,9 +253,14 @@ export async function chiudiMeseServer(mese: string) {
       saldo_banca: saldi.saldo_banca
     })
     .eq("mese", mese)
+    .select()
 
   if (error) {
-    throw new Error("Errore chiusura mese")
+    throw new Error(error.message)
+  }
+
+  if (!data || data.length === 0) {
+    throw new Error("Mese non trovato")
   }
 
   return { success: true }
