@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, ReactNode } from "react"
 
 type MeseContextType = {
   mese: string
@@ -11,9 +11,25 @@ const MeseContext = createContext<MeseContextType | undefined>(undefined)
 
 export function MeseProvider({ children }: { children: ReactNode }) {
 
-  const meseCorrente = new Date().toISOString().slice(0, 7)
+  const [mese, setMese] = useState<string>("")
 
-  const [mese, setMese] = useState<string>(meseCorrente)
+  useEffect(() => {
+    inizializzaMeseDaDB()
+  }, [])
+
+  const inizializzaMeseDaDB = async () => {
+    try {
+      const res = await fetch("/api/mesi")
+      const data = await res.json()
+
+      if (data && data.length > 0) {
+        // prende il mese più recente (ordinati desc)
+        setMese(data[0].mese)
+      }
+    } catch (err) {
+      console.error("Errore inizializzazione mese:", err)
+    }
+  }
 
   return (
     <MeseContext.Provider value={{ mese, setMese }}>
