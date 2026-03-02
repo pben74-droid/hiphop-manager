@@ -35,7 +35,6 @@ export default function SpesePage() {
       .eq("mese", mese)
       .eq("tipo", "spesa")
       .neq("categoria", "insegnante")
-      .neq("categoria", "trasferimento")
       .order("data", { ascending: false })
 
     setSpese(data || [])
@@ -46,36 +45,36 @@ export default function SpesePage() {
 
     if (bloccato) return
 
-    if (!descrizione || !importo) {
-      alert("Compila i campi")
+    if (!importo) {
+      alert("Inserisci importo")
       return
     }
 
     const valore = Number(importo)
 
+    // 🔁 PRELEVAMENTO BANCA → TRASFERIMENTO PURO
     if (categoria === "prelevamento_banca") {
 
-      // banca -X
-      await supabase.from("movimenti_finanziari").insert({
-        tipo: "spesa",
-        categoria: "trasferimento",
-        descrizione: "Prelevamento banca",
-        importo: -valore,
-        contenitore: "banca",
-        mese,
-        data: new Date().toISOString().slice(0, 10)
-      })
-
-      // cassa +X
-      await supabase.from("movimenti_finanziari").insert({
-        tipo: "incasso",
-        categoria: "trasferimento",
-        descrizione: "Prelevamento banca",
-        importo: valore,
-        contenitore: "cassa_operativa",
-        mese,
-        data: new Date().toISOString().slice(0, 10)
-      })
+      await supabase.from("movimenti_finanziari").insert([
+        {
+          tipo: "trasferimento",
+          categoria: "trasferimento",
+          descrizione: "Prelevamento banca",
+          importo: -valore,
+          contenitore: "banca",
+          mese,
+          data: new Date().toISOString().slice(0, 10)
+        },
+        {
+          tipo: "trasferimento",
+          categoria: "trasferimento",
+          descrizione: "Prelevamento banca",
+          importo: valore,
+          contenitore: "cassa_operativa",
+          mese,
+          data: new Date().toISOString().slice(0, 10)
+        }
+      ])
 
     } else {
 
@@ -126,7 +125,7 @@ export default function SpesePage() {
         Spese – {mese}
       </h1>
 
-      {/* FORM */}
+      {/* FORM INSERIMENTO */}
       <div className="border border-yellow-500 p-4 rounded space-y-3">
 
         <input
@@ -153,8 +152,7 @@ export default function SpesePage() {
         >
           <option value="spesa_generica">Spesa Generica</option>
           <option value="commissione_pos">Commissione POS</option>
-          <option value="tessera_socio">Emissione Tessera</option>
-          <option value="cancelleria">Acquisto Cancelleria</option>
+          <option value="cancelleria">Cancelleria</option>
           <option value="prelevamento_banca">Prelevamento Banca</option>
         </select>
 
@@ -173,11 +171,11 @@ export default function SpesePage() {
           onClick={salva}
           className="bg-yellow-500 text-black px-4 py-2 rounded"
         >
-          Registra Spesa
+          Registra
         </button>
       </div>
 
-      {/* CASSA */}
+      {/* SEZIONE CASSA */}
       <div className="border border-yellow-500 p-4 rounded">
         <h2 className="text-lg font-bold mb-2">
           Spese Cassa – Totale {totale(speseCassa).toFixed(2)} €
@@ -193,7 +191,7 @@ export default function SpesePage() {
         ))}
       </div>
 
-      {/* BANCA */}
+      {/* SEZIONE BANCA */}
       <div className="border border-yellow-500 p-4 rounded">
         <h2 className="text-lg font-bold mb-2">
           Spese Banca – Totale {totale(speseBanca).toFixed(2)} €
