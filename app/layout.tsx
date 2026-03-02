@@ -65,6 +65,10 @@ export default function RootLayout({
                   Insegnanti
                 </Link>
 
+                <Link href="/soci" className="hover:text-yellow-500 transition">
+                  Soci
+                </Link>
+
                 <Link href="/versamenti" className="hover:text-yellow-500 transition">
                   Versamenti Soci
                 </Link>
