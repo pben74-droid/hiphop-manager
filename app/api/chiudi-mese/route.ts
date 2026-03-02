@@ -4,14 +4,7 @@ import { chiudiMeseServer } from "@/lib/gestioneMese"
 export async function POST(req: Request) {
   try {
     const body = await req.json()
-    const { mese, password } = body
-
-    if (password !== "Nmdcdnv74!") {
-      return NextResponse.json(
-        { error: "Password errata" },
-        { status: 401 }
-      )
-    }
+    const { mese } = body
 
     const result = await chiudiMeseServer(mese)
 
