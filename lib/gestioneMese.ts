@@ -250,6 +250,7 @@ export async function chiudiMeseServer(mese: string) {
 
   const saldi = await calcolaSaldi(mese)
 
+  // 🔒 Chiudi mese corrente
   const { error } = await supabase
     .from("mesi")
     .update({
@@ -261,6 +262,36 @@ export async function chiudiMeseServer(mese: string) {
 
   if (error) {
     throw new Error("Errore chiusura mese")
+  }
+
+  // 🔁 CREA MESE SUCCESSIVO
+
+  const [anno, meseNumero] = mese.split("-").map(Number)
+
+  let nuovoAnno = anno
+  let nuovoMese = meseNumero + 1
+
+  if (nuovoMese === 13) {
+    nuovoMese = 1
+    nuovoAnno++
+  }
+
+  const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
+
+  // verifica se esiste già
+  const { data: esiste } = await supabase
+    .from("mesi")
+    .select("id")
+    .eq("mese", meseSuccessivo)
+    .maybeSingle()
+
+  if (!esiste) {
+    await supabase.from("mesi").insert({
+      mese: meseSuccessivo,
+      stato: "aperto",
+      saldo_cassa: saldi.saldo_cassa,
+      saldo_banca: saldi.saldo_banca
+    })
   }
 
   return { success: true }
