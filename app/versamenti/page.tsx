@@ -59,12 +59,42 @@ export default function VersamentiPage() {
       return
     }
 
-    await supabase.from("versamenti_soci").insert({
-      mese,
-      socio_id: socioSelezionato,
-      importo: Number(importo),
-      data: new Date().toISOString().slice(0, 10)
-    })
+    const valore = Number(importo)
+    const oggi = new Date().toISOString().slice(0, 10)
+
+    // 🔹 1. Salvo versamento per ripartizione soci
+    const { error: erroreVersamento } = await supabase
+      .from("versamenti_soci")
+      .insert({
+        mese,
+        socio_id: socioSelezionato,
+        importo: valore,
+        tipo: "contanti",
+        data: oggi
+      })
+
+    if (erroreVersamento) {
+      alert("Errore salvataggio versamento: " + erroreVersamento.message)
+      return
+    }
+
+    // 🔹 2. Salvo movimento reale di cassa
+    const { error: erroreMovimento } = await supabase
+      .from("movimenti_finanziari")
+      .insert({
+        mese,
+        tipo: "incasso",
+        categoria: "versamento_socio",
+        contenitore: "cassa_operativa",
+        importo: valore,
+        data: oggi,
+        descrizione: "Versamento socio"
+      })
+
+    if (erroreMovimento) {
+      alert("Errore salvataggio movimento cassa: " + erroreMovimento.message)
+      return
+    }
 
     setImporto("")
     inizializza()
