@@ -16,7 +16,6 @@ export default function RootLayout({
 
           <div className="flex min-h-screen">
 
-            {/* SIDEBAR */}
             <aside className="w-64 bg-black border-r border-yellow-500 p-6 space-y-6">
 
               <div className="text-2xl font-bold text-yellow-500">
@@ -24,7 +23,6 @@ export default function RootLayout({
               </div>
 
               <nav className="flex flex-col space-y-3">
-
                 <Link href="/">Dashboard</Link>
                 <Link href="/incassi">Incassi</Link>
                 <Link href="/spese">Spese</Link>
@@ -33,8 +31,8 @@ export default function RootLayout({
                 <Link href="/affitto">Affitto</Link>
                 <Link href="/banca">Banca</Link>
                 <Link href="/cassa">Cassa</Link>
-
               </nav>
+
             </aside>
 
             <main className="flex-1 p-8">
