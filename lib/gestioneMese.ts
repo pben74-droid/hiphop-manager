@@ -1,167 +1,179 @@
 import { supabase } from "./supabaseClient"
 
-/* =========================================
-   INIZIALIZZA MESE
-========================================= */
+/* =====================================================
+   INIZIALIZZA MESE (con riporto saldi e crediti affitto)
+===================================================== */
 export async function inizializzaMese(mese: string) {
-  const { data } = await supabase
+
+  const { data: meseEsistente } = await supabase
     .from("mesi")
     .select("*")
     .eq("mese", mese)
     .maybeSingle()
 
-  if (!data) {
-    await supabase.from("mesi").insert([
-      {
-        mese,
-        stato: "aperto",
-        saldo_cassa: 0,
-        saldo_banca: 0,
-      },
-    ])
-  }
-}
+  if (meseEsistente) return
 
-/* =========================================
-   VERIFICA MESE APERTO
-========================================= */
-export async function verificaMeseAperto(mese: string) {
-  const { data } = await supabase
+  const { data: ultimoMese } = await supabase
     .from("mesi")
-    .select("stato")
-    .eq("mese", mese)
-    .single()
+    .select("*")
+    .order("mese", { ascending: false })
+    .limit(1)
+    .maybeSingle()
 
-  if (!data) throw new Error("Mese non trovato")
+  let saldo_cassa = 0
+  let saldo_banca = 0
 
-  if (data.stato === "chiuso") {
-    throw new Error("Il mese è chiuso. Operazione non consentita.")
+  if (ultimoMese) {
+    saldo_cassa = Number(ultimoMese.saldo_cassa) || 0
+    saldo_banca = Number(ultimoMese.saldo_banca) || 0
+  }
+
+  await supabase.from("mesi").insert({
+    mese,
+    stato: "aperto",
+    saldo_cassa,
+    saldo_banca
+  })
+
+  // Riporto crediti affitto
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("id, credito_affitto")
+
+  if (soci) {
+    for (const socio of soci) {
+
+      const credito = Number(socio.credito_affitto) || 0
+
+      if (credito > 0) {
+        await supabase.from("affitto_pagamenti").insert({
+          mese,
+          socio_id: socio.id,
+          importo: -credito,
+          data: new Date().toISOString().slice(0, 10)
+        })
+      }
+    }
   }
 }
 
-/* =========================================
-   CALCOLO SALDI (CENTRALIZZATO)
-========================================= */
+/* =====================================================
+   CALCOLO SALDI CASSA / BANCA
+===================================================== */
 export async function calcolaSaldi(mese: string) {
+
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
-  const saldo_cassa = Number(
-    (
-      movimenti
-        ?.filter((m) => m.contenitore === "cassa_operativa")
-        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
-    ).toFixed(2)
-  )
+  let saldo_cassa = 0
+  let saldo_banca = 0
 
-  const saldo_banca = Number(
-    (
-      movimenti
-        ?.filter((m) => m.contenitore === "banca")
-        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
-    ).toFixed(2)
-  )
+  movimenti?.forEach(m => {
+    const importo = Number(m.importo) || 0
 
-  return { saldo_cassa, saldo_banca }
+    if (m.contenitore === "cassa_operativa") {
+      saldo_cassa += importo
+    }
+
+    if (m.contenitore === "banca") {
+      saldo_banca += importo
+    }
+  })
+
+  return {
+    saldo_cassa: Number(saldo_cassa.toFixed(2)),
+    saldo_banca: Number(saldo_banca.toFixed(2))
+  }
 }
 
-/* =========================================
-   RISULTATO OPERATIVO (NO TRASFERIMENTI)
-========================================= */
-export async function calcolaRisultatoOperativo(mese: string) {
+/* =====================================================
+   RIEPILOGO OPERATIVO (NO TRASFERIMENTI)
+===================================================== */
+export async function calcolaRiepilogoOperativo(mese: string) {
+
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
-  const risultato = Number(
-    (
-      movimenti
-        ?.filter((m) => m.categoria !== "trasferimento")
-        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
-    ).toFixed(2)
-  )
+  const incassi = movimenti
+    ?.filter(m => m.tipo === "incasso" && m.categoria !== "trasferimento")
+    .reduce((acc, m) => acc + Number(m.importo), 0) || 0
 
-  return risultato
+  const spese = movimenti
+    ?.filter(m => m.tipo === "spesa" && m.categoria !== "trasferimento")
+    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0) || 0
+
+  return {
+    totale_incassi: Number(incassi.toFixed(2)),
+    totale_spese: Number(spese.toFixed(2))
+  }
 }
 
-/* =========================================
+/* =====================================================
    CALCOLO QUOTA SOCI
-========================================= */
+===================================================== */
 export async function calcolaQuotaSoci(mese: string) {
 
-  const risultato_operativo = await calcolaRisultatoOperativo(mese)
+  const { data: movimenti } = await supabase
+    .from("movimenti_finanziari")
+    .select("*")
+    .eq("mese", mese)
 
-  const { data: soci } = await supabase.from("soci").select("*")
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
+
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
     .eq("mese", mese)
 
-  if (risultato_operativo >= 0) {
-    return {
-      risultato_operativo,
-      perdita: 0,
-      soci: [],
-      chiudibile: true,
-    }
-  }
+  const risultato_operativo = movimenti
+    ?.filter(m => m.categoria !== "trasferimento")
+    .reduce((acc, m) => acc + Number(m.importo), 0) || 0
 
-  const perdita = Math.abs(risultato_operativo)
+  const perdita = risultato_operativo < 0
+    ? Math.abs(risultato_operativo)
+    : 0
 
-  const sociCalcolati = soci?.map((s) => {
-    const quota = Number(
-      (perdita * (Number(s.quota_percentuale) / 100)).toFixed(2)
-    )
+  const sociCalcolo = soci?.map(s => {
 
-    const versato =
-      versamenti
-        ?.filter((v) => v.socio_id === s.id)
-        .reduce((acc, v) => acc + Number(v.importo), 0) || 0
+    const quota_calcolata = perdita *
+      (Number(s.quota_percentuale) / 100)
+
+    const versato = versamenti
+      ?.filter(v => v.socio_id === s.id)
+      .reduce((acc, v) => acc + Number(v.importo), 0) || 0
+
+    const differenza = quota_calcolata - versato
 
     return {
       id: s.id,
       nome: s.nome,
-      quota_calcolata: quota,
+      quota_calcolata: Number(quota_calcolata.toFixed(2)),
       versato: Number(versato.toFixed(2)),
-      differenza: Number((quota - versato).toFixed(2)),
+      differenza: Number(differenza.toFixed(2))
     }
-  })
+  }) || []
 
-  const totaleVersamenti =
-    versamenti?.reduce((acc, v) => acc + Number(v.importo), 0) || 0
-
-  const chiudibile =
-    Number((risultato_operativo + totaleVersamenti).toFixed(2)) === 0
+  const totale_versamenti = versamenti
+    ?.reduce((acc, v) => acc + Number(v.importo), 0) || 0
 
   return {
-    risultato_operativo,
-    perdita,
-    soci: sociCalcolati,
-    totale_versamenti: Number(totaleVersamenti.toFixed(2)),
-    chiudibile,
+    risultato_operativo: Number(risultato_operativo.toFixed(2)),
+    perdita: Number(perdita.toFixed(2)),
+    totale_versamenti: Number(totale_versamenti.toFixed(2)),
+    differenza_finale: Number((perdita - totale_versamenti).toFixed(2)),
+    soci: sociCalcolo
   }
 }
 
-/* =========================================
-   CHIUSURA MESE (RPC SQL)
-========================================= */
-export async function chiudiMeseServer(mese: string) {
-  const { data, error } = await supabase.rpc(
-    "chiudi_mese_definitivo",
-    { mese_input: mese }
-  )
-
-  if (error) throw new Error(error.message)
-
-  return data
-}
-
-/* =========================================
-   SEZIONE AFFITTO PER REPORT
-========================================= */
+/* =====================================================
+   SEZIONE AFFITTO
+===================================================== */
 export async function generaSezioneAffitto(mese: string) {
 
   const { data: affittoMese } = await supabase
@@ -170,86 +182,50 @@ export async function generaSezioneAffitto(mese: string) {
     .eq("mese", mese)
     .maybeSingle()
 
-  if (!affittoMese) return null
-
-  const { data: soci } = await supabase.from("soci").select("*")
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
 
   const { data: pagamenti } = await supabase
     .from("affitto_pagamenti")
     .select("*")
     .eq("mese", mese)
 
-  const { data: crediti } = await supabase
-    .from("affitto_crediti")
-    .select("*")
-    .eq("mese_origine", mese)
+  if (!affittoMese) return null
 
-  const costo = Number(affittoMese.costo_mensile)
+  const sociAffitto = soci?.map(s => {
 
-  const dettaglio = soci?.map((s) => {
+    const quota = Number(affittoMese.costo_mensile) *
+      (Number(s.quota_percentuale) / 100)
 
-    const quota = Number(
-      (costo * (Number(s.quota_percentuale) / 100)).toFixed(2)
-    )
-
-    const versato =
-      pagamenti
-        ?.filter((p) => p.socio_id === s.id)
-        .reduce((acc, p) => acc + Number(p.importo), 0) || 0
-
-    const creditoTrasferito =
-      crediti
-        ?.filter((c) => c.socio_id === s.id)
-        .reduce((acc, c) => acc + Number(c.importo), 0) || 0
+    const versato = pagamenti
+      ?.filter(p => p.socio_id === s.id)
+      .reduce((acc, p) => acc + Number(p.importo), 0) || 0
 
     return {
+      id: s.id,
       nome: s.nome,
-      percentuale: s.quota_percentuale,
-      quota,
-      versato: Number(versato.toFixed(2)),
-      credito_trasferito: Number(creditoTrasferito.toFixed(2)),
+      quota: Number(quota.toFixed(2)),
+      versato: Number(versato.toFixed(2))
     }
-  })
+  }) || []
 
   return {
-    costo_mensile: costo,
-    soci: dettaglio,
+    costo_mensile: Number(affittoMese.costo_mensile),
+    soci: sociAffitto
   }
 }
-/* =========================================
-   RIEPILOGO OPERATIVO DETTAGLIATO
-========================================= */
-export async function calcolaRiepilogoOperativo(mese: string) {
 
-  const { data: movimenti } = await supabase
-    .from("movimenti_finanziari")
-    .select("*")
+/* =====================================================
+   VERIFICA MESE CHIUSO
+===================================================== */
+export async function verificaMeseChiuso(mese: string) {
+
+  const { data } = await supabase
+    .from("mesi")
+    .select("stato")
     .eq("mese", mese)
+    .maybeSingle()
 
-  const incassi = Number(
-    (
-      movimenti
-        ?.filter(m =>
-          m.tipo === "incasso" &&
-          m.categoria !== "trasferimento"
-        )
-        .reduce((acc, m) => acc + Number(m.importo), 0) || 0
-    ).toFixed(2)
-  )
-
-  const spese = Number(
-    (
-      movimenti
-        ?.filter(m =>
-          m.tipo === "spesa" &&
-          m.categoria !== "trasferimento"
-        )
-        .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0) || 0
-    ).toFixed(2)
-  )
-
-  return {
-    totale_incassi: incassi,
-    totale_spese: spese
-  }
+  return data?.stato === "chiuso"
 }
