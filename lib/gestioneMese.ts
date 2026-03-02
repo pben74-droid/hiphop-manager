@@ -85,11 +85,11 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 
   const totale_incassi = movimentiFiltrati
     .filter(m => m.tipo === "incasso")
-    .reduce((acc, m) => acc + Number(m.importo), 0)
+    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   const totale_spese = movimentiFiltrati
     .filter(m => m.tipo === "spesa")
-    .reduce((acc, m) => acc + Number(m.importo), 0)
+    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   return {
     totale_incassi: Number(totale_incassi.toFixed(2)),
@@ -123,11 +123,11 @@ export async function calcolaQuotaSoci(mese: string) {
 
   const totale_incassi = movimentiFiltrati
     .filter(m => m.tipo === "incasso")
-    .reduce((acc, m) => acc + Number(m.importo), 0)
+    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   const totale_spese = movimentiFiltrati
     .filter(m => m.tipo === "spesa")
-    .reduce((acc, m) => acc + Number(m.importo), 0)
+    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   const risultato_operativo = totale_incassi - totale_spese
 
