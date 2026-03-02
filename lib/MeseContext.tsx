@@ -1,6 +1,7 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect } from "react"
+import { supabase } from "./supabaseClient"
 import { inizializzaMese } from "./gestioneMese"
 
 interface MeseContextType {
@@ -12,15 +13,31 @@ const MeseContext = createContext<MeseContextType | undefined>(undefined)
 
 export function MeseProvider({ children }: { children: React.ReactNode }) {
 
-  const meseCorrente = new Date().toISOString().slice(0, 7)
-
-  const [mese, setMeseState] = useState<string>(meseCorrente)
+  const [mese, setMeseState] = useState<string>("")
 
   useEffect(() => {
-    inizializzaMese(mese)
-  }, [mese])
+    caricaMeseIniziale()
+  }, [])
 
-  const setMese = (nuovoMese: string) => {
+  const caricaMeseIniziale = async () => {
+
+    const { data } = await supabase
+      .from("mesi")
+      .select("mese")
+      .order("mese", { ascending: false })
+      .limit(1)
+
+    if (data && data.length > 0) {
+      setMeseState(data[0].mese)
+    } else {
+      const meseCorrente = new Date().toISOString().slice(0, 7)
+      await inizializzaMese(meseCorrente)
+      setMeseState(meseCorrente)
+    }
+  }
+
+  const setMese = async (nuovoMese: string) => {
+    await inizializzaMese(nuovoMese)
     setMeseState(nuovoMese)
   }
 
