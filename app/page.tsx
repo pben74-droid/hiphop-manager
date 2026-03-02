@@ -73,8 +73,9 @@ export default function DashboardPage() {
     caricaDashboard()
   }
 
-  if (loading) {
-    return <div className="text-yellow-500">Caricamento...</div>
+  {loading && (
+  <div className="text-yellow-500 mb-4">Caricamento...</div>
+)}
   }
 
   return (
