@@ -11,30 +11,31 @@ export default function RootLayout({
 }) {
   return (
     <html lang="it">
-      <body className="bg-black text-white">
+      <body className="bg-gray-100 text-gray-900">
 
         <MeseProvider>
 
           <div className="flex min-h-screen">
 
-            <aside className="w-64 bg-black border-r border-yellow-500 p-6 flex flex-col">
+            {/* SIDEBAR */}
+            <aside className="w-64 bg-gray-900 text-yellow-400 border-r border-gray-800 p-6 flex flex-col shadow-lg">
 
               {/* LOGO */}
               <div className="mb-8 flex justify-center">
                 <Image
                   src="/LOGO_DEFINITIVO_TRASPARENTE.png"
                   alt="Hip Hop Family"
-                  width={160}
-                  height={160}
+                  width={150}
+                  height={150}
                   priority
                 />
               </div>
 
               {/* MENU */}
-              <nav className="flex flex-col space-y-3 text-yellow-400 text-sm">
+              <nav className="flex flex-col space-y-3 text-sm">
 
                 {/* SEZIONE CONTROLLO */}
-                <div className="text-xs text-gray-400 uppercase tracking-widest mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">
                   Controllo
                 </div>
 
@@ -46,10 +47,10 @@ export default function RootLayout({
                   Report PDF
                 </Link>
 
-                <div className="border-t border-yellow-500 my-4 opacity-30" />
+                <div className="border-t border-gray-700 my-4 opacity-40" />
 
                 {/* SEZIONE OPERATIVA */}
-                <div className="text-xs text-gray-400 uppercase tracking-widest mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">
                   Operativo
                 </div>
 
@@ -77,10 +78,10 @@ export default function RootLayout({
                   Affitto
                 </Link>
 
-                <div className="border-t border-yellow-500 my-4 opacity-30" />
+                <div className="border-t border-gray-700 my-4 opacity-40" />
 
                 {/* SEZIONE FINANZIARIA */}
-                <div className="text-xs text-gray-400 uppercase tracking-widest mb-2">
+                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">
                   Finanziario
                 </div>
 
@@ -100,7 +101,8 @@ export default function RootLayout({
 
             </aside>
 
-            <main className="flex-1 p-8 bg-gradient-to-br from-black via-neutral-900 to-black">
+            {/* MAIN CONTENT */}
+            <main className="flex-1 p-10 bg-gray-50">
               {children}
             </main>
 
