@@ -13,7 +13,6 @@ export async function inizializzaMese(mese: string) {
 
   if (meseEsistente) return
 
-  // 🔒 Cerca ultimo mese CHIUSO
   const { data: ultimoChiuso } = await supabase
     .from("mesi")
     .select("*")
@@ -37,7 +36,6 @@ export async function inizializzaMese(mese: string) {
     saldo_banca
   })
 
-  // 🔁 Riporto crediti affitto solo se esiste mese chiuso
   if (ultimoChiuso) {
 
     const { data: soci } = await supabase
@@ -154,7 +152,8 @@ export async function calcolaQuotaSoci(mese: string) {
       ?.filter(v => v.socio_id === s.id)
       .reduce((acc, v) => acc + Number(v.importo), 0) || 0
 
-    const differenza = quota_calcolata - versato
+    // 🔥 POSITIVO = HA VERSATO IN PIÙ
+    const differenza = versato - quota_calcolata
 
     return {
       id: s.id,
@@ -172,7 +171,10 @@ export async function calcolaQuotaSoci(mese: string) {
     risultato_operativo: Number(risultato_operativo.toFixed(2)),
     perdita: Number(perdita.toFixed(2)),
     totale_versamenti: Number(totale_versamenti.toFixed(2)),
-    differenza_finale: Number((perdita - totale_versamenti).toFixed(2)),
+
+    // 🔥 POSITIVO = ECCEDENZA COLLETTIVA
+    differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
+
     soci: sociCalcolo
   }
 }
@@ -244,13 +246,13 @@ export async function chiudiMeseServer(mese: string) {
 
   const riepilogo = await calcolaQuotaSoci(mese)
 
-  if (riepilogo.differenza_finale !== 0) {
-    throw new Error("Differenza finale diversa da 0")
+  // 🔥 BLOCCA SOLO SE MANCA COPERTURA
+  if (riepilogo.differenza_finale < 0) {
+    throw new Error("Mancano versamenti per coprire la perdita")
   }
 
   const saldi = await calcolaSaldi(mese)
 
-  // 🔒 Chiudi mese corrente
   const { error } = await supabase
     .from("mesi")
     .update({
@@ -264,8 +266,6 @@ export async function chiudiMeseServer(mese: string) {
     throw new Error("Errore chiusura mese")
   }
 
-  // 🔁 CREA MESE SUCCESSIVO
-
   const [anno, meseNumero] = mese.split("-").map(Number)
 
   let nuovoAnno = anno
@@ -278,7 +278,6 @@ export async function chiudiMeseServer(mese: string) {
 
   const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
 
-  // verifica se esiste già
   const { data: esiste } = await supabase
     .from("mesi")
     .select("id")
