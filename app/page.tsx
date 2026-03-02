@@ -66,27 +66,33 @@ export default function DashboardPage() {
   }
 
   const chiudiMese = async () => {
-    try {
-      const res = await fetch("/api/chiudi-mese", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mese })
-      })
 
-      const data = await res.json()
+  const password = prompt("Inserisci password per chiudere il mese")
 
-      if (!res.ok) {
-        alert(data.error || "Errore chiusura mese")
-        return
-      }
+  if (!password) return
 
-      alert("Mese chiuso correttamente")
-      caricaDashboard()
+  try {
 
-    } catch (err) {
-      console.error("Errore chiusura mese:", err)
+    const res = await fetch("/api/chiudi-mese", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ mese, password })
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.error || "Errore chiusura mese")
+      return
     }
+
+    alert("Mese chiuso correttamente")
+    caricaDashboard()
+
+  } catch (err) {
+    console.error("Errore chiusura mese:", err)
   }
+}
 
   return (
     <div className="space-y-8">
