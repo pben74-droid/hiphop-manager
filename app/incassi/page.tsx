@@ -9,25 +9,25 @@ export default function IncassiPage() {
 
   const { mese } = useMese()
 
-  const [bloccato, setBloccato] = useState(false)
   const [descrizione, setDescrizione] = useState("")
   const [importo, setImporto] = useState("")
   const [contenitore, setContenitore] = useState("cassa_operativa")
+  const [dataIncasso, setDataIncasso] = useState("")
   const [incassi, setIncassi] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [meseChiuso, setMeseChiuso] = useState(false)
 
   useEffect(() => {
-    if (!mese) return
-    inizializza()
+    caricaIncassi()
+    controllaMese()
   }, [mese])
 
-  const inizializza = async () => {
-
-    setLoading(true)
-
+  const controllaMese = async () => {
     const chiuso = await verificaMeseChiuso(mese)
-    setBloccato(chiuso)
+    setMeseChiuso(chiuso)
+  }
 
+  const caricaIncassi = async () => {
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
@@ -36,59 +36,92 @@ export default function IncassiPage() {
       .order("data", { ascending: false })
 
     setIncassi(data || [])
-    setLoading(false)
   }
 
-  const salva = async () => {
-
-    if (bloccato) return
-
-    await supabase.from("movimenti_finanziari").insert({
-      tipo: "incasso",
-      categoria: "atleta",
-      descrizione,
-      importo: Number(importo),
-      contenitore,
-      mese,
-      data: new Date().toISOString().slice(0, 10)
-    })
-
+  const resetForm = () => {
     setDescrizione("")
     setImporto("")
-    inizializza()
+    setContenitore("cassa_operativa")
+    setDataIncasso("")
+    setEditId(null)
   }
 
-  const elimina = async (id: string) => {
-    if (bloccato) return
-    await supabase.from("movimenti_finanziari").delete().eq("id", id)
-    inizializza()
+  const salvaIncasso = async () => {
+
+    if (!descrizione || !importo || !dataIncasso) return
+
+    const valore = Math.abs(Number(importo))
+
+    if (editId) {
+
+      await supabase
+        .from("movimenti_finanziari")
+        .update({
+          descrizione,
+          importo: valore,
+          contenitore,
+          data: dataIncasso
+        })
+        .eq("id", editId)
+
+    } else {
+
+      await supabase
+        .from("movimenti_finanziari")
+        .insert({
+          mese,
+          tipo: "incasso",
+          categoria: "atleta",
+          descrizione,
+          importo: valore,
+          contenitore,
+          data: dataIncasso
+        })
+    }
+
+    resetForm()
+    caricaIncassi()
+  }
+
+  const eliminaIncasso = async (id: string) => {
+    await supabase
+      .from("movimenti_finanziari")
+      .delete()
+      .eq("id", id)
+
+    caricaIncassi()
+  }
+
+  const modificaIncasso = (mov: any) => {
+    setEditId(mov.id)
+    setDescrizione(mov.descrizione)
+    setImporto(Number(mov.importo).toFixed(2))
+    setContenitore(mov.contenitore)
+    setDataIncasso(mov.data)
   }
 
   const incassiCassa = incassi.filter(i => i.contenitore === "cassa_operativa")
   const incassiBanca = incassi.filter(i => i.contenitore === "banca")
 
-  const totale = (lista: any[]) =>
-    lista.reduce((acc, i) => acc + Number(i.importo), 0)
-
-  if (loading) return <div className="p-6 text-yellow-500">Caricamento...</div>
-
-  if (bloccato)
-    return <div className="p-6 text-red-500 font-bold">Mese chiuso</div>
+  const totaleCassa = incassiCassa.reduce((acc, i) => acc + Number(i.importo), 0)
+  const totaleBanca = incassiBanca.reduce((acc, i) => acc + Number(i.importo), 0)
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8">
 
-      <h1 className="text-2xl text-yellow-500 font-bold">
-        Incassi – {mese}
+      <h1 className="text-3xl font-bold text-yellow-500">
+        Gestione Incassi
       </h1>
 
       {/* FORM */}
-      <div className="border border-yellow-500 p-4 rounded space-y-3">
+      <div className="border border-yellow-500 p-6 rounded space-y-4">
+
         <input
           type="text"
           placeholder="Descrizione"
           value={descrizione}
           onChange={(e) => setDescrizione(e.target.value)}
+          disabled={meseChiuso}
           className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         />
 
@@ -98,12 +131,22 @@ export default function IncassiPage() {
           placeholder="Importo"
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
+          disabled={meseChiuso}
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+        />
+
+        <input
+          type="date"
+          value={dataIncasso}
+          onChange={(e) => setDataIncasso(e.target.value)}
+          disabled={meseChiuso}
           className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         />
 
         <select
           value={contenitore}
           onChange={(e) => setContenitore(e.target.value)}
+          disabled={meseChiuso}
           className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         >
           <option value="cassa_operativa">Cassa Operativa</option>
@@ -111,39 +154,60 @@ export default function IncassiPage() {
         </select>
 
         <button
-          onClick={salva}
-          className="bg-yellow-500 text-black px-4 py-2 rounded"
+          onClick={salvaIncasso}
+          disabled={meseChiuso}
+          className="bg-green-600 text-white px-6 py-2 rounded disabled:opacity-50"
         >
-          Registra Incasso
+          {editId ? "Aggiorna Incasso" : "Registra Incasso"}
         </button>
+
       </div>
 
-      {/* CASSA */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg font-bold mb-2">
-          Incassi Cassa – Totale {totale(incassiCassa).toFixed(2)} €
-        </h2>
+      {/* RIEPILOGO */}
+      <div className="border border-yellow-500 p-6 rounded">
 
-        {incassiCassa.map(i => (
-          <div key={i.id} className="flex justify-between py-1">
-            <span>{i.descrizione}</span>
-            <span>{Number(i.importo).toFixed(2)} €</span>
-          </div>
-        ))}
+        <h2 className="text-xl mb-4">Riepilogo Incassi</h2>
+
+        <p>Totale Incassi Cassa: {totaleCassa.toFixed(2)} €</p>
+        <p>Totale Incassi Banca: {totaleBanca.toFixed(2)} €</p>
+
       </div>
 
-      {/* BANCA */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg font-bold mb-2">
-          Incassi Banca – Totale {totale(incassiBanca).toFixed(2)} €
-        </h2>
+      {/* ELENCO */}
+      <div className="border border-yellow-500 p-6 rounded">
 
-        {incassiBanca.map(i => (
-          <div key={i.id} className="flex justify-between py-1">
-            <span>{i.descrizione}</span>
-            <span>{Number(i.importo).toFixed(2)} €</span>
+        <h2 className="text-xl mb-4">Elenco Incassi</h2>
+
+        {incassi.map((mov) => (
+          <div
+            key={mov.id}
+            className="flex justify-between border-b border-yellow-500 py-2 text-green-400"
+          >
+            <span>{mov.data}</span>
+            <span>{mov.descrizione}</span>
+            <span>{mov.contenitore}</span>
+            <span>{Number(mov.importo).toFixed(2)} €</span>
+
+            {!meseChiuso && (
+              <div className="space-x-2">
+                <button
+                  onClick={() => modificaIncasso(mov)}
+                  className="text-yellow-400"
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => eliminaIncasso(mov.id)}
+                  className="text-red-600"
+                >
+                  Elimina
+                </button>
+              </div>
+            )}
+
           </div>
         ))}
+
       </div>
 
     </div>
