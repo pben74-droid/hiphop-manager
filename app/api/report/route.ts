@@ -16,15 +16,14 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  /* =======================
+  /* =========================
      RECUPERO DATI
-  ======================= */
+  ========================= */
 
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
-    .order("data")
 
   const { data: soci } = await supabase.from("soci").select("*")
 
@@ -48,23 +47,27 @@ export async function GET(request: Request) {
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
   ) || []
 
-  const speseVarie = movimenti?.filter(
-    m => m.categoria === "spesa_generica"
+  const spese = movimenti?.filter(
+    m => m.tipo === "spesa"
   ) || []
 
   const insegnanti = movimenti?.filter(
     m => m.categoria === "insegnante"
   ) || []
 
-  const risultatoOperativo = movimenti
-    ?.filter(m => m.categoria !== "trasferimento")
-    .reduce((a, m) => a + Number(m.importo), 0) || 0
-
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
+  const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
 
-  /* =======================
+  const risultatoOperativo = totaleIncassi - totaleSpese
+  const perdita = risultatoOperativo < 0 ? Math.abs(risultatoOperativo) : 0
+  const totaleVersamenti =
+    versamenti?.reduce((a, v) => a + Number(v.importo), 0) || 0
+
+  const differenzaFinale = totaleVersamenti - perdita
+
+  /* =========================
      CREAZIONE PDF
-  ======================= */
+  ========================= */
 
   const pdfDoc = await PDFDocument.create()
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
@@ -73,9 +76,8 @@ export async function GET(request: Request) {
   let page = pdfDoc.addPage([595, 842])
   let y = 800
 
-  const marginLeft = 50
+  const margin = 50
   const pageWidth = 595
-  const pageHeight = 842
 
   const checkPageBreak = () => {
     if (y < 80) {
@@ -84,7 +86,18 @@ export async function GET(request: Request) {
     }
   }
 
-  const drawText = (text: string, x: number, size = 10, bold = false, color = rgb(0,0,0)) => {
+  const newLine = (space = 16) => {
+    y -= space
+    checkPageBreak()
+  }
+
+  const drawText = (
+    text: string,
+    x: number,
+    size = 10,
+    bold = false,
+    color = rgb(0, 0, 0)
+  ) => {
     page.drawText(text, {
       x,
       y,
@@ -94,168 +107,155 @@ export async function GET(request: Request) {
     })
   }
 
-  const newLine = (space = 16) => {
-    y -= space
-    checkPageBreak()
+  const drawRightText = (text: string, size = 10, bold = false) => {
+    const textWidth = bold
+      ? boldFont.widthOfTextAtSize(text, size)
+      : font.widthOfTextAtSize(text, size)
+
+    page.drawText(text, {
+      x: pageWidth - margin - textWidth,
+      y,
+      size,
+      font: bold ? boldFont : font
+    })
   }
 
-  const drawLine = () => {
+  const drawDivider = () => {
     page.drawLine({
-      start: { x: marginLeft, y },
-      end: { x: pageWidth - marginLeft, y },
+      start: { x: margin, y },
+      end: { x: pageWidth - margin, y },
       thickness: 1,
-      color: rgb(0.8, 0.8, 0.8)
+      color: rgb(0.85, 0.85, 0.85)
     })
     newLine(12)
   }
 
-  const drawSectionTitle = (title: string) => {
-    newLine(10)
-    drawText(title, marginLeft, 13, true)
-    newLine(18)
-  }
+  /* =========================
+     HEADER CON LOGO
+  ========================= */
 
-  const drawTableHeader = (cols: string[]) => {
-    let x = marginLeft
-    cols.forEach(col => {
-      drawText(col, x, 10, true)
-      x += 120
-    })
-    newLine(14)
-    drawLine()
-  }
+  const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
+  const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
+  const logoImage = await pdfDoc.embedPng(logoBytes)
 
-  const drawRow = (cols: string[]) => {
-    let x = marginLeft
-    cols.forEach(col => {
-      drawText(col, x, 9)
-      x += 120
-    })
-    newLine(14)
-  }
+  page.drawImage(logoImage, {
+    x: pageWidth - 150,
+    y: 740,
+    width: 100,
+    height: 100
+  })
 
-  /* =======================
-     HEADER
-  ======================= */
+  drawText("HIP HOP FAMILY MANAGER", margin, 20, true)
+  newLine(24)
+  drawText(`Report Mensile – ${mese}`, margin, 13, true)
+  newLine(18)
+  drawText(`Data generazione: ${new Date().toLocaleDateString()}`, margin, 10)
 
-  drawText("HIP HOP FAMILY MANAGER", marginLeft, 18, true)
-  newLine(22)
-  drawText(`Report Mensile: ${mese}`, marginLeft, 12)
-  newLine(16)
-  drawText(`Data generazione: ${new Date().toLocaleDateString()}`, marginLeft, 10)
+  newLine(25)
+  drawDivider()
+
+  /* =========================
+     RIEPILOGO GENERALE
+  ========================= */
+
+  drawText("RIEPILOGO GENERALE", margin, 14, true)
   newLine(20)
-  drawLine()
 
-  /* =======================
-     INCASSI
-  ======================= */
+  drawText("Totale Incassi", margin)
+  drawRightText(`${totaleIncassi.toFixed(2)} €`, 11, true)
+  newLine(16)
 
-  drawSectionTitle("INCASSI")
-  drawTableHeader(["Data", "Descrizione", "Contenitore", "Importo"])
+  drawText("Totale Spese", margin)
+  drawRightText(`${totaleSpese.toFixed(2)} €`, 11, true)
+  newLine(16)
+
+  drawText("Totale costi da ripartire", margin, 11, true)
+  drawRightText(`${perdita.toFixed(2)} €`, 11, true)
+  newLine(16)
+
+  drawText("Versamenti Soci", margin)
+  drawRightText(`${totaleVersamenti.toFixed(2)} €`, 11, true)
+  newLine(16)
+
+  drawText("Differenza Finale", margin, 12, true)
+
+  const diffColor =
+    differenzaFinale >= 0 ? rgb(0, 0.5, 0) : rgb(0.8, 0, 0)
+
+  const diffText = `${differenzaFinale.toFixed(2)} €`
+  const diffWidth = boldFont.widthOfTextAtSize(diffText, 12)
+
+  page.drawText(diffText, {
+    x: pageWidth - margin - diffWidth,
+    y,
+    size: 12,
+    font: boldFont,
+    color: diffColor
+  })
+
+  newLine(25)
+  drawDivider()
+
+  /* =========================
+     INCASSI (senza data)
+  ========================= */
+
+  drawText("INCASSI", margin, 14, true)
+  newLine(20)
 
   incassi.forEach(i => {
-    drawRow([
-      i.data,
-      i.descrizione,
-      i.contenitore,
-      `${Number(i.importo).toFixed(2)} €`
-    ])
+    drawText(i.descrizione, margin)
+    drawRightText(`${Number(i.importo).toFixed(2)} €`)
+    newLine(14)
   })
 
-  /* =======================
-     SPESE VARIE
-  ======================= */
+  newLine(10)
+  drawDivider()
 
-  drawSectionTitle("SPESE VARIE")
-  drawTableHeader(["Data", "Descrizione", "Contenitore", "Importo"])
+  /* =========================
+     SPESE
+  ========================= */
 
-  speseVarie.forEach(s => {
-    drawRow([
-      s.data,
-      s.descrizione,
-      s.contenitore,
-      `${Math.abs(Number(s.importo)).toFixed(2)} €`
-    ])
+  drawText("SPESE", margin, 14, true)
+  newLine(20)
+
+  spese.forEach(s => {
+    drawText(s.descrizione, margin)
+    drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
+    newLine(14)
   })
 
-  /* =======================
-     INSEGNANTI
-  ======================= */
+  newLine(10)
+  drawDivider()
 
-  drawSectionTitle("COMPENSI INSEGNANTI")
-  drawTableHeader(["Data", "Insegnante", "Importo"])
+  /* =========================
+     COMPENSI INSEGNANTI
+  ========================= */
+
+  drawText("COMPENSI INSEGNANTI", margin, 14, true)
+  newLine(20)
 
   insegnanti.forEach(ins => {
-    drawRow([
-      ins.data,
-      ins.descrizione,
-      `${Math.abs(Number(ins.importo)).toFixed(2)} €`
-    ])
+    drawText(ins.descrizione, margin)
+    drawRightText(`${Math.abs(Number(ins.importo)).toFixed(2)} €`)
+    newLine(14)
   })
 
-  /* =======================
-     RIEPILOGO
-  ======================= */
-
-  drawSectionTitle("RIEPILOGO OPERATIVO")
-
-  drawRow(["Totale Incassi", "", "", `${totaleIncassi.toFixed(2)} €`])
-
-  const risultatoColor =
-    risultatoOperativo >= 0 ? rgb(0,0,0) : rgb(0.8,0,0)
-
-  drawText(
-    `Risultato Operativo: ${risultatoOperativo.toFixed(2)} €`,
-    marginLeft,
-    11,
-    true,
-    risultatoColor
-  )
-
-  newLine(20)
-  drawLine()
-
-  /* =======================
-     RIPARTIZIONE SOCI
-  ======================= */
-
-  if (risultatoOperativo < 0) {
-
-    drawSectionTitle("RIPARTIZIONE SPESE TRA SOCI")
-    drawTableHeader(["Socio", "Quota", "Versato", "Differenza"])
-
-    const perdita = Math.abs(risultatoOperativo)
-
-    soci?.forEach(s => {
-
-      const quota = perdita * (Number(s.quota_percentuale) / 100)
-
-      const versato = versamenti
-        ?.filter(v => v.socio_id === s.id)
-        .reduce((a, v) => a + Number(v.importo), 0) || 0
-
-      const differenza = quota - versato
-
-      drawRow([
-        s.nome,
-        `${quota.toFixed(2)} €`,
-        `${versato.toFixed(2)} €`,
-        `${differenza.toFixed(2)} €`
-      ])
-    })
-  }
-
-  /* =======================
+  /* =========================
      AFFITTO
-  ======================= */
+  ========================= */
 
   if (affittoMese) {
 
-    drawSectionTitle("AFFITTO (GESTIONE SEPARATA)")
-    drawRow(["Costo Mensile", "", "", `${Number(affittoMese.costo_mensile).toFixed(2)} €`])
-    newLine(10)
+    newLine(20)
+    drawDivider()
 
-    drawTableHeader(["Socio", "Quota", "Versato"])
+    drawText("AFFITTO (GESTIONE SEPARATA)", margin, 14, true)
+    newLine(18)
+
+    drawText("Costo Mensile", margin)
+    drawRightText(`${Number(affittoMese.costo_mensile).toFixed(2)} €`, 11, true)
+    newLine(18)
 
     soci?.forEach(s => {
 
@@ -266,17 +266,19 @@ export async function GET(request: Request) {
         ?.filter(p => p.socio_id === s.id)
         .reduce((a, p) => a + Number(p.importo), 0) || 0
 
-      drawRow([
-        s.nome,
-        `${quota.toFixed(2)} €`,
-        `${versato.toFixed(2)} €`
-      ])
+      drawText(`${s.nome} – Quota`, margin)
+      drawRightText(`${quota.toFixed(2)} €`)
+      newLine(14)
+
+      drawText(`${s.nome} – Versato`, margin)
+      drawRightText(`${versato.toFixed(2)} €`)
+      newLine(16)
     })
   }
 
-  /* =======================
+  /* =========================
      NUMERAZIONE PAGINE
-  ======================= */
+  ========================= */
 
   const pages = pdfDoc.getPages()
   pages.forEach((p, index) => {
