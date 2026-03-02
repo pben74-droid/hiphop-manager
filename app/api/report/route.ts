@@ -16,9 +16,9 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  /* =========================
+  /* =======================
      RECUPERO DATI
-  ========================= */
+  ======================= */
 
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
@@ -44,10 +44,6 @@ export async function GET(request: Request) {
     .select("*")
     .eq("mese", mese)
 
-  /* =========================
-     FILTRAGGI
-  ========================= */
-
   const incassi = movimenti?.filter(
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
   ) || []
@@ -66,62 +62,93 @@ export async function GET(request: Request) {
 
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
 
-  /* =========================
-     PDF
-  ========================= */
+  /* =======================
+     CREAZIONE PDF
+  ======================= */
 
   const pdfDoc = await PDFDocument.create()
-  const page = pdfDoc.addPage([595, 842])
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
+  let page = pdfDoc.addPage([595, 842])
   let y = 800
 
-  const drawText = (text: string, x: number, size = 10) => {
-    page.drawText(text, { x, y, size, font })
+  const marginLeft = 50
+  const pageWidth = 595
+  const pageHeight = 842
+
+  const checkPageBreak = () => {
+    if (y < 80) {
+      page = pdfDoc.addPage([595, 842])
+      y = 800
+    }
   }
 
-  const newLine = (space = 18) => {
+  const drawText = (text: string, x: number, size = 10, bold = false, color = rgb(0,0,0)) => {
+    page.drawText(text, {
+      x,
+      y,
+      size,
+      font: bold ? boldFont : font,
+      color
+    })
+  }
+
+  const newLine = (space = 16) => {
     y -= space
+    checkPageBreak()
   }
 
-  const drawTableHeader = (columns: string[]) => {
-    let x = 50
-    columns.forEach(col => {
-      drawText(col, x, 10)
+  const drawLine = () => {
+    page.drawLine({
+      start: { x: marginLeft, y },
+      end: { x: pageWidth - marginLeft, y },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8)
+    })
+    newLine(12)
+  }
+
+  const drawSectionTitle = (title: string) => {
+    newLine(10)
+    drawText(title, marginLeft, 13, true)
+    newLine(18)
+  }
+
+  const drawTableHeader = (cols: string[]) => {
+    let x = marginLeft
+    cols.forEach(col => {
+      drawText(col, x, 10, true)
       x += 120
     })
-    newLine(15)
+    newLine(14)
+    drawLine()
   }
 
-  const drawRow = (columns: string[]) => {
-    let x = 50
-    columns.forEach(col => {
+  const drawRow = (cols: string[]) => {
+    let x = marginLeft
+    cols.forEach(col => {
       drawText(col, x, 9)
       x += 120
     })
     newLine(14)
   }
 
-  const drawSectionTitle = (title: string) => {
-    newLine(10)
-    drawText(title, 50, 12)
-    newLine(18)
-  }
-
-  /* =========================
+  /* =======================
      HEADER
-  ========================= */
+  ======================= */
 
-  drawText("HIP HOP FAMILY MANAGER", 50, 16)
+  drawText("HIP HOP FAMILY MANAGER", marginLeft, 18, true)
   newLine(22)
-  drawText(`Report Mensile: ${mese}`, 50, 12)
+  drawText(`Report Mensile: ${mese}`, marginLeft, 12)
   newLine(16)
-  drawText(`Generato il: ${new Date().toLocaleDateString()}`, 50, 10)
-  newLine(25)
+  drawText(`Data generazione: ${new Date().toLocaleDateString()}`, marginLeft, 10)
+  newLine(20)
+  drawLine()
 
-  /* =========================
+  /* =======================
      INCASSI
-  ========================= */
+  ======================= */
 
   drawSectionTitle("INCASSI")
   drawTableHeader(["Data", "Descrizione", "Contenitore", "Importo"])
@@ -135,9 +162,9 @@ export async function GET(request: Request) {
     ])
   })
 
-  /* =========================
+  /* =======================
      SPESE VARIE
-  ========================= */
+  ======================= */
 
   drawSectionTitle("SPESE VARIE")
   drawTableHeader(["Data", "Descrizione", "Contenitore", "Importo"])
@@ -151,9 +178,9 @@ export async function GET(request: Request) {
     ])
   })
 
-  /* =========================
+  /* =======================
      INSEGNANTI
-  ========================= */
+  ======================= */
 
   drawSectionTitle("COMPENSI INSEGNANTI")
   drawTableHeader(["Data", "Insegnante", "Importo"])
@@ -166,18 +193,31 @@ export async function GET(request: Request) {
     ])
   })
 
-  /* =========================
-     RIEPILOGO OPERATIVO
-  ========================= */
+  /* =======================
+     RIEPILOGO
+  ======================= */
 
   drawSectionTitle("RIEPILOGO OPERATIVO")
 
   drawRow(["Totale Incassi", "", "", `${totaleIncassi.toFixed(2)} €`])
-  drawRow(["Risultato Operativo", "", "", `${risultatoOperativo.toFixed(2)} €`])
 
-  /* =========================
+  const risultatoColor =
+    risultatoOperativo >= 0 ? rgb(0,0,0) : rgb(0.8,0,0)
+
+  drawText(
+    `Risultato Operativo: ${risultatoOperativo.toFixed(2)} €`,
+    marginLeft,
+    11,
+    true,
+    risultatoColor
+  )
+
+  newLine(20)
+  drawLine()
+
+  /* =======================
      RIPARTIZIONE SOCI
-  ========================= */
+  ======================= */
 
   if (risultatoOperativo < 0) {
 
@@ -205,9 +245,9 @@ export async function GET(request: Request) {
     })
   }
 
-  /* =========================
+  /* =======================
      AFFITTO
-  ========================= */
+  ======================= */
 
   if (affittoMese) {
 
@@ -233,6 +273,18 @@ export async function GET(request: Request) {
       ])
     })
   }
+
+  /* =======================
+     NUMERAZIONE PAGINE
+  ======================= */
+
+  const pages = pdfDoc.getPages()
+  pages.forEach((p, index) => {
+    p.drawText(
+      `Pagina ${index + 1} / ${pages.length}`,
+      { x: 480, y: 20, size: 9, font }
+    )
+  })
 
   const pdfBytes = await pdfDoc.save()
   const buffer = Buffer.from(pdfBytes)
