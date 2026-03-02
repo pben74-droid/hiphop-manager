@@ -65,6 +65,14 @@ export async function GET(request: Request) {
 
   const differenzaFinale = totaleVersamenti - perdita
 
+  const saldoCassa = movimenti
+    ?.filter(m => m.contenitore === "cassa_operativa")
+    .reduce((a, m) => a + Number(m.importo), 0) || 0
+
+  const saldoBanca = movimenti
+    ?.filter(m => m.contenitore === "banca")
+    .reduce((a, m) => a + Number(m.importo), 0) || 0
+
   /* =========================
      CREAZIONE PDF
   ========================= */
@@ -107,7 +115,12 @@ export async function GET(request: Request) {
     })
   }
 
-  const drawRightText = (text: string, size = 10, bold = false) => {
+  const drawRightText = (
+    text: string,
+    size = 10,
+    bold = false,
+    color = rgb(0, 0, 0)
+  ) => {
     const textWidth = bold
       ? boldFont.widthOfTextAtSize(text, size)
       : font.widthOfTextAtSize(text, size)
@@ -116,7 +129,8 @@ export async function GET(request: Request) {
       x: pageWidth - margin - textWidth,
       y,
       size,
-      font: bold ? boldFont : font
+      font: bold ? boldFont : font,
+      color
     })
   }
 
@@ -167,7 +181,19 @@ export async function GET(request: Request) {
 
   drawText("Totale Spese", margin)
   drawRightText(`${totaleSpese.toFixed(2)} €`, 11, true)
+  newLine(20)
+
+  drawDivider()
+
+  drawText("Saldo Cassa", margin)
+  drawRightText(`${saldoCassa.toFixed(2)} €`, 11, true)
   newLine(16)
+
+  drawText("Saldo Banca", margin)
+  drawRightText(`${saldoBanca.toFixed(2)} €`, 11, true)
+  newLine(20)
+
+  drawDivider()
 
   drawText("Totale costi da ripartire", margin, 11, true)
   drawRightText(`${perdita.toFixed(2)} €`, 11, true)
@@ -182,22 +208,18 @@ export async function GET(request: Request) {
   const diffColor =
     differenzaFinale >= 0 ? rgb(0, 0.5, 0) : rgb(0.8, 0, 0)
 
-  const diffText = `${differenzaFinale.toFixed(2)} €`
-  const diffWidth = boldFont.widthOfTextAtSize(diffText, 12)
-
-  page.drawText(diffText, {
-    x: pageWidth - margin - diffWidth,
-    y,
-    size: 12,
-    font: boldFont,
-    color: diffColor
-  })
+  drawRightText(
+    `${differenzaFinale.toFixed(2)} €`,
+    12,
+    true,
+    diffColor
+  )
 
   newLine(25)
   drawDivider()
 
   /* =========================
-     INCASSI (senza data)
+     INCASSI
   ========================= */
 
   drawText("INCASSI", margin, 14, true)
@@ -229,52 +251,53 @@ export async function GET(request: Request) {
   drawDivider()
 
   /* =========================
-     COMPENSI INSEGNANTI
+     RIPARTIZIONE SOCI
   ========================= */
 
-  drawText("COMPENSI INSEGNANTI", margin, 14, true)
+  drawText("RIPARTIZIONE GESTIONALE SOCI", margin, 14, true)
   newLine(20)
 
-  insegnanti.forEach(ins => {
-    drawText(ins.descrizione, margin)
-    drawRightText(`${Math.abs(Number(ins.importo)).toFixed(2)} €`)
+  drawText("Socio", margin, 10, true)
+  drawText("Quota Costi", margin + 150, 10, true)
+  drawText("Quota Incassi", margin + 260, 10, true)
+  drawText("Risultato", margin + 380, 10, true)
+  drawText("Versato", margin + 470, 10, true)
+
+  newLine(14)
+  drawDivider()
+
+  soci?.forEach(s => {
+
+    const percentuale = Number(s.quota_percentuale)
+
+    const quotaCosti = totaleSpese * (percentuale / 100)
+    const quotaIncassi = totaleIncassi * (percentuale / 100)
+    const risultatoSocio = quotaIncassi - quotaCosti
+
+    const versato = versamenti
+      ?.filter(v => v.socio_id === s.id)
+      .reduce((a, v) => a + Number(v.importo), 0) || 0
+
+    drawText(s.nome, margin)
+
+    drawText(`${quotaCosti.toFixed(2)} €`, margin + 150)
+    drawText(`${quotaIncassi.toFixed(2)} €`, margin + 260)
+
+    page.drawText(
+      `${risultatoSocio.toFixed(2)} €`,
+      {
+        x: margin + 380,
+        y,
+        size: 9,
+        font,
+        color: risultatoSocio >= 0 ? rgb(0, 0.5, 0) : rgb(0.8, 0, 0)
+      }
+    )
+
+    drawText(`${versato.toFixed(2)} €`, margin + 470)
+
     newLine(14)
   })
-
-  /* =========================
-     AFFITTO
-  ========================= */
-
-  if (affittoMese) {
-
-    newLine(20)
-    drawDivider()
-
-    drawText("AFFITTO (GESTIONE SEPARATA)", margin, 14, true)
-    newLine(18)
-
-    drawText("Costo Mensile", margin)
-    drawRightText(`${Number(affittoMese.costo_mensile).toFixed(2)} €`, 11, true)
-    newLine(18)
-
-    soci?.forEach(s => {
-
-      const quota = Number(affittoMese.costo_mensile) *
-        (Number(s.quota_percentuale) / 100)
-
-      const versato = affittoPagamenti
-        ?.filter(p => p.socio_id === s.id)
-        .reduce((a, p) => a + Number(p.importo), 0) || 0
-
-      drawText(`${s.nome} – Quota`, margin)
-      drawRightText(`${quota.toFixed(2)} €`)
-      newLine(14)
-
-      drawText(`${s.nome} – Versato`, margin)
-      drawRightText(`${versato.toFixed(2)} €`)
-      newLine(16)
-    })
-  }
 
   /* =========================
      NUMERAZIONE PAGINE
