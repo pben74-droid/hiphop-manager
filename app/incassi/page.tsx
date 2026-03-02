@@ -39,14 +39,9 @@ export default function IncassiPage() {
     setLoading(false)
   }
 
-  const salvaIncasso = async () => {
+  const salva = async () => {
 
     if (bloccato) return
-
-    if (!descrizione || !importo) {
-      alert("Compila tutti i campi")
-      return
-    }
 
     await supabase.from("movimenti_finanziari").insert({
       tipo: "incasso",
@@ -63,32 +58,25 @@ export default function IncassiPage() {
     inizializza()
   }
 
-  const eliminaIncasso = async (id: string) => {
-
+  const elimina = async (id: string) => {
     if (bloccato) return
-
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("id", id)
-
+    await supabase.from("movimenti_finanziari").delete().eq("id", id)
     inizializza()
   }
 
-  if (loading) {
-    return <div className="p-6 text-yellow-500">Caricamento...</div>
-  }
+  const incassiCassa = incassi.filter(i => i.contenitore === "cassa_operativa")
+  const incassiBanca = incassi.filter(i => i.contenitore === "banca")
 
-  if (bloccato) {
-    return (
-      <div className="p-6 text-red-500 font-bold">
-        Mese chiuso. Modifiche non consentite.
-      </div>
-    )
-  }
+  const totale = (lista: any[]) =>
+    lista.reduce((acc, i) => acc + Number(i.importo), 0)
+
+  if (loading) return <div className="p-6 text-yellow-500">Caricamento...</div>
+
+  if (bloccato)
+    return <div className="p-6 text-red-500 font-bold">Mese chiuso</div>
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
 
       <h1 className="text-2xl text-yellow-500 font-bold">
         Incassi – {mese}
@@ -96,7 +84,6 @@ export default function IncassiPage() {
 
       {/* FORM */}
       <div className="border border-yellow-500 p-4 rounded space-y-3">
-
         <input
           type="text"
           placeholder="Descrizione"
@@ -124,34 +111,37 @@ export default function IncassiPage() {
         </select>
 
         <button
-          onClick={salvaIncasso}
+          onClick={salva}
           className="bg-yellow-500 text-black px-4 py-2 rounded"
         >
           Registra Incasso
         </button>
-
       </div>
 
-      {/* ELENCO */}
+      {/* CASSA */}
       <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg mb-4">Elenco Incassi</h2>
+        <h2 className="text-lg font-bold mb-2">
+          Incassi Cassa – Totale {totale(incassiCassa).toFixed(2)} €
+        </h2>
 
-        {incassi.map(i => (
-          <div
-            key={i.id}
-            className="flex justify-between items-center border-b border-yellow-500 py-2"
-          >
-            <div>
-              <p>{i.descrizione}</p>
-              <p>{Number(i.importo).toFixed(2)} €</p>
-            </div>
+        {incassiCassa.map(i => (
+          <div key={i.id} className="flex justify-between py-1">
+            <span>{i.descrizione}</span>
+            <span>{Number(i.importo).toFixed(2)} €</span>
+          </div>
+        ))}
+      </div>
 
-            <button
-              onClick={() => eliminaIncasso(i.id)}
-              className="bg-red-500 px-3 py-1 rounded"
-            >
-              Elimina
-            </button>
+      {/* BANCA */}
+      <div className="border border-yellow-500 p-4 rounded">
+        <h2 className="text-lg font-bold mb-2">
+          Incassi Banca – Totale {totale(incassiBanca).toFixed(2)} €
+        </h2>
+
+        {incassiBanca.map(i => (
+          <div key={i.id} className="flex justify-between py-1">
+            <span>{i.descrizione}</span>
+            <span>{Number(i.importo).toFixed(2)} €</span>
           </div>
         ))}
       </div>
