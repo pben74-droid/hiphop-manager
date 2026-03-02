@@ -21,11 +21,16 @@ export function MeseProvider({ children }: { children: React.ReactNode }) {
 
   const caricaMeseIniziale = async () => {
 
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("mesi")
       .select("mese")
       .order("mese", { ascending: false })
       .limit(1)
+
+    if (error) {
+      console.error("Errore caricamento mese:", error.message)
+      return
+    }
 
     if (data && data.length > 0) {
       setMeseState(data[0].mese)
