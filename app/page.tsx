@@ -28,7 +28,9 @@ export default function DashboardPage() {
     caricaDashboard()
   }, [mese])
 
-  const caricaDashboard = async () => {
+ const caricaDashboard = async () => {
+
+  try {
 
     setLoading(true)
 
@@ -47,6 +49,9 @@ export default function DashboardPage() {
     setQuotaSoci(quote)
     setAffitto(affittoData)
 
+  } catch (err) {
+    console.error("Errore caricamento dashboard:", err)
+  } finally {
     setLoading(false)
   }
 
