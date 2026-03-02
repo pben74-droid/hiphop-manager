@@ -41,7 +41,6 @@ export default function DashboardPage() {
 
   const caricaDashboard = async () => {
     try {
-
       setLoading(true)
 
       await inizializzaMese(mese)
@@ -68,7 +67,6 @@ export default function DashboardPage() {
 
   const chiudiMese = async () => {
     try {
-
       const res = await fetch("/api/chiudi-mese", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -93,6 +91,7 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
 
+      {/* HEADER */}
       <div className="flex justify-between items-center">
 
         <div>
@@ -134,8 +133,8 @@ export default function DashboardPage() {
 
       </div>
 
+      {/* SALDI */}
       <div className="grid grid-cols-2 gap-6">
-
         <div className="border border-yellow-500 p-6 rounded">
           <h2>Saldo Cassa</h2>
           <p className={
@@ -157,9 +156,9 @@ export default function DashboardPage() {
             {saldoBanca.toFixed(2)} €
           </p>
         </div>
-
       </div>
 
+      {/* OPERATIVO */}
       {riepilogo && quotaSoci && (
         <div className="border border-yellow-500 p-6 rounded space-y-2">
           <h2 className="text-xl">Operativo</h2>
@@ -197,8 +196,59 @@ export default function DashboardPage() {
         </div>
       )}
 
-      <div className="flex justify-between">
+      {/* RIPARTIZIONE SOCI */}
+      {quotaSoci && (
+        <div className="border border-yellow-500 p-6 rounded">
+          <h2 className="text-xl mb-4">Ripartizione Soci</h2>
 
+          {quotaSoci.soci.map((s: any) => (
+            <div
+              key={s.id}
+              className="flex justify-between border-b border-yellow-500 py-2"
+            >
+              <span>{s.nome}</span>
+              <span>
+                Quota: {s.quota_calcolata.toFixed(2)} € | 
+                Versato: {s.versato.toFixed(2)} € | 
+                <span className={
+                  s.differenza > 0
+                    ? "text-green-400 font-bold"
+                    : s.differenza < 0
+                    ? "text-red-500 font-bold"
+                    : "text-gray-300"
+                }>
+                  Diff: {s.differenza.toFixed(2)} €
+                </span>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AFFITTO */}
+      {affitto && (
+        <div className="border border-yellow-500 p-6 rounded">
+          <h2 className="text-xl mb-4">Affitto (Separato)</h2>
+
+          <p>Costo: {affitto.costo_mensile.toFixed(2)} €</p>
+
+          {affitto.soci.map((s: any) => (
+            <div
+              key={s.id}
+              className="flex justify-between border-b border-yellow-500 py-2"
+            >
+              <span>{s.nome}</span>
+              <span>
+                Quota: {s.quota.toFixed(2)} € | 
+                Versato: {s.versato.toFixed(2)} €
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* AZIONI */}
+      <div className="flex justify-between">
         <button
           onClick={chiudiMese}
           disabled={meseChiuso || quotaSoci?.differenza_finale < 0}
@@ -214,7 +264,6 @@ export default function DashboardPage() {
         >
           Genera Report PDF
         </a>
-
       </div>
 
     </div>
