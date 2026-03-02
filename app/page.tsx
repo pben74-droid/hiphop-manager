@@ -21,61 +21,62 @@ export default function DashboardPage() {
   const [quotaSoci, setQuotaSoci] = useState<any>(null)
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
 
   useEffect(() => {
     if (!mese) return
     caricaDashboard()
   }, [mese])
 
- const caricaDashboard = async () => {
+  const caricaDashboard = async () => {
+    try {
 
-  try {
+      setLoading(true)
 
-    setLoading(true)
+      await inizializzaMese(mese)
 
-    await inizializzaMese(mese)
+      const chiuso = await verificaMeseChiuso(mese)
+      const saldi = await calcolaSaldi(mese)
+      const riepilogoOperativo = await calcolaRiepilogoOperativo(mese)
+      const quote = await calcolaQuotaSoci(mese)
+      const affittoData = await generaSezioneAffitto(mese)
 
-    const chiuso = await verificaMeseChiuso(mese)
-    const saldi = await calcolaSaldi(mese)
-    const riepilogoOperativo = await calcolaRiepilogoOperativo(mese)
-    const quote = await calcolaQuotaSoci(mese)
-    const affittoData = await generaSezioneAffitto(mese)
+      setMeseChiuso(chiuso)
+      setSaldoCassa(saldi.saldo_cassa)
+      setSaldoBanca(saldi.saldo_banca)
+      setRiepilogo(riepilogoOperativo)
+      setQuotaSoci(quote)
+      setAffitto(affittoData)
 
-    setMeseChiuso(chiuso)
-    setSaldoCassa(saldi.saldo_cassa)
-    setSaldoBanca(saldi.saldo_banca)
-    setRiepilogo(riepilogoOperativo)
-    setQuotaSoci(quote)
-    setAffitto(affittoData)
-
-  } catch (err) {
-    console.error("Errore caricamento dashboard:", err)
-  } finally {
-    setLoading(false)
+    } catch (err) {
+      console.error("Errore caricamento dashboard:", err)
+    } finally {
+      setLoading(false)
+    }
   }
 
   const chiudiMese = async () => {
+    try {
 
-    const res = await fetch("/api/chiudi-mese", {
-      method: "POST",
-      body: JSON.stringify({ mese })
-    })
+      const res = await fetch("/api/chiudi-mese", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mese })
+      })
 
-    const data = await res.json()
+      const data = await res.json()
 
-    if (!res.ok) {
-      alert(data.error)
-      return
+      if (!res.ok) {
+        alert(data.error || "Errore chiusura mese")
+        return
+      }
+
+      alert("Mese chiuso correttamente")
+      caricaDashboard()
+
+    } catch (err) {
+      console.error("Errore chiusura mese:", err)
     }
-
-    alert("Mese chiuso correttamente")
-    caricaDashboard()
-  }
-
-  {loading && (
-  <div className="text-yellow-500 mb-4">Caricamento...</div>
-)}
   }
 
   return (
@@ -98,12 +99,18 @@ export default function DashboardPage() {
                   : "ml-2 text-green-400 font-bold"
               }
             >
-              {meseChiuso ? "CHIUSO" : "APERTO"}
+              {meseChiuso ? " CHIUSO" : " APERTO"}
             </span>
           </div>
+
+          {loading && (
+            <div className="text-yellow-500 mt-2">
+              Caricamento dati...
+            </div>
+          )}
         </div>
 
-        {/* SELETTORE MESE STABILE */}
+        {/* SELETTORE MESE */}
         <input
           type="month"
           value={mese}
@@ -141,64 +148,67 @@ export default function DashboardPage() {
       </div>
 
       {/* OPERATIVO */}
-      <div className="border border-yellow-500 p-6 rounded space-y-2">
-        <h2 className="text-xl">Operativo</h2>
+      {riepilogo && quotaSoci && (
+        <div className="border border-yellow-500 p-6 rounded space-y-2">
+          <h2 className="text-xl">Operativo</h2>
 
-        <p>Incassi: {riepilogo?.totale_incassi.toFixed(2)} €</p>
-        <p>Spese: {riepilogo?.totale_spese.toFixed(2)} €</p>
+          <p>Incassi: {riepilogo.totale_incassi.toFixed(2)} €</p>
+          <p>Spese: {riepilogo.totale_spese.toFixed(2)} €</p>
 
-        <p>
-          Risultato:
-          <span className={
-            quotaSoci?.risultato_operativo >= 0
-              ? "text-green-400 ml-2 font-bold"
-              : "text-red-500 ml-2 font-bold"
-          }>
-            {quotaSoci?.risultato_operativo.toFixed(2)} €
-          </span>
-        </p>
+          <p>
+            Risultato:
+            <span className={
+              quotaSoci.risultato_operativo >= 0
+                ? "text-green-400 ml-2 font-bold"
+                : "text-red-500 ml-2 font-bold"
+            }>
+              {quotaSoci.risultato_operativo.toFixed(2)} €
+            </span>
+          </p>
 
-        <p>
-          Versamenti Soci: {quotaSoci?.totale_versamenti.toFixed(2)} €
-        </p>
+          <p>
+            Versamenti Soci: {quotaSoci.totale_versamenti.toFixed(2)} €
+          </p>
 
-        <p>
-          Differenza Finale:
-          <span className={
-            quotaSoci?.differenza_finale === 0
-              ? "text-green-400 ml-2 font-bold"
-              : "text-red-500 ml-2 font-bold"
-          }>
-            {quotaSoci?.differenza_finale.toFixed(2)} €
-          </span>
-        </p>
-
-      </div>
+          <p>
+            Differenza Finale:
+            <span className={
+              quotaSoci.differenza_finale === 0
+                ? "text-green-400 ml-2 font-bold"
+                : "text-red-500 ml-2 font-bold"
+            }>
+              {quotaSoci.differenza_finale.toFixed(2)} €
+            </span>
+          </p>
+        </div>
+      )}
 
       {/* RIPARTIZIONE SOCI */}
-      <div className="border border-yellow-500 p-6 rounded">
-        <h2 className="text-xl mb-4">Ripartizione Soci</h2>
+      {quotaSoci && (
+        <div className="border border-yellow-500 p-6 rounded">
+          <h2 className="text-xl mb-4">Ripartizione Soci</h2>
 
-        {quotaSoci?.soci.map((s: any) => (
-          <div
-            key={s.id}
-            className="flex justify-between border-b border-yellow-500 py-2"
-          >
-            <span>{s.nome}</span>
-            <span>
-              Quota: {s.quota_calcolata.toFixed(2)} € | 
-              Versato: {s.versato.toFixed(2)} € | 
-              <span className={
-                s.differenza === 0
-                  ? "text-green-400"
-                  : "text-red-500 font-bold"
-              }>
-                Diff: {s.differenza.toFixed(2)} €
+          {quotaSoci.soci.map((s: any) => (
+            <div
+              key={s.id}
+              className="flex justify-between border-b border-yellow-500 py-2"
+            >
+              <span>{s.nome}</span>
+              <span>
+                Quota: {s.quota_calcolata.toFixed(2)} € | 
+                Versato: {s.versato.toFixed(2)} € | 
+                <span className={
+                  s.differenza === 0
+                    ? "text-green-400"
+                    : "text-red-500 font-bold"
+                }>
+                  Diff: {s.differenza.toFixed(2)} €
+                </span>
               </span>
-            </span>
-          </div>
-        ))}
-      </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* AFFITTO */}
       {affitto && (
