@@ -1,47 +1,21 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useRef } from "react"
-import { supabase } from "./supabaseClient"
-import { inizializzaMese } from "./gestioneMese"
+import { createContext, useContext, useState, ReactNode } from "react"
 
-interface MeseContextType {
+type MeseContextType = {
   mese: string
   setMese: (mese: string) => void
 }
 
 const MeseContext = createContext<MeseContextType | undefined>(undefined)
 
-export function MeseProvider({ children }: { children: React.ReactNode }) {
+export function MeseProvider({ children }: { children: ReactNode }) {
 
-  const [mese, setMeseState] = useState<string>("")
-  const initialized = useRef(false)
+  const meseCorrente = new Date().toISOString().slice(0, 7)
 
-  useEffect(() => {
-    if (!initialized.current) {
-      caricaMeseIniziale()
-      initialized.current = true
-    }
-  }, [])
+  const [mese, setMeseState] = useState<string>(meseCorrente)
 
-  const caricaMeseIniziale = async () => {
-
-    const { data } = await supabase
-      .from("mesi")
-      .select("mese")
-      .order("mese", { ascending: false })
-      .limit(1)
-
-    if (data && data.length > 0) {
-      setMeseState(data[0].mese)
-    } else {
-      const meseCorrente = new Date().toISOString().slice(0, 7)
-      await inizializzaMese(meseCorrente)
-      setMeseState(meseCorrente)
-    }
-  }
-
-  const setMese = async (nuovoMese: string) => {
-    await inizializzaMese(nuovoMese)
+  const setMese = (nuovoMese: string) => {
     setMeseState(nuovoMese)
   }
 
@@ -55,7 +29,7 @@ export function MeseProvider({ children }: { children: React.ReactNode }) {
 export function useMese() {
   const context = useContext(MeseContext)
   if (!context) {
-    throw new Error("useMese must be used within MeseProvider")
+    throw new Error("useMese deve essere usato dentro MeseProvider")
   }
   return context
 }
