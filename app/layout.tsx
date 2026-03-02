@@ -1,5 +1,3 @@
-"use client"
-
 import "./globals.css"
 import Link from "next/link"
 import { ReactNode } from "react"
@@ -27,42 +25,18 @@ export default function RootLayout({
 
               <nav className="flex flex-col space-y-3">
 
-                <Link href="/" className="hover:text-yellow-500">
-                  Dashboard
-                </Link>
-
-                <Link href="/incassi" className="hover:text-yellow-500">
-                  Incassi
-                </Link>
-
-                <Link href="/spese" className="hover:text-yellow-500">
-                  Spese
-                </Link>
-
-                <Link href="/insegnanti" className="hover:text-yellow-500">
-                  Insegnanti
-                </Link>
-
-                <Link href="/versamenti" className="hover:text-yellow-500">
-                  Versamenti Soci
-                </Link>
-
-                <Link href="/affitto" className="hover:text-yellow-500">
-                  Affitto
-                </Link>
-
-                <Link href="/banca" className="hover:text-yellow-500">
-                  Banca
-                </Link>
-
-                <Link href="/cassa" className="hover:text-yellow-500">
-                  Cassa
-                </Link>
+                <Link href="/">Dashboard</Link>
+                <Link href="/incassi">Incassi</Link>
+                <Link href="/spese">Spese</Link>
+                <Link href="/insegnanti">Insegnanti</Link>
+                <Link href="/versamenti">Versamenti Soci</Link>
+                <Link href="/affitto">Affitto</Link>
+                <Link href="/banca">Banca</Link>
+                <Link href="/cassa">Cassa</Link>
 
               </nav>
             </aside>
 
-            {/* CONTENUTO */}
             <main className="flex-1 p-8">
               {children}
             </main>
