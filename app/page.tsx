@@ -68,8 +68,9 @@ export default function DashboardPage() {
     caricaDashboard()
   }
 
-  if (loading)
+  if (loading) {
     return <div className="text-yellow-500">Caricamento...</div>
+  }
 
   return (
     <div className="space-y-8">
@@ -96,12 +97,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* SELETTORE MESE STABILE */}
         <input
           type="month"
           value={mese}
           onChange={(e) => setMese(e.target.value)}
           className="bg-black text-white border border-yellow-500 p-2 rounded"
         />
+
       </div>
 
       {/* SALDI */}
@@ -128,6 +131,7 @@ export default function DashboardPage() {
             {saldoBanca.toFixed(2)} €
           </p>
         </div>
+
       </div>
 
       {/* OPERATIVO */}
@@ -148,7 +152,9 @@ export default function DashboardPage() {
           </span>
         </p>
 
-        <p>Versamenti Soci: {quotaSoci?.totale_versamenti.toFixed(2)} €</p>
+        <p>
+          Versamenti Soci: {quotaSoci?.totale_versamenti.toFixed(2)} €
+        </p>
 
         <p>
           Differenza Finale:
@@ -160,14 +166,18 @@ export default function DashboardPage() {
             {quotaSoci?.differenza_finale.toFixed(2)} €
           </span>
         </p>
+
       </div>
 
-      {/* RIPARTIZIONE */}
+      {/* RIPARTIZIONE SOCI */}
       <div className="border border-yellow-500 p-6 rounded">
         <h2 className="text-xl mb-4">Ripartizione Soci</h2>
 
         {quotaSoci?.soci.map((s: any) => (
-          <div key={s.id} className="flex justify-between border-b border-yellow-500 py-2">
+          <div
+            key={s.id}
+            className="flex justify-between border-b border-yellow-500 py-2"
+          >
             <span>{s.nome}</span>
             <span>
               Quota: {s.quota_calcolata.toFixed(2)} € | 
@@ -187,12 +197,15 @@ export default function DashboardPage() {
       {/* AFFITTO */}
       {affitto && (
         <div className="border border-yellow-500 p-6 rounded">
-          <h2 className="text-xl mb-4">Affitto</h2>
+          <h2 className="text-xl mb-4">Affitto (Separato)</h2>
 
           <p>Costo: {affitto.costo_mensile.toFixed(2)} €</p>
 
           {affitto.soci.map((s: any) => (
-            <div key={s.id} className="flex justify-between border-b border-yellow-500 py-2">
+            <div
+              key={s.id}
+              className="flex justify-between border-b border-yellow-500 py-2"
+            >
               <span>{s.nome}</span>
               <span>
                 Quota: {s.quota.toFixed(2)} € | 
