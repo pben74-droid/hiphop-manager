@@ -51,7 +51,6 @@ export async function calcolaSaldi(mese: string) {
   let saldo_banca = 0
 
   movimenti?.forEach(m => {
-
     const importo = Number(m.importo) || 0
 
     if (m.contenitore === "cassa_operativa") {
@@ -84,17 +83,17 @@ export async function calcolaRiepilogoOperativo(mese: string) {
     m.categoria !== "versamento_socio"
   ) || []
 
-  const incassi = movimentiFiltrati
+  const totale_incassi = movimentiFiltrati
     .filter(m => m.tipo === "incasso")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
-  const spese = movimentiFiltrati
+  const totale_spese = movimentiFiltrati
     .filter(m => m.tipo === "spesa")
     .reduce((acc, m) => acc + Number(m.importo), 0)
 
   return {
-    totale_incassi: Number(incassi.toFixed(2)),
-    totale_spese: Number(spese.toFixed(2))
+    totale_incassi: Number(totale_incassi.toFixed(2)),
+    totale_spese: Number(totale_spese.toFixed(2))
   }
 }
 
@@ -169,7 +168,7 @@ export async function calcolaQuotaSoci(mese: string) {
 }
 
 /* =====================================================
-   SEZIONE AFFITTO (REINSERITA)
+   SEZIONE AFFITTO
 ===================================================== */
 export async function generaSezioneAffitto(mese: string) {
 
@@ -226,4 +225,33 @@ export async function verificaMeseChiuso(mese: string) {
     .maybeSingle()
 
   return data?.stato === "chiuso"
+}
+
+/* =====================================================
+   CHIUDI MESE
+===================================================== */
+export async function chiudiMeseServer(mese: string) {
+
+  const riepilogo = await calcolaQuotaSoci(mese)
+
+  if (riepilogo.differenza_finale < 0) {
+    throw new Error("Mancano versamenti per coprire la perdita")
+  }
+
+  const saldi = await calcolaSaldi(mese)
+
+  const { error } = await supabase
+    .from("mesi")
+    .update({
+      stato: "chiuso",
+      saldo_cassa: saldi.saldo_cassa,
+      saldo_banca: saldi.saldo_banca
+    })
+    .eq("mese", mese)
+
+  if (error) {
+    throw new Error("Errore chiusura mese")
+  }
+
+  return { success: true }
 }
