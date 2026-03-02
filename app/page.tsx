@@ -167,16 +167,16 @@ export default function DashboardPage() {
           <p>Spese: {riepilogo.totale_spese.toFixed(2)} €</p>
 
           <p>
-            Risultato:
-            <span className={
-              quotaSoci.risultato_operativo >= 0
-                ? "text-green-400 ml-2 font-bold"
-                : "text-red-500 ml-2 font-bold"
-            }>
-              {quotaSoci.risultato_operativo.toFixed(2)} €
-            </span>
-          </p>
-
+           Totale costi da ripartire:
+  <span className={
+    quotaSoci.perdita > 0
+      ? "text-red-500 ml-2 font-bold"
+      : "text-green-400 ml-2 font-bold"
+  }>
+    {quotaSoci.perdita.toFixed(2)} €
+  </span>
+</p>
+         
           <p>
             Versamenti Soci: {quotaSoci.totale_versamenti.toFixed(2)} €
           </p>
