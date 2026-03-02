@@ -229,3 +229,36 @@ export async function verificaMeseChiuso(mese: string) {
 
   return data?.stato === "chiuso"
 }
+/* =====================================================
+   CHIUSURA MESE (SERVER)
+===================================================== */
+export async function chiudiMeseServer(mese: string) {
+
+  // 1️⃣ Calcolo quota soci per verificare differenza
+  const riepilogo = await calcolaQuotaSoci(mese)
+
+  if (riepilogo.differenza_finale !== 0) {
+    throw new Error("Impossibile chiudere il mese: differenza finale diversa da 0")
+  }
+
+  // 2️⃣ Calcolo saldi aggiornati
+  const saldi = await calcolaSaldi(mese)
+
+  // 3️⃣ Aggiorno tabella mesi
+  const { error } = await supabase
+    .from("mesi")
+    .update({
+      stato: "chiuso",
+      saldo_cassa: saldi.saldo_cassa,
+      saldo_banca: saldi.saldo_banca
+    })
+    .eq("mese", mese)
+
+  if (error) {
+    throw new Error("Errore durante la chiusura del mese")
+  }
+
+  return {
+    success: true
+  }
+}
