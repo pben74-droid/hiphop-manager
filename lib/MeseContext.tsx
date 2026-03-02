@@ -13,11 +13,7 @@ export function MeseProvider({ children }: { children: ReactNode }) {
 
   const meseCorrente = new Date().toISOString().slice(0, 7)
 
-  const [mese, setMeseState] = useState<string>(meseCorrente)
-
-  const setMese = (nuovoMese: string) => {
-    setMeseState(nuovoMese)
-  }
+  const [mese, setMese] = useState<string>(meseCorrente)
 
   return (
     <MeseContext.Provider value={{ mese, setMese }}>
@@ -29,7 +25,7 @@ export function MeseProvider({ children }: { children: ReactNode }) {
 export function useMese() {
   const context = useContext(MeseContext)
   if (!context) {
-    throw new Error("useMese deve essere usato dentro MeseProvider")
+    throw new Error("useMese must be used within MeseProvider")
   }
   return context
 }
