@@ -169,6 +169,52 @@ export async function calcolaQuotaSoci(mese: string) {
 }
 
 /* =====================================================
+   SEZIONE AFFITTO (REINSERITA)
+===================================================== */
+export async function generaSezioneAffitto(mese: string) {
+
+  const { data: affittoMese } = await supabase
+    .from("affitto_mese")
+    .select("*")
+    .eq("mese", mese)
+    .maybeSingle()
+
+  if (!affittoMese) return null
+
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
+
+  const { data: pagamenti } = await supabase
+    .from("affitto_pagamenti")
+    .select("*")
+    .eq("mese", mese)
+
+  const sociAffitto = soci?.map(s => {
+
+    const quota =
+      Number(affittoMese.costo_mensile) *
+      (Number(s.quota_percentuale) / 100)
+
+    const versato = pagamenti
+      ?.filter(p => p.socio_id === s.id)
+      .reduce((acc, p) => acc + Number(p.importo), 0) || 0
+
+    return {
+      id: s.id,
+      nome: s.nome,
+      quota: Number(quota.toFixed(2)),
+      versato: Number(versato.toFixed(2))
+    }
+  }) || []
+
+  return {
+    costo_mensile: Number(affittoMese.costo_mensile),
+    soci: sociAffitto
+  }
+}
+
+/* =====================================================
    VERIFICA MESE CHIUSO
 ===================================================== */
 export async function verificaMeseChiuso(mese: string) {
@@ -180,60 +226,4 @@ export async function verificaMeseChiuso(mese: string) {
     .maybeSingle()
 
   return data?.stato === "chiuso"
-}
-
-/* =====================================================
-   CHIUDI MESE
-===================================================== */
-export async function chiudiMeseServer(mese: string) {
-
-  const riepilogo = await calcolaQuotaSoci(mese)
-
-  if (riepilogo.differenza_finale < 0) {
-    throw new Error("Mancano versamenti per coprire la perdita")
-  }
-
-  const saldi = await calcolaSaldi(mese)
-
-  const { error } = await supabase
-    .from("mesi")
-    .update({
-      stato: "chiuso",
-      saldo_cassa: saldi.saldo_cassa,
-      saldo_banca: saldi.saldo_banca
-    })
-    .eq("mese", mese)
-
-  if (error) {
-    throw new Error("Errore chiusura mese")
-  }
-
-  const [anno, meseNumero] = mese.split("-").map(Number)
-
-  let nuovoAnno = anno
-  let nuovoMese = meseNumero + 1
-
-  if (nuovoMese === 13) {
-    nuovoMese = 1
-    nuovoAnno++
-  }
-
-  const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
-
-  const { data: esiste } = await supabase
-    .from("mesi")
-    .select("id")
-    .eq("mese", meseSuccessivo)
-    .maybeSingle()
-
-  if (!esiste) {
-    await supabase.from("mesi").insert({
-      mese: meseSuccessivo,
-      stato: "aperto",
-      saldo_cassa: saldi.saldo_cassa,
-      saldo_banca: saldi.saldo_banca
-    })
-  }
-
-  return { success: true }
 }
