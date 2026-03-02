@@ -29,37 +29,43 @@ export default function DashboardPage() {
 
   const caricaDati = async () => {
 
-    setLoading(true)
+    try {
 
-    const { data: meseData } = await supabase
-      .from("mesi")
-      .select("stato")
-      .eq("mese", mese)
-      .single()
+      setLoading(true)
 
-    if (meseData) {
-      setStatoMese(meseData.stato)
+      const { data: meseData } = await supabase
+        .from("mesi")
+        .select("stato")
+        .eq("mese", mese)
+        .single()
+
+      if (meseData) {
+        setStatoMese(meseData.stato)
+      }
+
+      const saldi = await calcolaSaldi(mese)
+      setSaldoCassa(saldi?.saldo_cassa ?? 0)
+      setSaldoBanca(saldi?.saldo_banca ?? 0)
+
+      const quota = await calcolaQuotaSoci(mese)
+      setRiepilogo(quota ?? null)
+
+      const op = await calcolaRiepilogoOperativo(mese)
+      setOperativo(op ?? null)
+
+      const aff = await generaSezioneAffitto(mese)
+      setAffitto(aff ?? null)
+
+    } catch (error) {
+      console.error("Errore Dashboard:", error)
     }
-
-    const saldi = await calcolaSaldi(mese)
-    setSaldoCassa(saldi.saldo_cassa)
-    setSaldoBanca(saldi.saldo_banca)
-
-    const quota = await calcolaQuotaSoci(mese)
-    setRiepilogo(quota)
-
-    const op = await calcolaRiepilogoOperativo(mese)
-    setOperativo(op)
-
-    const aff = await generaSezioneAffitto(mese)
-    setAffitto(aff)
 
     setLoading(false)
   }
 
   const chiudiMese = async () => {
 
-    if (riepilogo.differenza_finale !== 0) {
+    if (!riepilogo || riepilogo.differenza_finale !== 0) {
       alert("Impossibile chiudere il mese: differenza finale diversa da 0")
       return
     }
@@ -122,64 +128,50 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* CONTROLLO OPERATIVO */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-xl mb-2">Controllo Operativo</h2>
-        <p>Totale Incassi: {operativo.totale_incassi.toFixed(2)} €</p>
-        <p>Totale Spese: {operativo.totale_spese.toFixed(2)} €</p>
-        <p>
-          Risultato:{" "}
-          <span className={
-            riepilogo.risultato_operativo >= 0
-              ? "text-green-400"
-              : "text-red-400"
-          }>
-            {riepilogo.risultato_operativo.toFixed(2)} €
-          </span>
-        </p>
-      </div>
-
-      {/* CONTROLLO DIFFERENZA SOCI */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-xl mb-2">Controllo Versamenti Soci</h2>
-
-        <p>Totale Versamenti: {riepilogo.totale_versamenti.toFixed(2)} €</p>
-
-        <p>
-          Differenza Finale:{" "}
-          <span className={
-            riepilogo.differenza_finale === 0
-              ? "text-green-400"
-              : "text-red-400 font-bold"
-          }>
-            {riepilogo.differenza_finale.toFixed(2)} €
-          </span>
-        </p>
-
-        {riepilogo.differenza_finale !== 0 && (
-          <p className="text-red-500 mt-2">
-            ⚠️ ATTENZIONE: Il mese non può essere chiuso
-          </p>
-        )}
-      </div>
-
-      {/* CONTROLLO AFFITTO */}
-      {affitto && (
+      {/* OPERATIVO */}
+      {operativo && riepilogo && (
         <div className="border border-yellow-500 p-4 rounded">
-          <h2 className="text-xl mb-2">Controllo Affitto</h2>
+          <h2 className="text-xl mb-2">Controllo Operativo</h2>
 
-          <p>Costo Mensile: {affitto.costo_mensile.toFixed(2)} €</p>
+          <p>Totale Incassi: {operativo.totale_incassi?.toFixed(2) ?? "0.00"} €</p>
+          <p>Totale Spese: {operativo.totale_spese?.toFixed(2) ?? "0.00"} €</p>
 
           <p>
-            Totale Versato:{" "}
-            {affitto.soci
-              .reduce((acc: number, s: any) => acc + s.versato, 0)
-              .toFixed(2)} €
+            Risultato:{" "}
+            <span className={
+              (riepilogo.risultato_operativo ?? 0) >= 0
+                ? "text-green-400"
+                : "text-red-400"
+            }>
+              {riepilogo.risultato_operativo?.toFixed(2) ?? "0.00"} €
+            </span>
           </p>
         </div>
       )}
 
-      {/* SALDI FINALI */}
+      {/* DIFFERENZA SOCI */}
+      {riepilogo && (
+        <div className="border border-yellow-500 p-4 rounded">
+          <h2 className="text-xl mb-2">Controllo Versamenti Soci</h2>
+
+          <p>
+            Totale Versamenti: {riepilogo.totale_versamenti?.toFixed(2) ?? "0.00"} €
+          </p>
+
+          <p>
+            Differenza Finale:{" "}
+            <span className={
+              (riepilogo.differenza_finale ?? 0) === 0
+                ? "text-green-400"
+                : "text-red-400 font-bold"
+            }>
+              {riepilogo.differenza_finale?.toFixed(2) ?? "0.00"} €
+            </span>
+          </p>
+        </div>
+      )}
+
+      {/* SALDI */}
       <div className="border border-yellow-500 p-4 rounded">
         <h2 className="text-xl mb-2">Saldi Finali</h2>
 
