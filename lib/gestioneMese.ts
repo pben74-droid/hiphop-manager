@@ -1,7 +1,7 @@
 import { supabase } from "./supabaseClient"
 
 /* =====================================================
-   INIZIALIZZA MESE (riporto SOLO da ultimo mese chiuso)
+   INIZIALIZZA MESE
 ===================================================== */
 export async function inizializzaMese(mese: string) {
 
@@ -35,33 +35,10 @@ export async function inizializzaMese(mese: string) {
     saldo_cassa,
     saldo_banca
   })
-
-  if (ultimoChiuso) {
-
-    const { data: soci } = await supabase
-      .from("soci")
-      .select("id, credito_affitto")
-
-    if (soci) {
-      for (const socio of soci) {
-
-        const credito = Number(socio.credito_affitto) || 0
-
-        if (credito > 0) {
-          await supabase.from("affitto_pagamenti").insert({
-            mese,
-            socio_id: socio.id,
-            importo: -credito,
-            data: new Date().toISOString().slice(0, 10)
-          })
-        }
-      }
-    }
-  }
 }
 
 /* =====================================================
-   CALCOLO SALDI CASSA / BANCA
+   CALCOLO SALDI
 ===================================================== */
 export async function calcolaSaldi(mese: string) {
 
@@ -93,7 +70,7 @@ export async function calcolaSaldi(mese: string) {
 }
 
 /* =====================================================
-   RIEPILOGO OPERATIVO (esclude trasferimenti)
+   RIEPILOGO OPERATIVO
 ===================================================== */
 export async function calcolaRiepilogoOperativo(mese: string) {
 
@@ -102,13 +79,18 @@ export async function calcolaRiepilogoOperativo(mese: string) {
     .select("*")
     .eq("mese", mese)
 
-  const incassi = movimenti
-    ?.filter(m => m.tipo === "incasso" && m.categoria !== "trasferimento")
-    .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+  const movimentiFiltrati = movimenti?.filter(m =>
+    m.categoria !== "trasferimento" &&
+    m.categoria !== "versamento_socio"
+  ) || []
 
-  const spese = movimenti
-    ?.filter(m => m.tipo === "spesa" && m.categoria !== "trasferimento")
-    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0) || 0
+  const incassi = movimentiFiltrati
+    .filter(m => m.tipo === "incasso")
+    .reduce((acc, m) => acc + Number(m.importo), 0)
+
+  const spese = movimentiFiltrati
+    .filter(m => m.tipo === "spesa")
+    .reduce((acc, m) => acc + Number(m.importo), 0)
 
   return {
     totale_incassi: Number(incassi.toFixed(2)),
@@ -135,9 +117,20 @@ export async function calcolaQuotaSoci(mese: string) {
     .select("*")
     .eq("mese", mese)
 
-  const risultato_operativo = movimenti
-    ?.filter(m => m.categoria !== "trasferimento")
-    .reduce((acc, m) => acc + Number(m.importo), 0) || 0
+  const movimentiFiltrati = movimenti?.filter(m =>
+    m.categoria !== "trasferimento" &&
+    m.categoria !== "versamento_socio"
+  ) || []
+
+  const totale_incassi = movimentiFiltrati
+    .filter(m => m.tipo === "incasso")
+    .reduce((acc, m) => acc + Number(m.importo), 0)
+
+  const totale_spese = movimentiFiltrati
+    .filter(m => m.tipo === "spesa")
+    .reduce((acc, m) => acc + Number(m.importo), 0)
+
+  const risultato_operativo = totale_incassi - totale_spese
 
   const perdita = risultato_operativo < 0
     ? Math.abs(risultato_operativo)
@@ -152,7 +145,6 @@ export async function calcolaQuotaSoci(mese: string) {
       ?.filter(v => v.socio_id === s.id)
       .reduce((acc, v) => acc + Number(v.importo), 0) || 0
 
-    // 🔥 POSITIVO = HA VERSATO IN PIÙ
     const differenza = versato - quota_calcolata
 
     return {
@@ -171,57 +163,8 @@ export async function calcolaQuotaSoci(mese: string) {
     risultato_operativo: Number(risultato_operativo.toFixed(2)),
     perdita: Number(perdita.toFixed(2)),
     totale_versamenti: Number(totale_versamenti.toFixed(2)),
-
-    // 🔥 POSITIVO = ECCEDENZA COLLETTIVA
     differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
-
     soci: sociCalcolo
-  }
-}
-
-/* =====================================================
-   SEZIONE AFFITTO
-===================================================== */
-export async function generaSezioneAffitto(mese: string) {
-
-  const { data: affittoMese } = await supabase
-    .from("affitto_mese")
-    .select("*")
-    .eq("mese", mese)
-    .maybeSingle()
-
-  if (!affittoMese) return null
-
-  const { data: soci } = await supabase
-    .from("soci")
-    .select("*")
-
-  const { data: pagamenti } = await supabase
-    .from("affitto_pagamenti")
-    .select("*")
-    .eq("mese", mese)
-
-  const sociAffitto = soci?.map(s => {
-
-    const quota =
-      Number(affittoMese.costo_mensile) *
-      (Number(s.quota_percentuale) / 100)
-
-    const versato = pagamenti
-      ?.filter(p => p.socio_id === s.id)
-      .reduce((acc, p) => acc + Number(p.importo), 0) || 0
-
-    return {
-      id: s.id,
-      nome: s.nome,
-      quota: Number(quota.toFixed(2)),
-      versato: Number(versato.toFixed(2))
-    }
-  }) || []
-
-  return {
-    costo_mensile: Number(affittoMese.costo_mensile),
-    soci: sociAffitto
   }
 }
 
@@ -240,13 +183,12 @@ export async function verificaMeseChiuso(mese: string) {
 }
 
 /* =====================================================
-   CHIUDI MESE (SERVER)
+   CHIUDI MESE
 ===================================================== */
 export async function chiudiMeseServer(mese: string) {
 
   const riepilogo = await calcolaQuotaSoci(mese)
 
-  // 🔥 BLOCCA SOLO SE MANCA COPERTURA
   if (riepilogo.differenza_finale < 0) {
     throw new Error("Mancano versamenti per coprire la perdita")
   }
