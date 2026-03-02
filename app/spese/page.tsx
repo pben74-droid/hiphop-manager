@@ -9,202 +9,200 @@ export default function SpesePage() {
 
   const { mese } = useMese()
 
-  const [bloccato, setBloccato] = useState(false)
   const [descrizione, setDescrizione] = useState("")
   const [importo, setImporto] = useState("")
-  const [categoria, setCategoria] = useState("spesa_generica")
   const [contenitore, setContenitore] = useState("cassa_operativa")
+  const [dataSpesa, setDataSpesa] = useState("")
   const [spese, setSpese] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [meseChiuso, setMeseChiuso] = useState(false)
 
   useEffect(() => {
-    if (!mese) return
-    inizializza()
+    caricaSpese()
+    controllaMese()
   }, [mese])
 
-  const inizializza = async () => {
-
-    setLoading(true)
-
+  const controllaMese = async () => {
     const chiuso = await verificaMeseChiuso(mese)
-    setBloccato(chiuso)
+    setMeseChiuso(chiuso)
+  }
 
+  const caricaSpese = async () => {
     const { data } = await supabase
       .from("movimenti_finanziari")
       .select("*")
       .eq("mese", mese)
       .eq("tipo", "spesa")
-      .neq("categoria", "insegnante")
       .order("data", { ascending: false })
 
     setSpese(data || [])
-    setLoading(false)
   }
 
-  const salva = async () => {
-
-    if (bloccato) return
-
-    if (!importo) {
-      alert("Inserisci importo")
-      return
-    }
-
-    const valore = Number(importo)
-
-    // 🔁 PRELEVAMENTO BANCA → TRASFERIMENTO PURO
-    if (categoria === "prelevamento_banca") {
-
-      await supabase.from("movimenti_finanziari").insert([
-        {
-          tipo: "trasferimento",
-          categoria: "trasferimento",
-          descrizione: "Prelevamento banca",
-          importo: -valore,
-          contenitore: "banca",
-          mese,
-          data: new Date().toISOString().slice(0, 10)
-        },
-        {
-          tipo: "trasferimento",
-          categoria: "trasferimento",
-          descrizione: "Prelevamento banca",
-          importo: valore,
-          contenitore: "cassa_operativa",
-          mese,
-          data: new Date().toISOString().slice(0, 10)
-        }
-      ])
-
-    } else {
-
-      await supabase.from("movimenti_finanziari").insert({
-        tipo: "spesa",
-        categoria,
-        descrizione,
-        importo: -valore,
-        contenitore,
-        mese,
-        data: new Date().toISOString().slice(0, 10)
-      })
-    }
-
+  const resetForm = () => {
     setDescrizione("")
     setImporto("")
-    inizializza()
+    setContenitore("cassa_operativa")
+    setDataSpesa("")
+    setEditId(null)
   }
 
-  const elimina = async (id: string) => {
+  const salvaSpesa = async () => {
 
-    if (bloccato) return
+    if (!descrizione || !importo || !dataSpesa) return
 
+    const valore = -Math.abs(Number(importo))
+
+    if (editId) {
+      await supabase
+        .from("movimenti_finanziari")
+        .update({
+          descrizione,
+          importo: valore,
+          contenitore,
+          data: dataSpesa
+        })
+        .eq("id", editId)
+    } else {
+      await supabase
+        .from("movimenti_finanziari")
+        .insert({
+          mese,
+          tipo: "spesa",
+          categoria: "spesa_generica",
+          descrizione,
+          importo: valore,
+          contenitore,
+          data: dataSpesa
+        })
+    }
+
+    resetForm()
+    caricaSpese()
+  }
+
+  const eliminaSpesa = async (id: string) => {
     await supabase
       .from("movimenti_finanziari")
       .delete()
       .eq("id", id)
 
-    inizializza()
+    caricaSpese()
+  }
+
+  const modificaSpesa = (mov: any) => {
+    setEditId(mov.id)
+    setDescrizione(mov.descrizione)
+    setImporto(Math.abs(mov.importo).toString())
+    setContenitore(mov.contenitore)
+    setDataSpesa(mov.data)
   }
 
   const speseCassa = spese.filter(s => s.contenitore === "cassa_operativa")
   const speseBanca = spese.filter(s => s.contenitore === "banca")
 
-  const totale = (lista: any[]) =>
-    lista.reduce((acc, s) => acc + Math.abs(Number(s.importo)), 0)
-
-  if (loading)
-    return <div className="p-6 text-yellow-500">Caricamento...</div>
-
-  if (bloccato)
-    return <div className="p-6 text-red-500 font-bold">Mese chiuso</div>
+  const totaleCassa = speseCassa.reduce((acc, s) => acc + Math.abs(Number(s.importo)), 0)
+  const totaleBanca = speseBanca.reduce((acc, s) => acc + Math.abs(Number(s.importo)), 0)
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-8">
 
-      <h1 className="text-2xl text-yellow-500 font-bold">
-        Spese – {mese}
+      <h1 className="text-3xl font-bold text-yellow-500">
+        Gestione Spese
       </h1>
 
-      {/* FORM INSERIMENTO */}
-      <div className="border border-yellow-500 p-4 rounded space-y-3">
+      {/* FORM */}
+      <div className="border border-yellow-500 p-6 rounded space-y-4">
 
         <input
           type="text"
           placeholder="Descrizione"
           value={descrizione}
           onChange={(e) => setDescrizione(e.target.value)}
+          disabled={meseChiuso}
           className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         />
 
         <input
           type="number"
-          step="0.01"
           placeholder="Importo"
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
+          disabled={meseChiuso}
+          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+        />
+
+        <input
+          type="date"
+          value={dataSpesa}
+          onChange={(e) => setDataSpesa(e.target.value)}
+          disabled={meseChiuso}
           className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         />
 
         <select
-          value={categoria}
-          onChange={(e) => setCategoria(e.target.value)}
+          value={contenitore}
+          onChange={(e) => setContenitore(e.target.value)}
+          disabled={meseChiuso}
           className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
         >
-          <option value="spesa_generica">Spesa Generica</option>
-          <option value="commissione_pos">Commissione POS</option>
-          <option value="cancelleria">Cancelleria</option>
-          <option value="prelevamento_banca">Prelevamento Banca</option>
+          <option value="cassa_operativa">Cassa Operativa</option>
+          <option value="banca">Banca</option>
         </select>
 
-        {categoria !== "prelevamento_banca" && (
-          <select
-            value={contenitore}
-            onChange={(e) => setContenitore(e.target.value)}
-            className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
-          >
-            <option value="cassa_operativa">Cassa Operativa</option>
-            <option value="banca">Banca</option>
-          </select>
-        )}
-
         <button
-          onClick={salva}
-          className="bg-yellow-500 text-black px-4 py-2 rounded"
+          onClick={salvaSpesa}
+          disabled={meseChiuso}
+          className="bg-red-600 text-white px-6 py-2 rounded disabled:opacity-50"
         >
-          Registra
+          {editId ? "Aggiorna Spesa" : "Registra Spesa"}
         </button>
+
       </div>
 
-      {/* SEZIONE CASSA */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg font-bold mb-2">
-          Spese Cassa – Totale {totale(speseCassa).toFixed(2)} €
-        </h2>
+      {/* RIEPILOGO */}
+      <div className="border border-yellow-500 p-6 rounded">
 
-        {speseCassa.map(s => (
-          <div key={s.id} className="flex justify-between py-1">
-            <span>{s.descrizione}</span>
-            <span className="text-red-500">
-              {Math.abs(Number(s.importo)).toFixed(2)} €
-            </span>
-          </div>
-        ))}
+        <h2 className="text-xl mb-4">Riepilogo Spese</h2>
+
+        <p>Totale Spese Cassa: {totaleCassa.toFixed(2)} €</p>
+        <p>Totale Spese Banca: {totaleBanca.toFixed(2)} €</p>
+
       </div>
 
-      {/* SEZIONE BANCA */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg font-bold mb-2">
-          Spese Banca – Totale {totale(speseBanca).toFixed(2)} €
-        </h2>
+      {/* ELENCO */}
+      <div className="border border-yellow-500 p-6 rounded">
 
-        {speseBanca.map(s => (
-          <div key={s.id} className="flex justify-between py-1">
-            <span>{s.descrizione}</span>
-            <span className="text-red-500">
-              {Math.abs(Number(s.importo)).toFixed(2)} €
-            </span>
+        <h2 className="text-xl mb-4">Elenco Spese</h2>
+
+        {spese.map((mov) => (
+          <div
+            key={mov.id}
+            className="flex justify-between border-b border-yellow-500 py-2 text-red-400"
+          >
+            <span>{mov.data}</span>
+            <span>{mov.descrizione}</span>
+            <span>{mov.contenitore}</span>
+            <span>{Math.abs(Number(mov.importo)).toFixed(2)} €</span>
+
+            {!meseChiuso && (
+              <div className="space-x-2">
+                <button
+                  onClick={() => modificaSpesa(mov)}
+                  className="text-yellow-400"
+                >
+                  Modifica
+                </button>
+                <button
+                  onClick={() => eliminaSpesa(mov.id)}
+                  className="text-red-600"
+                >
+                  Elimina
+                </button>
+              </div>
+            )}
           </div>
         ))}
+
       </div>
 
     </div>
