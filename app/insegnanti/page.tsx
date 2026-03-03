@@ -30,6 +30,7 @@ export default function InsegnantiPage() {
   }>({})
 
   useEffect(() => {
+    if (!mese) return
     inizializza()
   }, [mese])
 
@@ -68,72 +69,125 @@ export default function InsegnantiPage() {
     }))
   }
 
+  const resetForm = () => {
+    setNome("")
+    setBenzina("")
+    setEditingId(null)
+    setFasce({})
+  }
+
   const salva = async () => {
 
-    if (meseChiuso) return
-    if (!nome) return alert("Inserisci nome")
+    if (meseChiuso) {
+      alert("Mese chiuso")
+      return
+    }
+
+    if (!nome.trim()) {
+      alert("Inserisci nome insegnante")
+      return
+    }
 
     let insegnanteId = editingId
 
-    if (editingId) {
-      await supabase
-        .from("insegnanti")
-        .update({
-          nome,
-          rimborso_benzina: Number(benzina) || 0
-        })
-        .eq("id", editingId)
+    try {
 
-      await supabase
-        .from("insegnanti_fasce")
-        .delete()
-        .eq("insegnante_id", editingId)
-    } else {
+      // 🔹 UPDATE
+      if (editingId) {
 
-      const { data } = await supabase
-        .from("insegnanti")
-        .insert({
-          nome,
-          rimborso_benzina: Number(benzina) || 0
-        })
-        .select()
-        .single()
+        const { error } = await supabase
+          .from("insegnanti")
+          .update({
+            nome,
+            rimborso_benzina: Number(benzina) || 0
+          })
+          .eq("id", editingId)
 
-      insegnanteId = data.id
-    }
+        if (error) {
+          alert(error.message)
+          return
+        }
 
-    for (const giorno in fasce) {
-      for (const fascia of fasce[Number(giorno)]) {
+        // Elimina vecchie fasce
+        await supabase
+          .from("insegnanti_fasce")
+          .delete()
+          .eq("insegnante_id", editingId)
 
-        if (!fascia.ore || !fascia.costo) continue
+      } else {
 
-        await supabase.from("insegnanti_fasce").insert({
-          insegnante_id: insegnanteId,
-          giorno_settimana: Number(giorno),
-          ore: Number(fascia.ore),
-          costo_orario: Number(fascia.costo)
-        })
+        // 🔹 INSERT
+        const { data, error } = await supabase
+          .from("insegnanti")
+          .insert({
+            nome,
+            rimborso_benzina: Number(benzina) || 0
+          })
+          .select()
+
+        if (error) {
+          alert(error.message)
+          return
+        }
+
+        if (!data || data.length === 0) {
+          alert("Errore creazione insegnante")
+          return
+        }
+
+        insegnanteId = data[0].id
       }
-    }
 
-    resetForm()
-    inizializza()
+      // 🔹 SALVATAGGIO FASCE
+      for (const giorno in fasce) {
+
+        const elencoFasce = fasce[Number(giorno)]
+
+        for (const fascia of elencoFasce) {
+
+          if (!fascia.ore || !fascia.costo) continue
+
+          const { error } = await supabase
+            .from("insegnanti_fasce")
+            .insert({
+              insegnante_id: insegnanteId,
+              giorno_settimana: Number(giorno),
+              ore: Number(fascia.ore),
+              costo_orario: Number(fascia.costo)
+            })
+
+          if (error) {
+            alert(error.message)
+            return
+          }
+        }
+      }
+
+      alert("Insegnante salvato correttamente")
+
+      resetForm()
+      inizializza()
+
+    } catch (err: any) {
+      alert("Errore imprevisto")
+      console.error(err)
+    }
   }
 
   const modifica = async (ins: any) => {
 
     setEditingId(ins.id)
     setNome(ins.nome)
-    setBenzina(ins.rimborso_benzina)
+    setBenzina(ins.rimborso_benzina?.toString() || "")
 
-    const { data: fasceData } = await supabase
+    const { data } = await supabase
       .from("insegnanti_fasce")
       .select("*")
       .eq("insegnante_id", ins.id)
 
     const grouped: any = {}
 
-    fasceData?.forEach(f => {
+    data?.forEach(f => {
       if (!grouped[f.giorno_settimana]) {
         grouped[f.giorno_settimana] = []
       }
@@ -149,16 +203,8 @@ export default function InsegnantiPage() {
 
   const elimina = async (id: string) => {
     if (meseChiuso) return
-
     await supabase.from("insegnanti").delete().eq("id", id)
     inizializza()
-  }
-
-  const resetForm = () => {
-    setNome("")
-    setBenzina("")
-    setEditingId(null)
-    setFasce({})
   }
 
   return (
@@ -174,8 +220,7 @@ export default function InsegnantiPage() {
         </div>
       )}
 
-      {/* FORM */}
-      <div className="border p-4 rounded space-y-4 bg-white">
+      <div className="border p-4 rounded bg-white space-y-4">
 
         <input
           type="text"
@@ -270,10 +315,11 @@ export default function InsegnantiPage() {
 
       </div>
 
-      {/* ELENCO */}
       <div className="border p-4 rounded bg-white">
 
-        <h2 className="font-semibold mb-4">Elenco Insegnanti</h2>
+        <h2 className="font-semibold mb-4">
+          Elenco Insegnanti
+        </h2>
 
         {insegnanti.map(ins => (
           <div
