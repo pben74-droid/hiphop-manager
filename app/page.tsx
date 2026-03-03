@@ -262,7 +262,34 @@ export default function DashboardPage() {
         >
           Chiudi Mese
         </button>
+{meseChiuso && (
+  <button
+    onClick={async () => {
 
+      const password = prompt("Inserisci password per riaprire il mese")
+      if (!password) return
+
+      const res = await fetch("/api/riapri-mese", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mese, password })
+      })
+
+      const data = await res.json()
+
+      if (!res.ok) {
+        alert(data.error || "Errore riapertura")
+        return
+      }
+
+      alert("Mese riaperto correttamente")
+      caricaDashboard()
+    }}
+    className="bg-blue-600 text-white px-6 py-2 rounded"
+  >
+    Riapri Mese
+  </button>
+)}
         <a
           href={`/api/report?mese=${mese}`}
           target="_blank"
