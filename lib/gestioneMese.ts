@@ -42,15 +42,24 @@ export async function inizializzaMese(mese: string) {
 ===================================================== */
 export async function calcolaSaldi(mese: string) {
 
+  // 1️⃣ Recupera saldo iniziale del mese
+  const { data: meseData } = await supabase
+    .from("mesi")
+    .select("saldo_iniziale_cassa, saldo_iniziale_banca")
+    .eq("mese", mese)
+    .maybeSingle()
+
+  let saldo_cassa = Number(meseData?.saldo_iniziale_cassa) || 0
+  let saldo_banca = Number(meseData?.saldo_iniziale_banca) || 0
+
+  // 2️⃣ Somma movimenti del mese
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
-  let saldo_cassa = 0
-  let saldo_banca = 0
-
   movimenti?.forEach(m => {
+
     const importo = Number(m.importo) || 0
 
     if (m.contenitore === "cassa_operativa") {
