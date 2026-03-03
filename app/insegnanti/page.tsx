@@ -79,15 +79,27 @@ export default function InsegnantiPage() {
 
     for (const f of fasce) {
 
-      if (!f.ore_per_giorno || !f.costo_orario) continue
+  if (
+    f.ore_per_giorno === "" ||
+    f.costo_orario === ""
+  ) {
+    alert("Compila ore e costo orario")
+    return
+  }
 
-      await supabase.from("insegnanti_fasce").insert({
-        insegnante_id: nuovo.id,
-        giorno_settimana: f.giorno_settimana,
-        ore_per_giorno: Number(f.ore_per_giorno),
-        costo_orario: Number(f.costo_orario)
-      })
-    }
+  const { error: fasciaError } =
+    await supabase.from("insegnanti_fasce").insert({
+      insegnante_id: nuovo.id,
+      giorno_settimana: f.giorno_settimana,
+      ore_per_giorno: Number(f.ore_per_giorno),
+      costo_orario: Number(f.costo_orario)
+    })
+
+  if (fasciaError) {
+    alert(fasciaError.message)
+    return
+  }
+}
 
     setNome("")
     setRimborso("")
