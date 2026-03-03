@@ -50,17 +50,19 @@ export default function CompensiInsegnantiPage() {
       .from("insegnanti_fasce")
       .select("*")
 
-    const calcolati = insegnanti?.map(ins => {
+    const calcolati = (insegnanti || []).map(ins => {
 
       const fasceInsegnante =
-        fasce?.filter(f => f.insegnante_id === ins.id) || []
+        (fasce || []).filter(f => f.insegnante_id === ins.id)
 
-      // 🔹 Giorni distinti della settimana
-      const giorniUnici = [
-        ...new Set(
-          fasceInsegnante.map(f => f.giorno_settimana)
-        )
-      ]
+      // 🔹 Giorni distinti (compatibile ES5)
+      const giorniUnici: number[] = []
+
+      fasceInsegnante.forEach(f => {
+        if (giorniUnici.indexOf(f.giorno_settimana) === -1) {
+          giorniUnici.push(f.giorno_settimana)
+        }
+      })
 
       let totaleGiornate = 0
 
@@ -103,7 +105,7 @@ export default function CompensiInsegnantiPage() {
         override: totale
       }
 
-    }) || []
+    })
 
     setRighe(calcolati)
     setLoading(false)
