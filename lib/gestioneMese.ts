@@ -234,18 +234,24 @@ export async function verificaMeseChiuso(mese: string) {
 /* =====================================================
    CHIUDI MESE
 ===================================================== */
+import { createClient } from "@supabase/supabase-js"
+
 export async function chiudiMeseServer(mese: string) {
+
+  const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   const riepilogo = await calcolaQuotaSoci(mese)
 
-  // Blocca solo se manca copertura
   if (riepilogo.differenza_finale < 0) {
     throw new Error("Mancano versamenti per coprire la perdita")
   }
 
   const saldi = await calcolaSaldi(mese)
 
-  const { data, error } = await supabase
+  const { data, error } = await supabaseAdmin
     .from("mesi")
     .update({
       stato: "chiuso",
@@ -262,6 +268,9 @@ export async function chiudiMeseServer(mese: string) {
   if (!data || data.length === 0) {
     throw new Error("Mese non trovato")
   }
+
+  return { success: true }
+}
 
   return { success: true }
 }
