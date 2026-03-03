@@ -275,12 +275,12 @@ export async function chiudiMeseServer(mese: string) {
 
   const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
 
-  // 3️⃣ Verifica se esiste già
-  const { data: esiste } = await supabaseAdmin
-    .from("mesi")
-    .select("id")
-    .eq("mese", meseSuccessivo)
-    .maybeSingle()
+// 3️⃣ Verifica se esiste già
+const { data: esiste } = await supabaseAdmin
+  .from("mesi")
+  .select("mese")
+  .eq("mese", meseSuccessivo)
+  .maybeSingle()
 
   if (!esiste) {
     const { error: insertError } = await supabaseAdmin
