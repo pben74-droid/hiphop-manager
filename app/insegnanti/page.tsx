@@ -2,177 +2,155 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { useMese } from "@/lib/MeseContext"
-import { verificaMeseChiuso } from "@/lib/gestioneMese"
+
+const giorniSettimana = [
+  { label: "Lunedì", value: 1 },
+  { label: "Martedì", value: 2 },
+  { label: "Mercoledì", value: 3 },
+  { label: "Giovedì", value: 4 },
+  { label: "Venerdì", value: 5 },
+  { label: "Sabato", value: 6 },
+  { label: "Domenica", value: 7 }
+]
 
 export default function InsegnantiPage() {
 
-  const { mese } = useMese()
-
-  const [bloccato, setBloccato] = useState(false)
+  const [insegnanti, setInsegnanti] = useState<any[]>([])
   const [nome, setNome] = useState("")
-  const [ore, setOre] = useState("")
-  const [compensoOrario, setCompensoOrario] = useState("")
+  const [costoOrario, setCostoOrario] = useState("")
   const [benzina, setBenzina] = useState("")
-  const [movimenti, setMovimenti] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
+  const [giorniSelezionati, setGiorniSelezionati] = useState<number[]>([])
+  const [orePerGiorno, setOrePerGiorno] = useState<{ [key: number]: string }>({})
 
   useEffect(() => {
-    if (!mese) return
-    inizializza()
-  }, [mese])
+    caricaInsegnanti()
+  }, [])
 
-  const inizializza = async () => {
-
-    setLoading(true)
-
-    const chiuso = await verificaMeseChiuso(mese)
-    setBloccato(chiuso)
-
+  const caricaInsegnanti = async () => {
     const { data } = await supabase
-      .from("movimenti_finanziari")
+      .from("insegnanti")
       .select("*")
-      .eq("mese", mese)
-      .eq("categoria", "insegnante")
-      .order("data", { ascending: false })
+      .order("nome")
 
-    setMovimenti(data || [])
-    setLoading(false)
+    setInsegnanti(data || [])
   }
 
   const salva = async () => {
 
-    if (bloccato) return
-
-    if (!nome || !ore || !compensoOrario) {
+    if (!nome || !costoOrario) {
       alert("Compila i campi obbligatori")
       return
     }
 
-    const totale =
-      Number(ore) * Number(compensoOrario) +
-      Number(benzina || 0)
+    const { data: nuovo } = await supabase
+      .from("insegnanti")
+      .insert({
+        nome,
+        costo_orario: Number(costoOrario),
+        rimborso_benzina: Number(benzina) || 0
+      })
+      .select()
+      .single()
 
-    await supabase.from("movimenti_finanziari").insert({
-      tipo: "spesa",
-      categoria: "insegnante",
-      descrizione: nome,
-      importo: -Number(totale),
-      contenitore: "cassa_operativa",
-      mese,
-      data: new Date().toISOString().slice(0, 10),
-      ore: Number(ore),
-      compenso_orario: Number(compensoOrario),
-      benzina: Number(benzina || 0)
-    })
+    for (const giorno of giorniSelezionati) {
+      await supabase.from("insegnanti_programmazione").insert({
+        insegnante_id: nuovo.id,
+        giorno_settimana: giorno,
+        ore_per_giorno: Number(orePerGiorno[giorno])
+      })
+    }
 
     setNome("")
-    setOre("")
-    setCompensoOrario("")
+    setCostoOrario("")
     setBenzina("")
+    setGiorniSelezionati([])
+    setOrePerGiorno({})
 
-    inizializza()
+    caricaInsegnanti()
   }
 
-  const elimina = async (id: string) => {
-
-    if (bloccato) return
-
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("id", id)
-
-    inizializza()
-  }
-
-  if (loading) {
-    return <div className="p-6 text-yellow-500">Caricamento...</div>
-  }
-
-  if (bloccato) {
-    return (
-      <div className="p-6 text-red-500 font-bold">
-        Mese chiuso. Modifiche non consentite.
-      </div>
-    )
+  const toggleGiorno = (giorno: number) => {
+    if (giorniSelezionati.includes(giorno)) {
+      setGiorniSelezionati(giorniSelezionati.filter(g => g !== giorno))
+    } else {
+      setGiorniSelezionati([...giorniSelezionati, giorno])
+    }
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
 
-      <h1 className="text-2xl text-yellow-500 font-bold">
-        Compensi Insegnanti – {mese}
-      </h1>
+      <h1 className="text-2xl font-bold">Gestione Insegnanti</h1>
 
-      {/* FORM */}
-      <div className="border border-yellow-500 p-4 rounded space-y-3">
+      <div className="border p-4 rounded space-y-4">
 
         <input
-          type="text"
-          placeholder="Nome insegnante"
+          placeholder="Nome"
           value={nome}
-          onChange={(e) => setNome(e.target.value)}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          onChange={e => setNome(e.target.value)}
+          className="border p-2 rounded w-full"
         />
 
         <input
           type="number"
-          step="0.01"
-          placeholder="Ore"
-          value={ore}
-          onChange={(e) => setOre(e.target.value)}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          placeholder="Costo Orario"
+          value={costoOrario}
+          onChange={e => setCostoOrario(e.target.value)}
+          className="border p-2 rounded w-full"
         />
 
         <input
           type="number"
-          step="0.01"
-          placeholder="Compenso orario"
-          value={compensoOrario}
-          onChange={(e) => setCompensoOrario(e.target.value)}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
-        />
-
-        <input
-          type="number"
-          step="0.01"
-          placeholder="Benzina"
+          placeholder="Rimborso Benzina per giorno"
           value={benzina}
-          onChange={(e) => setBenzina(e.target.value)}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          onChange={e => setBenzina(e.target.value)}
+          className="border p-2 rounded w-full"
         />
+
+        <div>
+          <p className="font-semibold mb-2">Giorni Settimanali</p>
+
+          {giorniSettimana.map(g => (
+            <div key={g.value} className="flex items-center space-x-3 mb-2">
+              <input
+                type="checkbox"
+                checked={giorniSelezionati.includes(g.value)}
+                onChange={() => toggleGiorno(g.value)}
+              />
+              <span>{g.label}</span>
+
+              {giorniSelezionati.includes(g.value) && (
+                <input
+                  type="number"
+                  placeholder="Ore"
+                  value={orePerGiorno[g.value] || ""}
+                  onChange={e =>
+                    setOrePerGiorno({
+                      ...orePerGiorno,
+                      [g.value]: e.target.value
+                    })
+                  }
+                  className="border p-1 rounded w-20"
+                />
+              )}
+            </div>
+          ))}
+        </div>
 
         <button
           onClick={salva}
-          className="bg-yellow-500 text-black px-4 py-2 rounded"
+          className="bg-black text-white px-4 py-2 rounded"
         >
-          Registra Compenso
+          Salva Insegnante
         </button>
       </div>
 
-      {/* ELENCO */}
-      <div className="border border-yellow-500 p-4 rounded">
-        <h2 className="text-lg mb-4">Elenco Compensi</h2>
+      <div>
+        <h2 className="font-semibold mb-3">Elenco Insegnanti</h2>
 
-        {movimenti.map(m => (
-          <div
-            key={m.id}
-            className="flex justify-between items-center border-b border-yellow-500 py-2"
-          >
-            <div>
-              <p className="font-bold">{m.descrizione}</p>
-              <p className="text-red-500">
-                {Number(m.importo).toFixed(2)} €
-              </p>
-            </div>
-
-            <button
-              onClick={() => elimina(m.id)}
-              className="bg-red-500 px-3 py-1 rounded"
-            >
-              Elimina
-            </button>
+        {insegnanti.map(i => (
+          <div key={i.id} className="border-b py-2">
+            {i.nome} – {i.costo_orario}€/h – Benzina: {i.rimborso_benzina}€
           </div>
         ))}
       </div>
