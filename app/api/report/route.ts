@@ -41,6 +41,17 @@ export async function GET(request: Request) {
   const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
   const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
+  const { data: affittoMese } = await supabase
+    .from("affitto_mese")
+    .select("*")
+    .eq("mese", mese)
+    .maybeSingle()
+
+  const { data: affittoPagamenti } = await supabase
+    .from("affitto_pagamenti")
+    .select("*")
+    .eq("mese", mese)
+
   const incassi = movimenti?.filter(
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
   ) || []
@@ -52,32 +63,29 @@ export async function GET(request: Request) {
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
   const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
 
-  const risultatoOperativo = saldoInizialeCassa + totaleIncassi - totaleSpese
+  const risultatoOperativo = totaleIncassi - totaleSpese
+  const perdita = risultatoOperativo < 0 ? Math.abs(risultatoOperativo) : 0
 
-  const totaleCostiDaRipartire =
-    totaleSpese > totaleIncassi ? totaleSpese - totaleIncassi : 0
+  const totaleVersamenti =
+    versamenti?.reduce((a, v) => a + Number(v.importo), 0) || 0
 
+  const totaleCostiDaRipartire = perdita
   const residuoDaRipartire = Math.max(
     0,
     totaleCostiDaRipartire - saldoInizialeCassa
   )
 
-  const totaleVersamenti =
-    versamenti?.reduce((a, v) => a + Number(v.importo), 0) || 0
-
-  const differenzaFinale = totaleVersamenti - residuoDaRipartire
-
   const saldoCassaFinale =
     saldoInizialeCassa +
-    movimenti
+    (movimenti
       ?.filter(m => m.contenitore === "cassa_operativa")
-      .reduce((a, m) => a + Number(m.importo), 0) || 0
+      .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
   const saldoBancaFinale =
     saldoInizialeBanca +
-    movimenti
+    (movimenti
       ?.filter(m => m.contenitore === "banca")
-      .reduce((a, m) => a + Number(m.importo), 0) || 0
+      .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
   /* =========================
      CREAZIONE PDF
@@ -213,6 +221,62 @@ export async function GET(request: Request) {
   newLine(25)
 
   drawDivider()
+
+  /* =========================
+     INCASSI
+  ========================= */
+
+  drawText("INCASSI", margin, 14, true)
+  newLine(20)
+
+  incassi.forEach(i => {
+    drawText(i.descrizione, margin)
+    drawRightText(`${Number(i.importo).toFixed(2)} €`)
+    newLine(14)
+  })
+
+  newLine(10)
+  drawDivider()
+
+  /* =========================
+     SPESE
+  ========================= */
+
+  drawText("SPESE", margin, 14, true)
+  newLine(20)
+
+  spese.forEach(s => {
+    drawText(s.descrizione, margin)
+    drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
+    newLine(14)
+  })
+
+  newLine(10)
+  drawDivider()
+
+  /* =========================
+     RIPARTIZIONE SOCI
+  ========================= */
+
+  drawText("RIPARTIZIONE GESTIONALE SOCI", margin, 14, true)
+  newLine(20)
+
+  soci?.forEach(s => {
+
+    const percentuale = Number(s.quota_percentuale)
+
+    const quotaCosti = totaleSpese * (percentuale / 100)
+    const quotaIncassi = totaleIncassi * (percentuale / 100)
+    const risultatoSocio = quotaIncassi - quotaCosti
+
+    const versato = versamenti
+      ?.filter(v => v.socio_id === s.id)
+      .reduce((a, v) => a + Number(v.importo), 0) || 0
+
+    drawText(s.nome, margin)
+    drawRightText(`${versato.toFixed(2)} €`)
+    newLine(14)
+  })
 
   /* =========================
      NUMERAZIONE PAGINE
