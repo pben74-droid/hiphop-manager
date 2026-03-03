@@ -249,20 +249,20 @@ export async function chiudiMeseServer(mese: string) {
     throw new Error("Mancano versamenti per coprire la perdita")
   }
 
-  // Calcola saldi finali del mese
+  // Calcola saldi finali
   const saldi = await calcolaSaldi(mese)
 
-  // Chiudi mese corrente
-  const { error } = await supabaseAdmin
+  // 1️⃣ Chiudi mese corrente
+  const { error: closeError } = await supabaseAdmin
     .from("mesi")
     .update({ stato: "chiuso" })
     .eq("mese", mese)
 
-  if (error) {
-    throw new Error(error.message)
+  if (closeError) {
+    throw new Error(closeError.message)
   }
 
-  // Calcolo mese successivo
+  // 2️⃣ Calcola mese successivo
   const [anno, meseNumero] = mese.split("-").map(Number)
 
   let nuovoAnno = anno
@@ -275,7 +275,7 @@ export async function chiudiMeseServer(mese: string) {
 
   const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
 
-  // Verifica se esiste già
+  // 3️⃣ Verifica se esiste già
   const { data: esiste } = await supabaseAdmin
     .from("mesi")
     .select("id")
@@ -283,12 +283,18 @@ export async function chiudiMeseServer(mese: string) {
     .maybeSingle()
 
   if (!esiste) {
-    await supabaseAdmin.from("mesi").insert({
-      mese: meseSuccessivo,
-      stato: "aperto",
-      saldo_iniziale_cassa: saldi.saldo_cassa,
-      saldo_iniziale_banca: saldi.saldo_banca
-    })
+    const { error: insertError } = await supabaseAdmin
+      .from("mesi")
+      .insert({
+        mese: meseSuccessivo,
+        stato: "aperto",
+        saldo_iniziale_cassa: saldi.saldo_cassa,
+        saldo_iniziale_banca: saldi.saldo_banca
+      })
+
+    if (insertError) {
+      throw new Error(insertError.message)
+    }
   }
 
   return { success: true }
