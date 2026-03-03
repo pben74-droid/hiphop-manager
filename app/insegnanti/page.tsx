@@ -15,19 +15,40 @@ const giorniSettimana = [
   { value: 7, label: "Domenica" },
 ]
 
+function contaGiorniNelMese(meseString: string, giorno: number) {
+
+  const parts = meseString.split("-")
+
+  let anno: number
+  let mese: number
+
+  if (parts[0].length === 4) {
+    anno = Number(parts[0])
+    mese = Number(parts[1])
+  } else {
+    mese = Number(parts[0])
+    anno = Number(parts[1])
+  }
+
+  let count = 0
+  const date = new Date(anno, mese - 1, 1)
+
+  while (date.getMonth() === mese - 1) {
+    const jsDay = date.getDay() === 0 ? 7 : date.getDay()
+    if (jsDay === giorno) count++
+    date.setDate(date.getDate() + 1)
+  }
+
+  return count
+}
+
 export default function InsegnantiPage() {
 
   const { mese } = useMese()
 
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [insegnanti, setInsegnanti] = useState<any[]>([])
-  const [nome, setNome] = useState("")
-  const [benzina, setBenzina] = useState("")
-  const [editingId, setEditingId] = useState<string | null>(null)
-
-  const [fasce, setFasce] = useState<{
-    [giorno: number]: { ore: string; costo: string }[]
-  }>({})
+  const [fasceDb, setFasceDb] = useState<any[]>([])
 
   useEffect(() => {
     if (!mese) return
@@ -39,166 +60,17 @@ export default function InsegnantiPage() {
     const chiuso = await verificaMeseChiuso(mese)
     setMeseChiuso(chiuso)
 
-    const { data } = await supabase
+    const { data: insegnantiData } = await supabase
       .from("insegnanti")
       .select("*")
       .order("nome")
 
-    setInsegnanti(data || [])
-  }
-
-  const aggiungiFascia = (giorno: number) => {
-    setFasce(prev => ({
-      ...prev,
-      [giorno]: [...(prev[giorno] || []), { ore: "", costo: "" }]
-    }))
-  }
-
-  const aggiornaFascia = (
-    giorno: number,
-    index: number,
-    campo: "ore" | "costo",
-    valore: string
-  ) => {
-    const nuove = [...(fasce[giorno] || [])]
-    nuove[index][campo] = valore
-
-    setFasce(prev => ({
-      ...prev,
-      [giorno]: nuove
-    }))
-  }
-
-  const resetForm = () => {
-    setNome("")
-    setBenzina("")
-    setEditingId(null)
-    setFasce({})
-  }
-
-  const salva = async () => {
-
-    if (meseChiuso) {
-      alert("Mese chiuso")
-      return
-    }
-
-    if (!nome.trim()) {
-      alert("Inserisci nome insegnante")
-      return
-    }
-
-    let insegnanteId = editingId
-
-    try {
-
-      // 🔹 UPDATE
-      if (editingId) {
-
-        const { error } = await supabase
-          .from("insegnanti")
-          .update({
-            nome,
-            rimborso_benzina: Number(benzina) || 0
-          })
-          .eq("id", editingId)
-
-        if (error) {
-          alert(error.message)
-          return
-        }
-
-        // Elimina vecchie fasce
-        await supabase
-          .from("insegnanti_fasce")
-          .delete()
-          .eq("insegnante_id", editingId)
-
-      } else {
-
-        // 🔹 INSERT
-        const { data, error } = await supabase
-          .from("insegnanti")
-          .insert({
-            nome,
-            rimborso_benzina: Number(benzina) || 0
-          })
-          .select()
-
-        if (error) {
-          alert(error.message)
-          return
-        }
-
-        if (!data || data.length === 0) {
-          alert("Errore creazione insegnante")
-          return
-        }
-
-        insegnanteId = data[0].id
-      }
-
-      // 🔹 SALVATAGGIO FASCE
-      for (const giorno in fasce) {
-
-        const elencoFasce = fasce[Number(giorno)]
-
-        for (const fascia of elencoFasce) {
-
-          if (!fascia.ore || !fascia.costo) continue
-
-          const { error } = await supabase
-            .from("insegnanti_fasce")
-            .insert({
-              insegnante_id: insegnanteId,
-              giorno_settimana: Number(giorno),
-              ore: Number(fascia.ore),
-              costo_orario: Number(fascia.costo)
-            })
-
-          if (error) {
-            alert(error.message)
-            return
-          }
-        }
-      }
-
-      alert("Insegnante salvato correttamente")
-
-      resetForm()
-      inizializza()
-
-    } catch (err: any) {
-      alert("Errore imprevisto")
-      console.error(err)
-    }
-  }
-
-  const modifica = async (ins: any) => {
-
-    setEditingId(ins.id)
-    setNome(ins.nome)
-    setBenzina(ins.rimborso_benzina?.toString() || "")
-
-    const { data } = await supabase
+    const { data: fasceData } = await supabase
       .from("insegnanti_fasce")
       .select("*")
-      .eq("insegnante_id", ins.id)
 
-    const grouped: any = {}
-
-    data?.forEach(f => {
-      if (!grouped[f.giorno_settimana]) {
-        grouped[f.giorno_settimana] = []
-      }
-
-      grouped[f.giorno_settimana].push({
-        ore: f.ore.toString(),
-        costo: f.costo_orario.toString()
-      })
-    })
-
-    setFasce(grouped)
+    setInsegnanti(insegnantiData || [])
+    setFasceDb(fasceData || [])
   }
 
   const elimina = async (id: string) => {
@@ -220,131 +92,105 @@ export default function InsegnantiPage() {
         </div>
       )}
 
-      <div className="border p-4 rounded bg-white space-y-4">
+      <div className="space-y-6">
 
-        <input
-          type="text"
-          placeholder="Nome Insegnante"
-          value={nome}
-          onChange={e => setNome(e.target.value)}
-          disabled={meseChiuso}
-          className="border p-2 w-full"
-        />
+        {insegnanti.map(ins => {
 
-        <input
-          type="number"
-          placeholder="Rimborso Benzina per lezione"
-          value={benzina}
-          onChange={e => setBenzina(e.target.value)}
-          disabled={meseChiuso}
-          className="border p-2 w-full"
-        />
+          const fasceInsegnante =
+            fasceDb.filter(f => f.insegnante_id === ins.id)
 
-        <div>
-          <h2 className="font-semibold mb-2">
-            Fasce Orarie Settimanali
-          </h2>
+          let totaleSettimanale = 0
+          let totaleMensile = 0
+          let totaleLezioni = 0
 
-          {giorniSettimana.map(g => (
-            <div key={g.value} className="mb-4 border-b pb-3">
+          fasceInsegnante.forEach(f => {
+
+            const costoFascia =
+              Number(f.ore) * Number(f.costo_orario)
+
+            totaleSettimanale += costoFascia
+
+            const lezioni = contaGiorniNelMese(
+              mese,
+              f.giorno_settimana
+            )
+
+            totaleLezioni += lezioni
+
+            totaleMensile +=
+              lezioni *
+              Number(f.ore) *
+              Number(f.costo_orario)
+          })
+
+          const benzinaMensile =
+            totaleLezioni * Number(ins.rimborso_benzina || 0)
+
+          totaleMensile += benzinaMensile
+
+          return (
+            <div
+              key={ins.id}
+              className="border p-4 rounded bg-white space-y-3"
+            >
 
               <div className="flex justify-between items-center">
-                <span className="font-semibold">{g.label}</span>
+                <h2 className="font-bold text-lg">
+                  {ins.nome}
+                </h2>
 
                 <button
-                  type="button"
-                  onClick={() => aggiungiFascia(g.value)}
-                  disabled={meseChiuso}
-                  className="text-sm bg-blue-600 text-white px-2 py-1 rounded"
+                  onClick={() => elimina(ins.id)}
+                  className="bg-red-600 text-white px-3 py-1 rounded"
                 >
-                  + Fascia
+                  Elimina
                 </button>
               </div>
 
-              {(fasce[g.value] || []).map((f, index) => (
-                <div key={index} className="flex space-x-3 mt-2">
+              {/* A - FASCE */}
+              <div>
+                <h3 className="font-semibold mb-2">
+                  Fasce settimanali
+                </h3>
 
-                  <input
-                    type="number"
-                    placeholder="Ore"
-                    value={f.ore}
-                    disabled={meseChiuso}
-                    onChange={e =>
-                      aggiornaFascia(g.value, index, "ore", e.target.value)
-                    }
-                    className="border p-1 w-24"
-                  />
+                {fasceInsegnante.map(f => {
 
-                  <input
-                    type="number"
-                    placeholder="Costo Orario"
-                    value={f.costo}
-                    disabled={meseChiuso}
-                    onChange={e =>
-                      aggiornaFascia(g.value, index, "costo", e.target.value)
-                    }
-                    className="border p-1 w-28"
-                  />
+                  const giornoLabel =
+                    giorniSettimana.find(
+                      g => g.value === f.giorno_settimana
+                    )?.label
 
-                </div>
-              ))}
+                  return (
+                    <div
+                      key={f.id}
+                      className="text-sm flex justify-between border-b py-1"
+                    >
+                      <span>
+                        {giornoLabel}
+                      </span>
+                      <span>
+                        {f.ore}h × {f.costo_orario} €
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* B - TOTALE SETTIMANALE */}
+              <div className="text-sm">
+                <strong>Totale Settimanale:</strong>{" "}
+                {totaleSettimanale.toFixed(2)} €
+              </div>
+
+              {/* C - TOTALE MENSILE REALE */}
+              <div className="text-sm">
+                <strong>Totale Mensile ({mese}):</strong>{" "}
+                {totaleMensile.toFixed(2)} €
+              </div>
 
             </div>
-          ))}
-
-        </div>
-
-        <div className="flex space-x-4">
-          <button
-            onClick={salva}
-            disabled={meseChiuso}
-            className="bg-black text-white px-6 py-2 rounded"
-          >
-            {editingId ? "Aggiorna" : "Salva"}
-          </button>
-
-          {editingId && (
-            <button
-              onClick={resetForm}
-              className="bg-gray-400 text-white px-6 py-2 rounded"
-            >
-              Annulla
-            </button>
-          )}
-        </div>
-
-      </div>
-
-      <div className="border p-4 rounded bg-white">
-
-        <h2 className="font-semibold mb-4">
-          Elenco Insegnanti
-        </h2>
-
-        {insegnanti.map(ins => (
-          <div
-            key={ins.id}
-            className="flex justify-between border-b py-2"
-          >
-            <span>{ins.nome}</span>
-
-            <div className="space-x-2">
-              <button
-                onClick={() => modifica(ins)}
-                className="bg-blue-500 text-white px-3 py-1 rounded"
-              >
-                Modifica
-              </button>
-
-              <button
-                onClick={() => elimina(ins.id)}
-                className="bg-red-600 text-white px-3 py-1 rounded"
-              >
-                Elimina
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
 
       </div>
 
