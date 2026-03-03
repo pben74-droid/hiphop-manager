@@ -180,13 +180,12 @@ const perdita = risultato_reale < 0
   const totale_versamenti =
     versamenti?.reduce((acc, v) => acc + Number(v.importo), 0) || 0
 
-  return {
-    risultato_operativo: Number(risultato_operativo.toFixed(2)),
-    perdita: Number(perdita.toFixed(2)),
-    totale_versamenti: Number(totale_versamenti.toFixed(2)),
-    differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
-    soci: sociCalcolo
-  }
+ return {
+  risultato_operativo: Number(risultato_reale.toFixed(2)),
+  perdita: Number(perdita.toFixed(2)),
+  totale_versamenti: Number(totale_versamenti.toFixed(2)),
+  differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
+  soci: sociCalcolo
 }
 
 /* =====================================================
