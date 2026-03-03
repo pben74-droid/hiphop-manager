@@ -5,7 +5,21 @@ import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso } from "@/lib/gestioneMese"
 
-function contaGiorniNelMese(anno: number, mese: number, giorno: number) {
+function contaGiorniNelMese(meseString: string, giorno: number) {
+
+  const parts = meseString.split("-")
+
+  let anno: number
+  let mese: number
+
+  if (parts[0].length === 4) {
+    anno = Number(parts[0])
+    mese = Number(parts[1])
+  } else {
+    mese = Number(parts[0])
+    anno = Number(parts[1])
+  }
+
   let count = 0
   const date = new Date(anno, mese - 1, 1)
 
@@ -43,48 +57,52 @@ export default function CompensiInsegnantiPage() {
       .select("*")
       .eq("attivo", true)
 
-    const { data: programmazione } = await supabase
-      .from("insegnanti_programmazione")
+    const { data: fasce } = await supabase
+      .from("insegnanti_fasce")
       .select("*")
-
-    const [anno, meseNumero] = mese.split("-").map(Number)
 
     const calcolati = insegnanti?.map(ins => {
 
-      const giorni = programmazione?.filter(
-        p => p.insegnante_id === ins.id
-      ) || []
+      const fasceInsegnante =
+        fasce?.filter(f => f.insegnante_id === ins.id) || []
 
       let totaleLezioni = 0
       let totaleOre = 0
+      let totaleCompensoOre = 0
 
-      giorni.forEach(g => {
+      fasceInsegnante.forEach(f => {
+
         const lezioni = contaGiorniNelMese(
-          anno,
-          meseNumero,
-          g.giorno_settimana
+          mese,
+          f.giorno_settimana
         )
 
         totaleLezioni += lezioni
-        totaleOre += lezioni * Number(g.ore_per_giorno)
+        totaleOre += lezioni * Number(f.ore)
+
+        totaleCompensoOre +=
+          lezioni *
+          Number(f.ore) *
+          Number(f.costo_orario)
       })
 
-      const compensoOre = totaleOre * Number(ins.costo_orario)
       const compensoBenzina =
-        totaleLezioni * Number(ins.rimborso_benzina)
+        totaleLezioni * Number(ins.rimborso_benzina || 0)
 
-      const totale = compensoOre + compensoBenzina
+      const totaleFinale =
+        totaleCompensoOre + compensoBenzina
 
       return {
         id: ins.id,
         nome: ins.nome,
         totaleLezioni,
         totaleOre,
-        compensoOre,
+        compensoOre: totaleCompensoOre,
         compensoBenzina,
-        totaleCalcolato: totale,
-        override: totale
+        totaleCalcolato: totaleFinale,
+        override: totaleFinale
       }
+
     }) || []
 
     setRighe(calcolati)
