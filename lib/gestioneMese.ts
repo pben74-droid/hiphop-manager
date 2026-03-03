@@ -7,7 +7,7 @@ export async function inizializzaMese(mese: string) {
 
   const { data: meseEsistente } = await supabase
     .from("mesi")
-    .select("id")
+    .select("mese")
     .eq("mese", mese)
     .maybeSingle()
 
@@ -21,19 +21,19 @@ export async function inizializzaMese(mese: string) {
     .limit(1)
     .maybeSingle()
 
-  let saldo_cassa = 0
-  let saldo_banca = 0
+  let saldo_iniziale_cassa = 0
+  let saldo_iniziale_banca = 0
 
   if (ultimoChiuso) {
-    saldo_cassa = Number(ultimoChiuso.saldo_cassa) || 0
-    saldo_banca = Number(ultimoChiuso.saldo_banca) || 0
+    saldo_iniziale_cassa = Number(ultimoChiuso.saldo_iniziale_cassa) || 0
+    saldo_iniziale_banca = Number(ultimoChiuso.saldo_iniziale_banca) || 0
   }
 
   await supabase.from("mesi").insert({
     mese,
     stato: "aperto",
-    saldo_cassa,
-    saldo_banca
+    saldo_iniziale_cassa,
+    saldo_iniziale_banca
   })
 }
 
@@ -42,7 +42,6 @@ export async function inizializzaMese(mese: string) {
 ===================================================== */
 export async function calcolaSaldi(mese: string) {
 
-  // 1️⃣ Recupera saldo iniziale del mese
   const { data: meseData } = await supabase
     .from("mesi")
     .select("saldo_iniziale_cassa, saldo_iniziale_banca")
@@ -52,7 +51,6 @@ export async function calcolaSaldi(mese: string) {
   let saldo_cassa = Number(meseData?.saldo_iniziale_cassa) || 0
   let saldo_banca = Number(meseData?.saldo_iniziale_banca) || 0
 
-  // 2️⃣ Somma movimenti del mese
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
@@ -111,24 +109,20 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 ===================================================== */
 export async function calcolaQuotaSoci(mese: string) {
 
-  // Movimenti del mese
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
-  // Soci
   const { data: soci } = await supabase
     .from("soci")
     .select("*")
 
-  // Versamenti
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
     .eq("mese", mese)
 
-  // Saldo iniziale del mese
   const { data: meseData } = await supabase
     .from("mesi")
     .select("saldo_iniziale_cassa")
@@ -137,7 +131,6 @@ export async function calcolaQuotaSoci(mese: string) {
 
   const saldo_iniziale = Number(meseData?.saldo_iniziale_cassa) || 0
 
-  // Filtra movimenti validi (esclude trasferimenti e versamenti soci)
   const movimentiFiltrati = movimenti?.filter(m =>
     m.categoria !== "trasferimento" &&
     m.categoria !== "versamento_socio"
@@ -151,7 +144,6 @@ export async function calcolaQuotaSoci(mese: string) {
     .filter(m => m.tipo === "spesa")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
-  // RISULTATO REALE (saldo iniziale incluso)
   const risultato_reale =
     saldo_iniziale + totale_incassi - totale_spese
 
@@ -189,18 +181,6 @@ export async function calcolaQuotaSoci(mese: string) {
     differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
     soci: sociCalcolo
   }
-}
-  }) || []
-
-  const totale_versamenti =
-    versamenti?.reduce((acc, v) => acc + Number(v.importo), 0) || 0
-
- return {
-  risultato_operativo: Number(risultato_reale.toFixed(2)),
-  perdita: Number(perdita.toFixed(2)),
-  totale_versamenti: Number(totale_versamenti.toFixed(2)),
-  differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
-  soci: sociCalcolo
 }
 
 /* =====================================================
@@ -283,10 +263,8 @@ export async function chiudiMeseServer(mese: string) {
     throw new Error("Mancano versamenti per coprire la perdita")
   }
 
-  // Calcola saldi finali
   const saldi = await calcolaSaldi(mese)
 
-  // 1️⃣ Chiudi mese corrente
   const { error: closeError } = await supabaseAdmin
     .from("mesi")
     .update({ stato: "chiuso" })
@@ -296,7 +274,6 @@ export async function chiudiMeseServer(mese: string) {
     throw new Error(closeError.message)
   }
 
-  // 2️⃣ Calcola mese successivo
   const [anno, meseNumero] = mese.split("-").map(Number)
 
   let nuovoAnno = anno
@@ -309,26 +286,19 @@ export async function chiudiMeseServer(mese: string) {
 
   const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
 
-// 3️⃣ Verifica se esiste già
-const { data: esiste } = await supabaseAdmin
-  .from("mesi")
-  .select("mese")
-  .eq("mese", meseSuccessivo)
-  .maybeSingle()
+  const { data: esiste } = await supabaseAdmin
+    .from("mesi")
+    .select("mese")
+    .eq("mese", meseSuccessivo)
+    .maybeSingle()
 
   if (!esiste) {
-    const { error: insertError } = await supabaseAdmin
-      .from("mesi")
-      .insert({
-        mese: meseSuccessivo,
-        stato: "aperto",
-        saldo_iniziale_cassa: saldi.saldo_cassa,
-        saldo_iniziale_banca: saldi.saldo_banca
-      })
-
-    if (insertError) {
-      throw new Error(insertError.message)
-    }
+    await supabaseAdmin.from("mesi").insert({
+      mese: meseSuccessivo,
+      stato: "aperto",
+      saldo_iniziale_cassa: saldi.saldo_cassa,
+      saldo_iniziale_banca: saldi.saldo_banca
+    })
   }
 
   return { success: true }
