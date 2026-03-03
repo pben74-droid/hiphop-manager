@@ -45,7 +45,7 @@ export default function InsegnantiPage() {
   const aggiungiFascia = () => {
     setFasce([
       ...fasce,
-      { giorno_settimana: 1, ore_per_giorno: "", costo_orario: "" }
+      { giorno_settimana: 1, ore: "", costo_orario: "" }
     ])
   }
 
@@ -79,27 +79,24 @@ export default function InsegnantiPage() {
 
     for (const f of fasce) {
 
-  if (
-    f.ore_per_giorno === "" ||
-    f.costo_orario === ""
-  ) {
-    alert("Compila ore e costo orario")
-    return
-  }
+      if (f.ore === "" || f.costo_orario === "") {
+        alert("Compila ore e costo orario")
+        return
+      }
 
-  const { error: fasciaError } =
-    await supabase.from("insegnanti_fasce").insert({
-      insegnante_id: nuovo.id,
-      giorno_settimana: f.giorno_settimana,
-      ore_per_giorno: Number(f.ore_per_giorno),
-      costo_orario: Number(f.costo_orario)
-    })
+      const { error: fasciaError } =
+        await supabase.from("insegnanti_fasce").insert({
+          insegnante_id: nuovo.id,
+          giorno_settimana: f.giorno_settimana,
+          ore: Number(f.ore),
+          costo_orario: Number(f.costo_orario)
+        })
 
-  if (fasciaError) {
-    alert(fasciaError.message)
-    return
-  }
-}
+      if (fasciaError) {
+        alert(fasciaError.message)
+        return
+      }
+    }
 
     setNome("")
     setRimborso("")
@@ -160,9 +157,9 @@ export default function InsegnantiPage() {
             <input
               type="number"
               placeholder="Ore"
-              value={f.ore_per_giorno}
+              value={f.ore}
               onChange={e =>
-                aggiornaFascia(index, "ore_per_giorno", e.target.value)
+                aggiornaFascia(index, "ore", e.target.value)
               }
               className="border p-2 w-24"
             />
@@ -218,7 +215,7 @@ export default function InsegnantiPage() {
             {fasceInsegnante.map(f => (
               <div key={f.id} className="text-sm">
                 Giorno {f.giorno_settimana} –
-                {f.ore_per_giorno}h × {f.costo_orario}€
+                {f.ore}h × {f.costo_orario}€
               </div>
             ))}
 
