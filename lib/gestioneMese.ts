@@ -234,6 +234,7 @@ export async function verificaMeseChiuso(mese: string) {
 /* =====================================================
    CHIUDI MESE
 ===================================================== */
+
 import { createClient } from "@supabase/supabase-js"
 
 export async function chiudiMeseServer(mese: string) {
@@ -268,9 +269,6 @@ export async function chiudiMeseServer(mese: string) {
   if (!data || data.length === 0) {
     throw new Error("Mese non trovato")
   }
-
-  return { success: true }
-}
 
   return { success: true }
 }
