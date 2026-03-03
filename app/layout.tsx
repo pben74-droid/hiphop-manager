@@ -66,7 +66,6 @@ export default function RootLayout({
                   Insegnanti
                 </Link>
 
-                {/* NUOVO LINK AGGIUNTO QUI */}
                 <Link href="/compensi-insegnanti" className="hover:text-yellow-500 transition">
                   Calcolo Compensi
                 </Link>
@@ -83,6 +82,11 @@ export default function RootLayout({
                   Affitto
                 </Link>
 
+                {/* ✅ LINK CERTIFICATI MEDICI AGGIUNTO */}
+                <Link href="/certificati" className="hover:text-yellow-500 transition">
+                  Certificati Medici
+                </Link>
+
                 <div className="border-t border-gray-700 my-4 opacity-40" />
 
                 {/* SEZIONE FINANZIARIA */}
@@ -90,7 +94,7 @@ export default function RootLayout({
                   Finanziario
                 </div>
 
-                              <Link href="/trasferimenti" className="hover:text-blue-400 transition">
+                <Link href="/trasferimenti" className="hover:text-blue-400 transition">
                   Trasferimenti
                 </Link>
 
