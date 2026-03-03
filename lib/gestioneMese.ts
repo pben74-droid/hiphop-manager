@@ -138,11 +138,22 @@ export async function calcolaQuotaSoci(mese: string) {
     .filter(m => m.tipo === "spesa")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
-  const risultato_operativo = totale_incassi - totale_spese
+ // Recupera saldo iniziale del mese
+const { data: meseData } = await supabase
+  .from("mesi")
+  .select("saldo_iniziale_cassa")
+  .eq("mese", mese)
+  .maybeSingle()
 
-  const perdita = risultato_operativo < 0
-    ? Math.abs(risultato_operativo)
-    : 0
+const saldo_iniziale = Number(meseData?.saldo_iniziale_cassa) || 0
+
+// Risultato reale considerando cassa iniziale
+const risultato_reale =
+  saldo_iniziale + totale_incassi - totale_spese
+
+const perdita = risultato_reale < 0
+  ? Math.abs(risultato_reale)
+  : 0
 
   const sociCalcolo = soci?.map(s => {
 
