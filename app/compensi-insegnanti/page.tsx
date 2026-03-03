@@ -68,7 +68,6 @@ export default function CompensiInsegnantiPage() {
 
       let totaleLezioni = 0
       let totaleOre = 0
-      let totaleCompensoOre = 0
 
       fasceInsegnante.forEach(f => {
 
@@ -78,31 +77,39 @@ export default function CompensiInsegnantiPage() {
         )
 
         totaleLezioni += lezioni
-        totaleOre += lezioni * Number(f.ore)
-
-        totaleCompensoOre +=
-          lezioni *
-          Number(f.ore) *
-          Number(f.costo_orario)
+        totaleOre += lezioni * Number(f.ore_per_giorno)
       })
+
+      const compensoOre =
+        fasceInsegnante.reduce((acc, f) => {
+
+          const lezioni = contaGiorniNelMese(
+            mese,
+            f.giorno_settimana
+          )
+
+          return acc +
+            lezioni *
+            Number(f.ore_per_giorno) *
+            Number(f.costo_orario)
+
+        }, 0)
 
       const compensoBenzina =
         totaleLezioni * Number(ins.rimborso_benzina || 0)
 
-      const totaleFinale =
-        totaleCompensoOre + compensoBenzina
+      const totale = compensoOre + compensoBenzina
 
       return {
         id: ins.id,
         nome: ins.nome,
         totaleLezioni,
         totaleOre,
-        compensoOre: totaleCompensoOre,
+        compensoOre,
         compensoBenzina,
-        totaleCalcolato: totaleFinale,
-        override: totaleFinale
+        totaleCalcolato: totale,
+        override: totale
       }
-
     }) || []
 
     setRighe(calcolati)
@@ -117,32 +124,6 @@ export default function CompensiInsegnantiPage() {
           : r
       )
     )
-  }
-
-  const generaCompensi = async () => {
-
-    if (meseChiuso) return
-
-    const res = await fetch("/api/genera-compensi", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        mese,
-        compensi: righe.map(r => ({
-          nome: r.nome,
-          importo: r.override
-        }))
-      })
-    })
-
-    const data = await res.json()
-
-    if (!res.ok) {
-      alert(data.error)
-      return
-    }
-
-    alert("Compensi generati correttamente")
   }
 
   if (loading) {
@@ -209,7 +190,7 @@ export default function CompensiInsegnantiPage() {
                     onChange={e =>
                       aggiornaOverride(r.id, e.target.value)
                     }
-                    className="border p-1 w-24 text-center disabled:bg-gray-200"
+                    className="border p-1 w-24 text-center"
                   />
                 </td>
 
@@ -220,14 +201,6 @@ export default function CompensiInsegnantiPage() {
         </table>
 
       </div>
-
-      <button
-        onClick={generaCompensi}
-        disabled={meseChiuso}
-        className="bg-black text-white px-6 py-2 rounded disabled:opacity-50"
-      >
-        Genera Movimenti
-      </button>
 
     </div>
   )
