@@ -111,20 +111,33 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 ===================================================== */
 export async function calcolaQuotaSoci(mese: string) {
 
+  // Movimenti del mese
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
     .eq("mese", mese)
 
+  // Soci
   const { data: soci } = await supabase
     .from("soci")
     .select("*")
 
+  // Versamenti
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
     .eq("mese", mese)
 
+  // Saldo iniziale del mese
+  const { data: meseData } = await supabase
+    .from("mesi")
+    .select("saldo_iniziale_cassa")
+    .eq("mese", mese)
+    .maybeSingle()
+
+  const saldo_iniziale = Number(meseData?.saldo_iniziale_cassa) || 0
+
+  // Filtra movimenti validi (esclude trasferimenti e versamenti soci)
   const movimentiFiltrati = movimenti?.filter(m =>
     m.categoria !== "trasferimento" &&
     m.categoria !== "versamento_socio"
@@ -138,29 +151,18 @@ export async function calcolaQuotaSoci(mese: string) {
     .filter(m => m.tipo === "spesa")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
- // Recupera saldo iniziale del mese
-const { data: meseData } = await supabase
-  .from("mesi")
-  .select("saldo_iniziale_cassa")
-  .eq("mese", mese)
-  .maybeSingle()
+  // RISULTATO REALE (saldo iniziale incluso)
+  const risultato_reale =
+    saldo_iniziale + totale_incassi - totale_spese
 
-const saldo_iniziale = Number(meseData?.saldo_iniziale_cassa) || 0
-
-// Risultato reale considerando cassa iniziale
-const risultato_reale =
-  saldo_iniziale + totale_incassi - totale_spese
-
-const perdita = risultato_reale < 0
-  ? Math.abs(risultato_reale)
-  : 0
+  const perdita = risultato_reale < 0
+    ? Math.abs(risultato_reale)
+    : 0
 
   const sociCalcolo = soci?.map(s => {
 
-    const percentuale = Number(s.quota_percentuale) || 0
-
     const quota_calcolata =
-      perdita * (percentuale / 100)
+      perdita * (Number(s.quota_percentuale) / 100)
 
     const versato = versamenti
       ?.filter(v => v.socio_id === s.id)
@@ -175,6 +177,19 @@ const perdita = risultato_reale < 0
       versato: Number(versato.toFixed(2)),
       differenza: Number(differenza.toFixed(2))
     }
+  }) || []
+
+  const totale_versamenti =
+    versamenti?.reduce((acc, v) => acc + Number(v.importo), 0) || 0
+
+  return {
+    risultato_operativo: Number(risultato_reale.toFixed(2)),
+    perdita: Number(perdita.toFixed(2)),
+    totale_versamenti: Number(totale_versamenti.toFixed(2)),
+    differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
+    soci: sociCalcolo
+  }
+}
   }) || []
 
   const totale_versamenti =
