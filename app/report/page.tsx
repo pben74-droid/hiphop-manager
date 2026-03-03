@@ -18,7 +18,14 @@ export default function ReportPage() {
 
     if (!movimenti) return;
 
-    const incassi = movimenti.filter(m => m.tipo === "incasso");
+    // 🔹 Incassi reali (esclude versamenti soci e trasferimenti)
+    const incassi = movimenti.filter(
+      m =>
+        m.tipo === "incasso" &&
+        m.categoria !== "versamento_socio" &&
+        m.categoria !== "trasferimento"
+    );
+
     const spese = movimenti.filter(m => m.tipo === "spesa");
 
     const versamentiAffitto = movimenti.filter(
@@ -49,7 +56,6 @@ export default function ReportPage() {
       .reduce((s, m) => s + Number(m.importo), 0);
 
     const nuovaFinestra = window.open("", "_blank");
-
     if (!nuovaFinestra) return;
 
     nuovaFinestra.document.write(`
@@ -82,6 +88,18 @@ export default function ReportPage() {
             € ${risultato.toFixed(2)}
           </td>
         </tr>
+      </table>
+
+      <h2>DETTAGLIO INCASSI</h2>
+
+      <table>
+        <tr><th>Descrizione</th><th>Importo</th></tr>
+        ${incassi.map(i => `
+          <tr>
+            <td>${i.descrizione}</td>
+            <td class="pos">€ ${Number(i.importo).toFixed(2)}</td>
+          </tr>
+        `).join("")}
       </table>
 
       ${risultato < 0 ? `
