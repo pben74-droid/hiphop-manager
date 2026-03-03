@@ -16,6 +16,8 @@ const giorniSettimana = [
 export default function InsegnantiPage() {
 
   const [insegnanti, setInsegnanti] = useState<any[]>([])
+  const [programmazione, setProgrammazione] = useState<any[]>([])
+
   const [nome, setNome] = useState("")
   const [costoOrario, setCostoOrario] = useState("")
   const [benzina, setBenzina] = useState("")
@@ -23,23 +25,49 @@ export default function InsegnantiPage() {
   const [orePerGiorno, setOrePerGiorno] = useState<{ [key: number]: string }>({})
 
   useEffect(() => {
-    caricaInsegnanti()
+    carica()
   }, [])
 
-  const caricaInsegnanti = async () => {
-    const { data } = await supabase
+  const carica = async () => {
+
+    const { data: ins } = await supabase
       .from("insegnanti")
       .select("*")
       .order("nome")
 
-    setInsegnanti(data || [])
+    const { data: prog } = await supabase
+      .from("insegnanti_programmazione")
+      .select("*")
+
+    setInsegnanti(ins || [])
+    setProgrammazione(prog || [])
+  }
+
+  const toggleGiorno = (giorno: number) => {
+    if (giorniSelezionati.includes(giorno)) {
+      setGiorniSelezionati(giorniSelezionati.filter(g => g !== giorno))
+    } else {
+      setGiorniSelezionati([...giorniSelezionati, giorno])
+    }
   }
 
   const salva = async () => {
 
     if (!nome || !costoOrario) {
-      alert("Compila i campi obbligatori")
+      alert("Compila nome e costo orario")
       return
+    }
+
+    if (giorniSelezionati.length === 0) {
+      alert("Seleziona almeno un giorno")
+      return
+    }
+
+    for (const g of giorniSelezionati) {
+      if (!orePerGiorno[g]) {
+        alert("Inserisci le ore per tutti i giorni selezionati")
+        return
+      }
     }
 
     const { data: nuovo } = await supabase
@@ -52,11 +80,11 @@ export default function InsegnantiPage() {
       .select()
       .single()
 
-    for (const giorno of giorniSelezionati) {
+    for (const g of giorniSelezionati) {
       await supabase.from("insegnanti_programmazione").insert({
         insegnante_id: nuovo.id,
-        giorno_settimana: giorno,
-        ore_per_giorno: Number(orePerGiorno[giorno])
+        giorno_settimana: g,
+        ore_per_giorno: Number(orePerGiorno[g])
       })
     }
 
@@ -66,23 +94,17 @@ export default function InsegnantiPage() {
     setGiorniSelezionati([])
     setOrePerGiorno({})
 
-    caricaInsegnanti()
-  }
-
-  const toggleGiorno = (giorno: number) => {
-    if (giorniSelezionati.includes(giorno)) {
-      setGiorniSelezionati(giorniSelezionati.filter(g => g !== giorno))
-    } else {
-      setGiorniSelezionati([...giorniSelezionati, giorno])
-    }
+    carica()
   }
 
   return (
     <div className="p-6 space-y-8">
 
-      <h1 className="text-2xl font-bold">Gestione Insegnanti</h1>
+      <h1 className="text-2xl font-bold">
+        Gestione Insegnanti
+      </h1>
 
-      <div className="border p-4 rounded space-y-4">
+      <div className="border p-6 rounded space-y-4">
 
         <input
           placeholder="Nome"
@@ -93,7 +115,7 @@ export default function InsegnantiPage() {
 
         <input
           type="number"
-          placeholder="Costo Orario"
+          placeholder="Costo Orario (€)"
           value={costoOrario}
           onChange={e => setCostoOrario(e.target.value)}
           className="border p-2 rounded w-full"
@@ -101,23 +123,27 @@ export default function InsegnantiPage() {
 
         <input
           type="number"
-          placeholder="Rimborso Benzina per giorno"
+          placeholder="Rimborso Benzina per giorno (€)"
           value={benzina}
           onChange={e => setBenzina(e.target.value)}
           className="border p-2 rounded w-full"
         />
 
         <div>
-          <p className="font-semibold mb-2">Giorni Settimanali</p>
+          <p className="font-semibold mb-2">
+            Giorni Settimanali e Ore
+          </p>
 
           {giorniSettimana.map(g => (
-            <div key={g.value} className="flex items-center space-x-3 mb-2">
+            <div key={g.value} className="flex items-center space-x-4 mb-2">
+
               <input
                 type="checkbox"
                 checked={giorniSelezionati.includes(g.value)}
                 onChange={() => toggleGiorno(g.value)}
               />
-              <span>{g.label}</span>
+
+              <span className="w-28">{g.label}</span>
 
               {giorniSelezionati.includes(g.value) && (
                 <input
@@ -130,7 +156,7 @@ export default function InsegnantiPage() {
                       [g.value]: e.target.value
                     })
                   }
-                  className="border p-1 rounded w-20"
+                  className="border p-1 rounded w-24"
                 />
               )}
             </div>
@@ -146,13 +172,40 @@ export default function InsegnantiPage() {
       </div>
 
       <div>
-        <h2 className="font-semibold mb-3">Elenco Insegnanti</h2>
+        <h2 className="font-semibold mb-4">
+          Elenco Insegnanti
+        </h2>
 
-        {insegnanti.map(i => (
-          <div key={i.id} className="border-b py-2">
-            {i.nome} – {i.costo_orario}€/h – Benzina: {i.rimborso_benzina}€
-          </div>
-        ))}
+        {insegnanti.map(i => {
+
+          const prog = programmazione.filter(
+            p => p.insegnante_id === i.id
+          )
+
+          return (
+            <div key={i.id} className="border-b py-3">
+
+              <div className="font-semibold">
+                {i.nome}
+              </div>
+
+              <div className="text-sm">
+                Costo: {i.costo_orario}€/h | Benzina: {i.rimborso_benzina}€
+              </div>
+
+              <div className="text-sm text-gray-600">
+                {prog.map(p => {
+                  const giorno = giorniSettimana.find(
+                    g => g.value === p.giorno_settimana
+                  )?.label
+
+                  return `${giorno} (${p.ore_per_giorno}h)`
+                }).join(" • ")}
+              </div>
+
+            </div>
+          )
+        })}
       </div>
 
     </div>
