@@ -29,37 +29,58 @@ export async function GET(request: Request) {
 
   const { data: meseData } = await supabase
     .from("mesi")
-    .select("saldo_iniziale_cassa")
+    .select("saldo_iniziale_cassa, saldo_iniziale_banca")
     .eq("mese", mese)
     .maybeSingle()
 
   const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
-
-  /* =========================
-     INCASSI
-  ========================= */
+  const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
   const incassi = movimenti?.filter(
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
   ) || []
 
-  const totaleIncassi = incassi.reduce(
-    (a, m) => a + Number(m.importo), 0
-  )
-
-  /* =========================
-     INSEGNANTI DINAMICI
-  ========================= */
+  const spese = movimenti?.filter(
+    m => m.tipo === "spesa"
+  ) || []
 
   const insegnantiRaw = movimenti?.filter(
     m => m.categoria === "insegnante"
   ) || []
 
+  const speseVarie = movimenti?.filter(
+    m => m.categoria === "spesa_generica"
+  ) || []
+
+  const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
+  const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
+
+  const perdita = totaleSpese > totaleIncassi
+    ? totaleSpese - totaleIncassi
+    : 0
+
+  const residuoDaRipartire = Math.max(0, perdita - saldoInizialeCassa)
+
+  const saldoCassaFinale =
+    saldoInizialeCassa +
+    (movimenti
+      ?.filter(m => m.contenitore === "cassa_operativa")
+      .reduce((a, m) => a + Number(m.importo), 0) || 0)
+
+  const saldoBancaFinale =
+    saldoInizialeBanca +
+    (movimenti
+      ?.filter(m => m.contenitore === "banca")
+      .reduce((a, m) => a + Number(m.importo), 0) || 0)
+
+  /* =========================
+     INSEGNANTI AGGREGATI
+  ========================= */
+
   const insegnantiAggregati: Record<string, number> = {}
 
   insegnantiRaw.forEach(m => {
     let nome = (m.descrizione || "ALTRO").toUpperCase()
-
     if (nome.includes("SNOOP")) nome = "SNOOP"
 
     if (!insegnantiAggregati[nome]) {
@@ -72,7 +93,7 @@ export async function GET(request: Request) {
   const nomiInsegnanti = Object.keys(insegnantiAggregati)
 
   /* =========================
-     CREAZIONE PDF
+     PDF SETUP
   ========================= */
 
   const pdfDoc = await PDFDocument.create()
@@ -81,31 +102,18 @@ export async function GET(request: Request) {
 
   let page = pdfDoc.addPage([595, 842])
   let y = 800
-
-  const margin = 40
+  const margin = 50
   const pageWidth = 595
 
-  const getColor = (value: number) =>
-    value >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
+  const getColor = (v: number) =>
+    v >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
 
-  const newPage = () => {
-    page = pdfDoc.addPage([595, 842])
-    y = 800
-  }
-
-  const checkPage = () => {
-    if (y < 80) newPage()
-  }
-
-  const newLine = (space = 16) => {
-    y -= space
-    checkPage()
-  }
+  const newLine = (space = 16) => { y -= space }
 
   const drawText = (
     text: string,
     x: number,
-    size = 9,
+    size = 10,
     bold = false,
     color = rgb(0, 0, 0)
   ) => {
@@ -118,8 +126,23 @@ export async function GET(request: Request) {
     })
   }
 
+  const drawRightValue = (value: number, bold = false) => {
+    const text = `${value.toFixed(2)} €`
+    const width = bold
+      ? boldFont.widthOfTextAtSize(text, 10)
+      : font.widthOfTextAtSize(text, 10)
+
+    page.drawText(text, {
+      x: pageWidth - margin - width,
+      y,
+      size: 10,
+      font: bold ? boldFont : font,
+      color: getColor(value)
+    })
+  }
+
   /* =========================
-     HEADER
+     PAGINA 1 - RIEPILOGO
   ========================= */
 
   drawText("HIP HOP FAMILY MANAGER", margin, 18, true)
@@ -127,56 +150,115 @@ export async function GET(request: Request) {
   drawText(`Report Mensile – ${mese}`, margin, 12, true)
   newLine(30)
 
-  /* =========================
-     TABELLA SOCI
-  ========================= */
-
-  drawText("CONTEGGI SOCI", margin, 13, true)
+  drawText("RIEPILOGO CONTABILE", margin, 14, true)
   newLine(20)
 
-  const colStart = margin
-  const colWidth = 90
+  drawText("Totale Incassi", margin)
+  drawRightValue(totaleIncassi, true)
+  newLine(14)
 
-  // Header tabella
-  drawText("SOCIO", colStart, 9, true)
+  drawText("Totale Spese", margin)
+  drawRightValue(-totaleSpese, true)
+  newLine(14)
 
-  nomiInsegnanti.forEach((nome, index) => {
-    drawText(nome, colStart + colWidth * (index + 1), 9, true)
+  drawText("Totale costi da ripartire", margin)
+  drawRightValue(-perdita, true)
+  newLine(14)
+
+  drawText("Cassa mese precedente", margin)
+  drawRightValue(saldoInizialeCassa, true)
+  newLine(14)
+
+  drawText("Residuo da ripartire", margin)
+  drawRightValue(-residuoDaRipartire, true)
+  newLine(14)
+
+  drawText("Saldo Cassa Finale", margin)
+  drawRightValue(saldoCassaFinale, true)
+  newLine(14)
+
+  drawText("Saldo Banca Finale", margin)
+  drawRightValue(saldoBancaFinale, true)
+  newLine(30)
+
+  /* =========================
+     DETTAGLIO INCASSI
+  ========================= */
+
+  drawText("DETTAGLIO INCASSI", margin, 12, true)
+  newLine(18)
+
+  incassi.forEach(i => {
+    drawText(i.descrizione, margin)
+    drawRightValue(Number(i.importo))
+    newLine(12)
   })
 
-  const quotaDisponibileCol =
-    colStart + colWidth * (nomiInsegnanti.length + 1)
+  newLine(20)
 
-  const totaleCol =
-    colStart + colWidth * (nomiInsegnanti.length + 2)
+  drawText("COMPENSI INSEGNANTI", margin, 12, true)
+  newLine(18)
 
-  drawText("QUOTA DISP.", quotaDisponibileCol, 9, true)
+  nomiInsegnanti.forEach(nome => {
+    drawText(nome, margin)
+    drawRightValue(-insegnantiAggregati[nome])
+    newLine(12)
+  })
+
+  newLine(20)
+
+  drawText("SPESE VARIE", margin, 12, true)
+  newLine(18)
+
+  speseVarie.forEach(s => {
+    drawText(s.descrizione, margin)
+    drawRightValue(-Math.abs(Number(s.importo)))
+    newLine(12)
+  })
+
+  /* =========================
+     PAGINA 2 - CONTEGGI SOCI
+  ========================= */
+
+  page = pdfDoc.addPage([595, 842])
+  y = 800
+
+  drawText("CONTEGGI SOCI", margin, 14, true)
+  newLine(20)
+
+  const colWidth = 80
+  const colStart = margin
+
+  drawText("SOCIO", colStart, 9, true)
+
+  nomiInsegnanti.forEach((nome, i) => {
+    drawText(nome, colStart + colWidth * (i + 1), 9, true)
+  })
+
+  const quotaCol = colStart + colWidth * (nomiInsegnanti.length + 1)
+  const totaleCol = colStart + colWidth * (nomiInsegnanti.length + 2)
+
+  drawText("QUOTA DISP.", quotaCol, 9, true)
   drawText("TOTALE MENSILE", totaleCol, 9, true)
 
   newLine(14)
 
   soci?.forEach(s => {
 
-    checkPage()
-
-    const percentuale = Number(s.quota_percentuale) / 100
-
+    const perc = Number(s.quota_percentuale) / 100
     const quotaDisponibile =
-      (saldoInizialeCassa + totaleIncassi) * percentuale
+      (saldoInizialeCassa + totaleIncassi) * perc
 
-    let totaleCostiInsegnanti = 0
+    let totaleCosti = 0
 
     drawText(s.nome, colStart)
 
-    nomiInsegnanti.forEach((nome, index) => {
+    nomiInsegnanti.forEach((nome, i) => {
+      const quota = insegnantiAggregati[nome] * perc
+      totaleCosti += quota
 
-      const quota =
-        insegnantiAggregati[nome] * percentuale
-
-      totaleCostiInsegnanti += quota
-
-      page.drawText(`${quota.toFixed(2)} €`, {
-        x: colStart + colWidth * (index + 1),
+      page.drawText(`${(-quota).toFixed(2)} €`, {
+        x: colStart + colWidth * (i + 1),
         y,
         size: 9,
         font,
@@ -185,15 +267,14 @@ export async function GET(request: Request) {
     })
 
     page.drawText(`${quotaDisponibile.toFixed(2)} €`, {
-      x: quotaDisponibileCol,
+      x: quotaCol,
       y,
       size: 9,
       font,
       color: getColor(quotaDisponibile)
     })
 
-    const totaleMensile =
-      quotaDisponibile - totaleCostiInsegnanti
+    const totaleMensile = quotaDisponibile - totaleCosti
 
     page.drawText(`${totaleMensile.toFixed(2)} €`, {
       x: totaleCol,
