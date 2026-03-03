@@ -90,15 +90,7 @@ export default function RootLayout({
                   Finanziario
                 </div>
 
-                <Link href="/banca" className="hover:text-yellow-500 transition">
-                  Banca
-                </Link>
-
-                <Link href="/cassa" className="hover:text-yellow-500 transition">
-                  Cassa
-                </Link>
-
-                <Link href="/trasferimenti" className="hover:text-blue-400 transition">
+                              <Link href="/trasferimenti" className="hover:text-blue-400 transition">
                   Trasferimenti
                 </Link>
 
