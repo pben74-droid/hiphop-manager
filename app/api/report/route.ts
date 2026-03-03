@@ -41,39 +41,40 @@ export async function GET(request: Request) {
   const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
   const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
-  const { data: affittoMese } = await supabase
-    .from("affitto_mese")
-    .select("*")
-    .eq("mese", mese)
-    .maybeSingle()
-
-  const { data: affittoPagamenti } = await supabase
-    .from("affitto_pagamenti")
-    .select("*")
-    .eq("mese", mese)
+  /* =========================
+     FILTRI MOVIMENTI
+  ========================= */
 
   const incassi = movimenti?.filter(
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
   ) || []
 
-  const spese = movimenti?.filter(
+  const speseInsegnanti = movimenti?.filter(
+    m => m.categoria === "insegnante"
+  ) || []
+
+  const speseVarie = movimenti?.filter(
+    m => m.categoria === "spesa_generica"
+  ) || []
+
+  const speseTotali = movimenti?.filter(
     m => m.tipo === "spesa"
   ) || []
 
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
-  const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
+  const totaleSpese = speseTotali.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
 
-  const risultatoOperativo = totaleIncassi - totaleSpese
-  const perdita = risultatoOperativo < 0 ? Math.abs(risultatoOperativo) : 0
+  const perdita = totaleSpese > totaleIncassi
+    ? totaleSpese - totaleIncassi
+    : 0
+
+  const residuoDaRipartire = Math.max(
+    0,
+    perdita - saldoInizialeCassa
+  )
 
   const totaleVersamenti =
     versamenti?.reduce((a, v) => a + Number(v.importo), 0) || 0
-
-  const totaleCostiDaRipartire = perdita
-  const residuoDaRipartire = Math.max(
-    0,
-    totaleCostiDaRipartire - saldoInizialeCassa
-  )
 
   const saldoCassaFinale =
     saldoInizialeCassa +
@@ -101,17 +102,7 @@ export async function GET(request: Request) {
   const margin = 50
   const pageWidth = 595
 
-  const checkPageBreak = () => {
-    if (y < 80) {
-      page = pdfDoc.addPage([595, 842])
-      y = 800
-    }
-  }
-
-  const newLine = (space = 16) => {
-    y -= space
-    checkPageBreak()
-  }
+  const newLine = (space = 16) => { y -= space }
 
   const drawText = (
     text: string,
@@ -148,16 +139,6 @@ export async function GET(request: Request) {
     })
   }
 
-  const drawDivider = () => {
-    page.drawLine({
-      start: { x: margin, y },
-      end: { x: pageWidth - margin, y },
-      thickness: 1,
-      color: rgb(0.85, 0.85, 0.85)
-    })
-    newLine(12)
-  }
-
   /* =========================
      HEADER
   ========================= */
@@ -165,68 +146,50 @@ export async function GET(request: Request) {
   drawText("HIP HOP FAMILY MANAGER", margin, 20, true)
   newLine(24)
   drawText(`Report Mensile – ${mese}`, margin, 13, true)
-  newLine(18)
-  drawText(`Data generazione: ${new Date().toLocaleDateString()}`, margin, 10)
-
-  newLine(25)
-  drawDivider()
+  newLine(30)
 
   /* =========================
-     RIEPILOGO GENERALE
+     RIEPILOGO CONTABILE
   ========================= */
 
-  drawText("RIEPILOGO GENERALE", margin, 14, true)
+  drawText("RIEPILOGO CONTABILE", margin, 14, true)
   newLine(20)
 
   drawText("Totale Incassi", margin)
   drawRightText(`${totaleIncassi.toFixed(2)} €`, 11, true)
-  newLine(16)
+  newLine(14)
 
   drawText("Totale Spese", margin)
   drawRightText(`${totaleSpese.toFixed(2)} €`, 11, true)
   newLine(20)
 
-  drawDivider()
-
-  drawText("Saldo Cassa Finale", margin)
-  drawRightText(`${saldoCassaFinale.toFixed(2)} €`, 11, true)
-  newLine(16)
-
-  drawText("Saldo Banca Finale", margin)
-  drawRightText(`${saldoBancaFinale.toFixed(2)} €`, 11, true)
-  newLine(20)
-
-  drawDivider()
-
-  /* =========================
-     RIPARTIZIONE CONTABILE
-  ========================= */
-
-  drawText("RIPARTIZIONE CONTABILE", margin, 14, true)
-  newLine(20)
-
   drawText("Totale costi da ripartire", margin, 12, true, rgb(0.8, 0, 0))
-  drawRightText(`${totaleCostiDaRipartire.toFixed(2)} €`, 12, true, rgb(0.8, 0, 0))
-  newLine(16)
+  drawRightText(`${perdita.toFixed(2)} €`, 12, true, rgb(0.8, 0, 0))
+  newLine(14)
 
   drawText("Cassa mese precedente", margin, 11, true, rgb(0, 0.6, 0))
   drawRightText(`${saldoInizialeCassa.toFixed(2)} €`, 11, true, rgb(0, 0.6, 0))
-  newLine(16)
+  newLine(14)
 
-  const residuoColor =
+  drawText("Residuo da ripartire", margin, 12, true,
     residuoDaRipartire > 0 ? rgb(0.8, 0, 0) : rgb(0, 0.6, 0)
+  )
+  drawRightText(`${residuoDaRipartire.toFixed(2)} €`, 12, true)
+  newLine(20)
 
-  drawText("Residuo da ripartire", margin, 12, true, residuoColor)
-  drawRightText(`${residuoDaRipartire.toFixed(2)} €`, 12, true, residuoColor)
-  newLine(25)
+  drawText("Saldo Cassa Finale", margin)
+  drawRightText(`${saldoCassaFinale.toFixed(2)} €`, 11, true)
+  newLine(14)
 
-  drawDivider()
+  drawText("Saldo Banca Finale", margin)
+  drawRightText(`${saldoBancaFinale.toFixed(2)} €`, 11, true)
+  newLine(30)
 
   /* =========================
-     INCASSI
+     INCASSI DETTAGLIO
   ========================= */
 
-  drawText("INCASSI", margin, 14, true)
+  drawText("DETTAGLIO INCASSI", margin, 14, true)
   newLine(20)
 
   incassi.forEach(i => {
@@ -235,59 +198,77 @@ export async function GET(request: Request) {
     newLine(14)
   })
 
-  newLine(10)
-  drawDivider()
-
-  /* =========================
-     SPESE
-  ========================= */
-
-  drawText("SPESE", margin, 14, true)
   newLine(20)
 
-  spese.forEach(s => {
+  /* =========================
+     SPESE INSEGNANTI
+  ========================= */
+
+  drawText("COMPENSI INSEGNANTI", margin, 14, true)
+  newLine(20)
+
+  speseInsegnanti.forEach(s => {
     drawText(s.descrizione, margin)
     drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
     newLine(14)
   })
 
-  newLine(10)
-  drawDivider()
+  newLine(20)
 
   /* =========================
-     RIPARTIZIONE SOCI
+     SPESE VARIE
   ========================= */
 
-  drawText("RIPARTIZIONE GESTIONALE SOCI", margin, 14, true)
+  drawText("SPESE VARIE", margin, 14, true)
+  newLine(20)
+
+  speseVarie.forEach(s => {
+    drawText(s.descrizione, margin)
+    drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
+    newLine(14)
+  })
+
+  newLine(30)
+
+  /* =========================
+     RIPARTIZIONE ANALITICA SOCI
+  ========================= */
+
+  drawText("RIPARTIZIONE ANALITICA TRA SOCI", margin, 14, true)
   newLine(20)
 
   soci?.forEach(s => {
 
-    const percentuale = Number(s.quota_percentuale)
+    const percentuale = Number(s.quota_percentuale) / 100
 
-    const quotaCosti = totaleSpese * (percentuale / 100)
-    const quotaIncassi = totaleIncassi * (percentuale / 100)
+    const quotaCosti = totaleSpese * percentuale
+    const quotaIncassi = totaleIncassi * percentuale
     const risultatoSocio = quotaIncassi - quotaCosti
 
     const versato = versamenti
       ?.filter(v => v.socio_id === s.id)
       .reduce((a, v) => a + Number(v.importo), 0) || 0
 
-    drawText(s.nome, margin)
-    drawRightText(`${versato.toFixed(2)} €`)
+    drawText(s.nome, margin, 11, true)
     newLine(14)
-  })
 
-  /* =========================
-     NUMERAZIONE PAGINE
-  ========================= */
+    drawText(`Quota costi: ${quotaCosti.toFixed(2)} €`, margin + 20)
+    newLine(12)
 
-  const pages = pdfDoc.getPages()
-  pages.forEach((p, index) => {
-    p.drawText(
-      `Pagina ${index + 1} / ${pages.length}`,
-      { x: 480, y: 20, size: 9, font }
+    drawText(`Quota incassi: ${quotaIncassi.toFixed(2)} €`, margin + 20)
+    newLine(12)
+
+    drawText(
+      `Risultato: ${risultatoSocio.toFixed(2)} €`,
+      margin + 20,
+      10,
+      false,
+      risultatoSocio >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
     )
+    newLine(12)
+
+    drawText(`Versato: ${versato.toFixed(2)} €`, margin + 20)
+    newLine(20)
   })
 
   const pdfBytes = await pdfDoc.save()
