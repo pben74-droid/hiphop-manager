@@ -16,10 +16,6 @@ export async function GET(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  /* =========================
-     RECUPERO DATI
-  ========================= */
-
   const { data: movimenti } = await supabase
     .from("movimenti_finanziari")
     .select("*")
@@ -110,6 +106,15 @@ export async function GET(request: Request) {
 
   const newLine = (space = 16) => { y -= space }
 
+  const drawLine = (thickness = 1) => {
+    page.drawLine({
+      start: { x: margin, y },
+      end: { x: pageWidth - margin, y },
+      thickness,
+      color: rgb(0.8, 0.8, 0.8)
+    })
+  }
+
   const drawText = (
     text: string,
     x: number,
@@ -142,11 +147,26 @@ export async function GET(request: Request) {
   }
 
   /* =========================
+     LOGO IN ALTO A DESTRA
+  ========================= */
+
+  const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
+  const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
+  const logoImage = await pdfDoc.embedPng(logoBytes)
+
+  page.drawImage(logoImage, {
+    x: pageWidth - 140,
+    y: 730,
+    width: 90,
+    height: 90
+  })
+
+  /* =========================
      PAGINA 1 - RIEPILOGO
   ========================= */
 
   drawText("HIP HOP FAMILY MANAGER", margin, 18, true)
-  newLine(20)
+  newLine(22)
   drawText(`Report Mensile – ${mese}`, margin, 12, true)
   newLine(30)
 
@@ -179,42 +199,6 @@ export async function GET(request: Request) {
 
   drawText("Saldo Banca Finale", margin)
   drawRightValue(saldoBancaFinale, true)
-  newLine(30)
-
-  /* =========================
-     DETTAGLIO INCASSI
-  ========================= */
-
-  drawText("DETTAGLIO INCASSI", margin, 12, true)
-  newLine(18)
-
-  incassi.forEach(i => {
-    drawText(i.descrizione, margin)
-    drawRightValue(Number(i.importo))
-    newLine(12)
-  })
-
-  newLine(20)
-
-  drawText("COMPENSI INSEGNANTI", margin, 12, true)
-  newLine(18)
-
-  nomiInsegnanti.forEach(nome => {
-    drawText(nome, margin)
-    drawRightValue(-insegnantiAggregati[nome])
-    newLine(12)
-  })
-
-  newLine(20)
-
-  drawText("SPESE VARIE", margin, 12, true)
-  newLine(18)
-
-  speseVarie.forEach(s => {
-    drawText(s.descrizione, margin)
-    drawRightValue(-Math.abs(Number(s.importo)))
-    newLine(12)
-  })
 
   /* =========================
      PAGINA 2 - CONTEGGI SOCI
@@ -241,7 +225,9 @@ export async function GET(request: Request) {
   drawText("QUOTA DISP.", quotaCol, 9, true)
   drawText("TOTALE MENSILE", totaleCol, 9, true)
 
-  newLine(14)
+  newLine(10)
+  drawLine(2)
+  newLine(10)
 
   soci?.forEach(s => {
 
@@ -284,7 +270,9 @@ export async function GET(request: Request) {
       color: getColor(totaleMensile)
     })
 
-    newLine(14)
+    newLine(12)
+    drawLine(0.5)
+    newLine(8)
   })
 
   const pdfBytes = await pdfDoc.save()
