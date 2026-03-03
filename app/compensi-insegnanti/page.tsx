@@ -3,22 +3,10 @@
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
-import { verificaMeseChiuso } from "@/lib/gestioneMese"
 
 function contaGiorniNelMese(meseString: string, giorno: number) {
 
-  const parts = meseString.split("-")
-
-  let anno: number
-  let mese: number
-
-  if (parts[0].length === 4) {
-    anno = Number(parts[0])
-    mese = Number(parts[1])
-  } else {
-    mese = Number(parts[0])
-    anno = Number(parts[1])
-  }
+  const [anno, mese] = meseString.split("-").map(Number)
 
   let count = 0
   const date = new Date(anno, mese - 1, 1)
@@ -36,7 +24,6 @@ export default function CompensiInsegnantiPage() {
 
   const { mese } = useMese()
 
-  const [meseChiuso, setMeseChiuso] = useState(false)
   const [righe, setRighe] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -48,9 +35,6 @@ export default function CompensiInsegnantiPage() {
   const inizializza = async () => {
 
     setLoading(true)
-
-    const chiuso = await verificaMeseChiuso(mese)
-    setMeseChiuso(chiuso)
 
     const { data: insegnanti } = await supabase
       .from("insegnanti")
@@ -68,6 +52,7 @@ export default function CompensiInsegnantiPage() {
 
       let totaleLezioni = 0
       let totaleOre = 0
+      let compensoOre = 0
 
       fasceInsegnante.forEach(f => {
 
@@ -77,23 +62,13 @@ export default function CompensiInsegnantiPage() {
         )
 
         totaleLezioni += lezioni
-        totaleOre += lezioni * Number(f.ore_per_giorno)
+        totaleOre += lezioni * Number(f.ore)
+
+        compensoOre +=
+          lezioni *
+          Number(f.ore) *
+          Number(f.costo_orario)
       })
-
-      const compensoOre =
-        fasceInsegnante.reduce((acc, f) => {
-
-          const lezioni = contaGiorniNelMese(
-            mese,
-            f.giorno_settimana
-          )
-
-          return acc +
-            lezioni *
-            Number(f.ore_per_giorno) *
-            Number(f.costo_orario)
-
-        }, 0)
 
       const compensoBenzina =
         totaleLezioni * Number(ins.rimborso_benzina || 0)
@@ -107,23 +82,12 @@ export default function CompensiInsegnantiPage() {
         totaleOre,
         compensoOre,
         compensoBenzina,
-        totaleCalcolato: totale,
-        override: totale
+        totale
       }
     }) || []
 
     setRighe(calcolati)
     setLoading(false)
-  }
-
-  const aggiornaOverride = (id: string, valore: string) => {
-    setRighe(prev =>
-      prev.map(r =>
-        r.id === id
-          ? { ...r, override: Number(valore) }
-          : r
-      )
-    )
   }
 
   if (loading) {
@@ -137,12 +101,6 @@ export default function CompensiInsegnantiPage() {
         Calcolo Compensi Insegnanti – {mese}
       </h1>
 
-      {meseChiuso && (
-        <div className="text-red-600 font-bold">
-          Mese chiuso. Modifiche non consentite.
-        </div>
-      )}
-
       <div className="border rounded overflow-x-auto">
 
         <table className="w-full text-sm">
@@ -154,46 +112,23 @@ export default function CompensiInsegnantiPage() {
               <th className="p-2">Ore Totali</th>
               <th className="p-2">Compenso Ore</th>
               <th className="p-2">Benzina</th>
-              <th className="p-2">Totale Calcolato</th>
-              <th className="p-2">Modifica</th>
+              <th className="p-2">Totale</th>
             </tr>
           </thead>
 
           <tbody>
             {righe.map(r => (
               <tr key={r.id} className="border-t text-center">
-
                 <td className="p-2 text-left font-semibold">
                   {r.nome}
                 </td>
-
-                <td className="p-2">{r.totaleLezioni}</td>
-                <td className="p-2">{r.totaleOre}</td>
-
-                <td className="p-2">
-                  {r.compensoOre.toFixed(2)} €
+                <td>{r.totaleLezioni}</td>
+                <td>{r.totaleOre}</td>
+                <td>{r.compensoOre.toFixed(2)} €</td>
+                <td>{r.compensoBenzina.toFixed(2)} €</td>
+                <td className="font-bold">
+                  {r.totale.toFixed(2)} €
                 </td>
-
-                <td className="p-2">
-                  {r.compensoBenzina.toFixed(2)} €
-                </td>
-
-                <td className="p-2 font-bold">
-                  {r.totaleCalcolato.toFixed(2)} €
-                </td>
-
-                <td className="p-2">
-                  <input
-                    type="number"
-                    value={r.override}
-                    disabled={meseChiuso}
-                    onChange={e =>
-                      aggiornaOverride(r.id, e.target.value)
-                    }
-                    className="border p-1 w-24 text-center"
-                  />
-                </td>
-
               </tr>
             ))}
           </tbody>
