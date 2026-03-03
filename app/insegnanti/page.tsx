@@ -49,6 +49,7 @@ export default function InsegnantiPage() {
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [insegnanti, setInsegnanti] = useState<any[]>([])
   const [fasceDb, setFasceDb] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (!mese) return
@@ -56,6 +57,8 @@ export default function InsegnantiPage() {
   }, [mese])
 
   const inizializza = async () => {
+
+    setLoading(true)
 
     const chiuso = await verificaMeseChiuso(mese)
     setMeseChiuso(chiuso)
@@ -71,12 +74,17 @@ export default function InsegnantiPage() {
 
     setInsegnanti(insegnantiData || [])
     setFasceDb(fasceData || [])
+    setLoading(false)
   }
 
   const elimina = async (id: string) => {
     if (meseChiuso) return
     await supabase.from("insegnanti").delete().eq("id", id)
     inizializza()
+  }
+
+  if (loading) {
+    return <div className="p-6">Caricamento...</div>
   }
 
   return (
@@ -92,107 +100,107 @@ export default function InsegnantiPage() {
         </div>
       )}
 
-      <div className="space-y-6">
+      {insegnanti.map(ins => {
 
-        {insegnanti.map(ins => {
+        const fasceInsegnante =
+          fasceDb.filter(f => f.insegnante_id === ins.id)
 
-          const fasceInsegnante =
-            fasceDb.filter(f => f.insegnante_id === ins.id)
+        let totaleSettimanale = 0
+        let totaleMensile = 0
+        let totaleLezioni = 0
 
-          let totaleSettimanale = 0
-          let totaleMensile = 0
-          let totaleLezioni = 0
+        fasceInsegnante.forEach(f => {
 
-          fasceInsegnante.forEach(f => {
+          const costoFascia =
+            Number(f.ore_per_giorno) *
+            Number(f.costo_orario)
 
-            const costoFascia =
-              Number(f.ore) * Number(f.costo_orario)
+          totaleSettimanale += costoFascia
 
-            totaleSettimanale += costoFascia
-
-            const lezioni = contaGiorniNelMese(
-              mese,
-              f.giorno_settimana
-            )
-
-            totaleLezioni += lezioni
-
-            totaleMensile +=
-              lezioni *
-              Number(f.ore) *
-              Number(f.costo_orario)
-          })
-
-          const benzinaMensile =
-            totaleLezioni * Number(ins.rimborso_benzina || 0)
-
-          totaleMensile += benzinaMensile
-
-          return (
-            <div
-              key={ins.id}
-              className="border p-4 rounded bg-white space-y-3"
-            >
-
-              <div className="flex justify-between items-center">
-                <h2 className="font-bold text-lg">
-                  {ins.nome}
-                </h2>
-
-                <button
-                  onClick={() => elimina(ins.id)}
-                  className="bg-red-600 text-white px-3 py-1 rounded"
-                >
-                  Elimina
-                </button>
-              </div>
-
-              {/* A - FASCE */}
-              <div>
-                <h3 className="font-semibold mb-2">
-                  Fasce settimanali
-                </h3>
-
-                {fasceInsegnante.map(f => {
-
-                  const giornoLabel =
-                    giorniSettimana.find(
-                      g => g.value === f.giorno_settimana
-                    )?.label
-
-                  return (
-                    <div
-                      key={f.id}
-                      className="text-sm flex justify-between border-b py-1"
-                    >
-                      <span>
-                        {giornoLabel}
-                      </span>
-                      <span>
-                        {f.ore}h × {f.costo_orario} €
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
-
-              {/* B - TOTALE SETTIMANALE */}
-              <div className="text-sm">
-                <strong>Totale Settimanale:</strong>{" "}
-                {totaleSettimanale.toFixed(2)} €
-              </div>
-
-              {/* C - TOTALE MENSILE REALE */}
-              <div className="text-sm">
-                <strong>Totale Mensile ({mese}):</strong>{" "}
-                {totaleMensile.toFixed(2)} €
-              </div>
-
-            </div>
+          const lezioni = contaGiorniNelMese(
+            mese,
+            f.giorno_settimana
           )
-        })}
 
-      </div>
+          totaleLezioni += lezioni
+
+          totaleMensile +=
+            lezioni *
+            Number(f.ore_per_giorno) *
+            Number(f.costo_orario)
+        })
+
+        const benzinaMensile =
+          totaleLezioni * Number(ins.rimborso_benzina || 0)
+
+        totaleMensile += benzinaMensile
+
+        return (
+          <div
+            key={ins.id}
+            className="border p-4 rounded bg-white shadow-sm space-y-3"
+          >
+
+            <div className="flex justify-between items-center">
+              <h2 className="font-bold text-lg">
+                {ins.nome}
+              </h2>
+
+              <button
+                onClick={() => elimina(ins.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded disabled:opacity-50"
+                disabled={meseChiuso}
+              >
+                Elimina
+              </button>
+            </div>
+
+            {/* Fasce settimanali */}
+            <div>
+              <h3 className="font-semibold mb-2">
+                Fasce settimanali
+              </h3>
+
+              {fasceInsegnante.length === 0 && (
+                <div className="text-sm text-gray-500">
+                  Nessuna fascia inserita
+                </div>
+              )}
+
+              {fasceInsegnante.map(f => {
+
+                const giornoLabel =
+                  giorniSettimana.find(
+                    g => g.value === f.giorno_settimana
+                  )?.label
+
+                return (
+                  <div
+                    key={f.id}
+                    className="text-sm flex justify-between border-b py-1"
+                  >
+                    <span>{giornoLabel}</span>
+                    <span>
+                      {f.ore_per_giorno}h × {f.costo_orario} €
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="text-sm">
+              <strong>Totale Settimanale:</strong>{" "}
+              {totaleSettimanale.toFixed(2)} €
+            </div>
+
+            <div className="text-sm">
+              <strong>Totale Mensile ({mese}):</strong>{" "}
+              {totaleMensile.toFixed(2)} €
+            </div>
+
+          </div>
+        )
+      })}
 
     </div>
   )
