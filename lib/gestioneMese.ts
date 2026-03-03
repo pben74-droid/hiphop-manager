@@ -245,25 +245,50 @@ export async function chiudiMeseServer(mese: string) {
 
   const riepilogo = await calcolaQuotaSoci(mese)
 
-  // Blocca solo se manca copertura
   if (riepilogo.differenza_finale < 0) {
     throw new Error("Mancano versamenti per coprire la perdita")
   }
 
-  const { data, error } = await supabaseAdmin
+  // Calcola saldi finali del mese
+  const saldi = await calcolaSaldi(mese)
+
+  // Chiudi mese corrente
+  const { error } = await supabaseAdmin
     .from("mesi")
-    .update({
-      stato: "chiuso"
-    })
+    .update({ stato: "chiuso" })
     .eq("mese", mese)
-    .select()
 
   if (error) {
     throw new Error(error.message)
   }
 
-  if (!data || data.length === 0) {
-    throw new Error("Mese non trovato")
+  // Calcolo mese successivo
+  const [anno, meseNumero] = mese.split("-").map(Number)
+
+  let nuovoAnno = anno
+  let nuovoMese = meseNumero + 1
+
+  if (nuovoMese === 13) {
+    nuovoMese = 1
+    nuovoAnno++
+  }
+
+  const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
+
+  // Verifica se esiste già
+  const { data: esiste } = await supabaseAdmin
+    .from("mesi")
+    .select("id")
+    .eq("mese", meseSuccessivo)
+    .maybeSingle()
+
+  if (!esiste) {
+    await supabaseAdmin.from("mesi").insert({
+      mese: meseSuccessivo,
+      stato: "aperto",
+      saldo_iniziale_cassa: saldi.saldo_cassa,
+      saldo_iniziale_banca: saldi.saldo_banca
+    })
   }
 
   return { success: true }
