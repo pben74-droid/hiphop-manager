@@ -55,7 +55,6 @@ export default function CompensiInsegnantiPage() {
       const fasceInsegnante =
         (fasce || []).filter(f => f.insegnante_id === ins.id)
 
-      // 🔹 Giorni distinti (compatibile ES5)
       const giorniUnici: number[] = []
 
       fasceInsegnante.forEach(f => {
@@ -88,7 +87,6 @@ export default function CompensiInsegnantiPage() {
           Number(f.costo_orario)
       })
 
-      // 🔹 Rimborso benzina PER GIORNATA
       const compensoBenzina =
         totaleGiornate * Number(ins.rimborso_benzina || 0)
 
@@ -121,6 +119,39 @@ export default function CompensiInsegnantiPage() {
     )
   }
 
+  const generaCompensi = async () => {
+
+    if (meseChiuso) return
+
+    // 🔒 Evita duplicazione
+    await supabase
+      .from("movimenti_finanziari")
+      .delete()
+      .eq("mese", mese)
+      .eq("categoria", "insegnante")
+
+    const movimenti = righe.map(r => ({
+      mese,
+      tipo: "spesa",
+      categoria: "insegnante",
+      descrizione: `Compenso ${r.nome}`,
+      contenitore: "cassa_operativa",
+      importo: -Math.abs(Number(r.override)),
+      data: new Date().toISOString().slice(0, 10)
+    }))
+
+    const { error } = await supabase
+      .from("movimenti_finanziari")
+      .insert(movimenti)
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    alert("Compensi registrati e cassa aggiornata")
+  }
+
   if (loading) {
     return <div className="p-6">Caricamento...</div>
   }
@@ -149,7 +180,7 @@ export default function CompensiInsegnantiPage() {
               <th className="p-2">Ore Totali</th>
               <th className="p-2">Compenso Ore</th>
               <th className="p-2">Benzina</th>
-              <th className="p-2">Totale Calcolato</th>
+              <th className="p-2">Totale</th>
               <th className="p-2">Modifica</th>
             </tr>
           </thead>
@@ -163,7 +194,6 @@ export default function CompensiInsegnantiPage() {
                 </td>
 
                 <td className="p-2">{r.totaleGiornate}</td>
-
                 <td className="p-2">{r.totaleOre}</td>
 
                 <td className="p-2">
@@ -175,7 +205,7 @@ export default function CompensiInsegnantiPage() {
                 </td>
 
                 <td className="p-2 font-bold">
-                  {r.totaleCalcolato.toFixed(2)} €
+                  {r.override.toFixed(2)} €
                 </td>
 
                 <td className="p-2">
@@ -197,6 +227,14 @@ export default function CompensiInsegnantiPage() {
         </table>
 
       </div>
+
+      <button
+        onClick={generaCompensi}
+        disabled={meseChiuso}
+        className="bg-black text-white px-6 py-2 rounded disabled:opacity-50"
+      >
+        Genera Movimenti
+      </button>
 
     </div>
   )
