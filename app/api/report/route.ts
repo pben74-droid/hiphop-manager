@@ -32,16 +32,14 @@ export async function GET(request: Request) {
     .select("*")
     .eq("mese", mese)
 
-  const { data: affittoMese } = await supabase
-    .from("affitto_mese")
-    .select("*")
+  const { data: meseData } = await supabase
+    .from("mesi")
+    .select("saldo_iniziale_cassa, saldo_iniziale_banca")
     .eq("mese", mese)
     .maybeSingle()
 
-  const { data: affittoPagamenti } = await supabase
-    .from("affitto_pagamenti")
-    .select("*")
-    .eq("mese", mese)
+  const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
+  const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
   const incassi = movimenti?.filter(
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
@@ -51,27 +49,35 @@ export async function GET(request: Request) {
     m => m.tipo === "spesa"
   ) || []
 
-  const insegnanti = movimenti?.filter(
-    m => m.categoria === "insegnante"
-  ) || []
-
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
   const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
 
-  const risultatoOperativo = totaleIncassi - totaleSpese
-  const perdita = risultatoOperativo < 0 ? Math.abs(risultatoOperativo) : 0
+  const risultatoOperativo = saldoInizialeCassa + totaleIncassi - totaleSpese
+
+  const totaleCostiDaRipartire =
+    totaleSpese > totaleIncassi ? totaleSpese - totaleIncassi : 0
+
+  const residuoDaRipartire = Math.max(
+    0,
+    totaleCostiDaRipartire - saldoInizialeCassa
+  )
+
   const totaleVersamenti =
     versamenti?.reduce((a, v) => a + Number(v.importo), 0) || 0
 
-  const differenzaFinale = totaleVersamenti - perdita
+  const differenzaFinale = totaleVersamenti - residuoDaRipartire
 
-  const saldoCassa = movimenti
-    ?.filter(m => m.contenitore === "cassa_operativa")
-    .reduce((a, m) => a + Number(m.importo), 0) || 0
+  const saldoCassaFinale =
+    saldoInizialeCassa +
+    movimenti
+      ?.filter(m => m.contenitore === "cassa_operativa")
+      .reduce((a, m) => a + Number(m.importo), 0) || 0
 
-  const saldoBanca = movimenti
-    ?.filter(m => m.contenitore === "banca")
-    .reduce((a, m) => a + Number(m.importo), 0) || 0
+  const saldoBancaFinale =
+    saldoInizialeBanca +
+    movimenti
+      ?.filter(m => m.contenitore === "banca")
+      .reduce((a, m) => a + Number(m.importo), 0) || 0
 
   /* =========================
      CREAZIONE PDF
@@ -145,19 +151,8 @@ export async function GET(request: Request) {
   }
 
   /* =========================
-     HEADER CON LOGO
+     HEADER
   ========================= */
-
-  const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
-  const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
-  const logoImage = await pdfDoc.embedPng(logoBytes)
-
-  page.drawImage(logoImage, {
-    x: pageWidth - 150,
-    y: 740,
-    width: 100,
-    height: 100
-  })
 
   drawText("HIP HOP FAMILY MANAGER", margin, 20, true)
   newLine(24)
@@ -185,119 +180,39 @@ export async function GET(request: Request) {
 
   drawDivider()
 
-  drawText("Saldo Cassa", margin)
-  drawRightText(`${saldoCassa.toFixed(2)} €`, 11, true)
+  drawText("Saldo Cassa Finale", margin)
+  drawRightText(`${saldoCassaFinale.toFixed(2)} €`, 11, true)
   newLine(16)
 
-  drawText("Saldo Banca", margin)
-  drawRightText(`${saldoBanca.toFixed(2)} €`, 11, true)
+  drawText("Saldo Banca Finale", margin)
+  drawRightText(`${saldoBancaFinale.toFixed(2)} €`, 11, true)
   newLine(20)
 
   drawDivider()
 
-  drawText("Totale costi da ripartire", margin, 11, true)
-  drawRightText(`${perdita.toFixed(2)} €`, 11, true)
+  /* =========================
+     RIPARTIZIONE CONTABILE
+  ========================= */
+
+  drawText("RIPARTIZIONE CONTABILE", margin, 14, true)
+  newLine(20)
+
+  drawText("Totale costi da ripartire", margin, 12, true, rgb(0.8, 0, 0))
+  drawRightText(`${totaleCostiDaRipartire.toFixed(2)} €`, 12, true, rgb(0.8, 0, 0))
   newLine(16)
 
-  drawText("Versamenti Soci", margin)
-  drawRightText(`${totaleVersamenti.toFixed(2)} €`, 11, true)
+  drawText("Cassa mese precedente", margin, 11, true, rgb(0, 0.6, 0))
+  drawRightText(`${saldoInizialeCassa.toFixed(2)} €`, 11, true, rgb(0, 0.6, 0))
   newLine(16)
 
-  drawText("Differenza Finale", margin, 12, true)
+  const residuoColor =
+    residuoDaRipartire > 0 ? rgb(0.8, 0, 0) : rgb(0, 0.6, 0)
 
-  const diffColor =
-    differenzaFinale >= 0 ? rgb(0, 0.5, 0) : rgb(0.8, 0, 0)
-
-  drawRightText(
-    `${differenzaFinale.toFixed(2)} €`,
-    12,
-    true,
-    diffColor
-  )
-
+  drawText("Residuo da ripartire", margin, 12, true, residuoColor)
+  drawRightText(`${residuoDaRipartire.toFixed(2)} €`, 12, true, residuoColor)
   newLine(25)
+
   drawDivider()
-
-  /* =========================
-     INCASSI
-  ========================= */
-
-  drawText("INCASSI", margin, 14, true)
-  newLine(20)
-
-  incassi.forEach(i => {
-    drawText(i.descrizione, margin)
-    drawRightText(`${Number(i.importo).toFixed(2)} €`)
-    newLine(14)
-  })
-
-  newLine(10)
-  drawDivider()
-
-  /* =========================
-     SPESE
-  ========================= */
-
-  drawText("SPESE", margin, 14, true)
-  newLine(20)
-
-  spese.forEach(s => {
-    drawText(s.descrizione, margin)
-    drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
-    newLine(14)
-  })
-
-  newLine(10)
-  drawDivider()
-
-  /* =========================
-     RIPARTIZIONE SOCI
-  ========================= */
-
-  drawText("RIPARTIZIONE GESTIONALE SOCI", margin, 14, true)
-  newLine(20)
-
-  drawText("Socio", margin, 10, true)
-  drawText("Quota Costi", margin + 150, 10, true)
-  drawText("Quota Incassi", margin + 260, 10, true)
-  drawText("Risultato", margin + 380, 10, true)
-  drawText("Versato", margin + 470, 10, true)
-
-  newLine(14)
-  drawDivider()
-
-  soci?.forEach(s => {
-
-    const percentuale = Number(s.quota_percentuale)
-
-    const quotaCosti = totaleSpese * (percentuale / 100)
-    const quotaIncassi = totaleIncassi * (percentuale / 100)
-    const risultatoSocio = quotaIncassi - quotaCosti
-
-    const versato = versamenti
-      ?.filter(v => v.socio_id === s.id)
-      .reduce((a, v) => a + Number(v.importo), 0) || 0
-
-    drawText(s.nome, margin)
-
-    drawText(`${quotaCosti.toFixed(2)} €`, margin + 150)
-    drawText(`${quotaIncassi.toFixed(2)} €`, margin + 260)
-
-    page.drawText(
-      `${risultatoSocio.toFixed(2)} €`,
-      {
-        x: margin + 380,
-        y,
-        size: 9,
-        font,
-        color: risultatoSocio >= 0 ? rgb(0, 0.5, 0) : rgb(0.8, 0, 0)
-      }
-    )
-
-    drawText(`${versato.toFixed(2)} €`, margin + 470)
-
-    newLine(14)
-  })
 
   /* =========================
      NUMERAZIONE PAGINE
