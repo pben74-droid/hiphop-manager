@@ -2,8 +2,6 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
-import { useMese } from "@/lib/MeseContext"
-import { verificaMeseChiuso } from "@/lib/gestioneMese"
 
 const giorniSettimana = [
   { value: 1, label: "Lunedì" },
@@ -15,188 +13,202 @@ const giorniSettimana = [
   { value: 7, label: "Domenica" },
 ]
 
-function contaGiorniNelMese(meseString: string, giorno: number) {
-
-  const parts = meseString.split("-")
-
-  let anno: number
-  let mese: number
-
-  if (parts[0].length === 4) {
-    anno = Number(parts[0])
-    mese = Number(parts[1])
-  } else {
-    mese = Number(parts[0])
-    anno = Number(parts[1])
-  }
-
-  let count = 0
-  const date = new Date(anno, mese - 1, 1)
-
-  while (date.getMonth() === mese - 1) {
-    const jsDay = date.getDay() === 0 ? 7 : date.getDay()
-    if (jsDay === giorno) count++
-    date.setDate(date.getDate() + 1)
-  }
-
-  return count
-}
-
 export default function InsegnantiPage() {
 
-  const { mese } = useMese()
-
-  const [meseChiuso, setMeseChiuso] = useState(false)
   const [insegnanti, setInsegnanti] = useState<any[]>([])
   const [fasceDb, setFasceDb] = useState<any[]>([])
+  const [nome, setNome] = useState("")
+  const [rimborso, setRimborso] = useState("")
+  const [fasce, setFasce] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!mese) return
-    inizializza()
-  }, [mese])
+    carica()
+  }, [])
 
-  const inizializza = async () => {
+  const carica = async () => {
 
-    setLoading(true)
-
-    const chiuso = await verificaMeseChiuso(mese)
-    setMeseChiuso(chiuso)
-
-    const { data: insegnantiData } = await supabase
+    const { data: ins } = await supabase
       .from("insegnanti")
       .select("*")
       .order("nome")
 
-    const { data: fasceData } = await supabase
+    const { data: f } = await supabase
       .from("insegnanti_fasce")
       .select("*")
 
-    setInsegnanti(insegnantiData || [])
-    setFasceDb(fasceData || [])
+    setInsegnanti(ins || [])
+    setFasceDb(f || [])
     setLoading(false)
   }
 
-  const elimina = async (id: string) => {
-    if (meseChiuso) return
-    await supabase.from("insegnanti").delete().eq("id", id)
-    inizializza()
+  const aggiungiFascia = () => {
+    setFasce([
+      ...fasce,
+      { giorno_settimana: 1, ore_per_giorno: "", costo_orario: "" }
+    ])
   }
 
-  if (loading) {
-    return <div className="p-6">Caricamento...</div>
+  const aggiornaFascia = (index: number, campo: string, valore: any) => {
+    const nuove = [...fasce]
+    nuove[index][campo] = valore
+    setFasce(nuove)
   }
+
+  const salva = async () => {
+
+    if (!nome) {
+      alert("Inserisci nome insegnante")
+      return
+    }
+
+    const { data: nuovo, error } = await supabase
+      .from("insegnanti")
+      .insert({
+        nome,
+        rimborso_benzina: Number(rimborso) || 0,
+        attivo: true
+      })
+      .select()
+      .single()
+
+    if (error) {
+      alert(error.message)
+      return
+    }
+
+    for (const f of fasce) {
+
+      if (!f.ore_per_giorno || !f.costo_orario) continue
+
+      await supabase.from("insegnanti_fasce").insert({
+        insegnante_id: nuovo.id,
+        giorno_settimana: f.giorno_settimana,
+        ore_per_giorno: Number(f.ore_per_giorno),
+        costo_orario: Number(f.costo_orario)
+      })
+    }
+
+    setNome("")
+    setRimborso("")
+    setFasce([])
+    carica()
+  }
+
+  const elimina = async (id: string) => {
+    await supabase.from("insegnanti").delete().eq("id", id)
+    carica()
+  }
+
+  if (loading) return <div className="p-6">Caricamento...</div>
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-8">
 
       <h1 className="text-2xl font-bold">
         Gestione Insegnanti
       </h1>
 
-      {meseChiuso && (
-        <div className="text-red-600 font-bold">
-          Mese chiuso. Modifiche non consentite.
-        </div>
-      )}
+      {/* FORM */}
+      <div className="border p-4 rounded bg-white space-y-4">
 
+        <input
+          type="text"
+          placeholder="Nome insegnante"
+          value={nome}
+          onChange={e => setNome(e.target.value)}
+          className="border p-2 w-full"
+        />
+
+        <input
+          type="number"
+          placeholder="Rimborso benzina per lezione"
+          value={rimborso}
+          onChange={e => setRimborso(e.target.value)}
+          className="border p-2 w-full"
+        />
+
+        {fasce.map((f, index) => (
+          <div key={index} className="flex gap-2">
+
+            <select
+              value={f.giorno_settimana}
+              onChange={e =>
+                aggiornaFascia(index, "giorno_settimana", Number(e.target.value))
+              }
+              className="border p-2"
+            >
+              {giorniSettimana.map(g => (
+                <option key={g.value} value={g.value}>
+                  {g.label}
+                </option>
+              ))}
+            </select>
+
+            <input
+              type="number"
+              placeholder="Ore"
+              value={f.ore_per_giorno}
+              onChange={e =>
+                aggiornaFascia(index, "ore_per_giorno", e.target.value)
+              }
+              className="border p-2 w-24"
+            />
+
+            <input
+              type="number"
+              placeholder="Costo orario"
+              value={f.costo_orario}
+              onChange={e =>
+                aggiornaFascia(index, "costo_orario", e.target.value)
+              }
+              className="border p-2 w-32"
+            />
+
+          </div>
+        ))}
+
+        <button
+          onClick={aggiungiFascia}
+          className="bg-gray-800 text-white px-4 py-2 rounded"
+        >
+          Aggiungi Fascia
+        </button>
+
+        <button
+          onClick={salva}
+          className="bg-black text-white px-6 py-2 rounded"
+        >
+          Salva Insegnante
+        </button>
+
+      </div>
+
+      {/* ELENCO */}
       {insegnanti.map(ins => {
 
         const fasceInsegnante =
           fasceDb.filter(f => f.insegnante_id === ins.id)
 
-        let totaleSettimanale = 0
-        let totaleMensile = 0
-        let totaleLezioni = 0
-
-        fasceInsegnante.forEach(f => {
-
-          const costoFascia =
-            Number(f.ore_per_giorno) *
-            Number(f.costo_orario)
-
-          totaleSettimanale += costoFascia
-
-          const lezioni = contaGiorniNelMese(
-            mese,
-            f.giorno_settimana
-          )
-
-          totaleLezioni += lezioni
-
-          totaleMensile +=
-            lezioni *
-            Number(f.ore_per_giorno) *
-            Number(f.costo_orario)
-        })
-
-        const benzinaMensile =
-          totaleLezioni * Number(ins.rimborso_benzina || 0)
-
-        totaleMensile += benzinaMensile
-
         return (
-          <div
-            key={ins.id}
-            className="border p-4 rounded bg-white shadow-sm space-y-3"
-          >
+          <div key={ins.id} className="border p-4 rounded bg-white">
 
-            <div className="flex justify-between items-center">
-              <h2 className="font-bold text-lg">
-                {ins.nome}
-              </h2>
-
+            <div className="flex justify-between">
+              <strong>{ins.nome}</strong>
               <button
                 onClick={() => elimina(ins.id)}
-                className="bg-red-600 text-white px-3 py-1 rounded disabled:opacity-50"
-                disabled={meseChiuso}
+                className="text-red-600"
               >
                 Elimina
               </button>
             </div>
 
-            {/* Fasce settimanali */}
-            <div>
-              <h3 className="font-semibold mb-2">
-                Fasce settimanali
-              </h3>
-
-              {fasceInsegnante.length === 0 && (
-                <div className="text-sm text-gray-500">
-                  Nessuna fascia inserita
-                </div>
-              )}
-
-              {fasceInsegnante.map(f => {
-
-                const giornoLabel =
-                  giorniSettimana.find(
-                    g => g.value === f.giorno_settimana
-                  )?.label
-
-                return (
-                  <div
-                    key={f.id}
-                    className="text-sm flex justify-between border-b py-1"
-                  >
-                    <span>{giornoLabel}</span>
-                    <span>
-                      {f.ore_per_giorno}h × {f.costo_orario} €
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-
-            <div className="text-sm">
-              <strong>Totale Settimanale:</strong>{" "}
-              {totaleSettimanale.toFixed(2)} €
-            </div>
-
-            <div className="text-sm">
-              <strong>Totale Mensile ({mese}):</strong>{" "}
-              {totaleMensile.toFixed(2)} €
-            </div>
+            {fasceInsegnante.map(f => (
+              <div key={f.id} className="text-sm">
+                Giorno {f.giorno_settimana} –
+                {f.ore_per_giorno}h × {f.costo_orario}€
+              </div>
+            ))}
 
           </div>
         )
