@@ -102,22 +102,27 @@ export default function SociPage() {
   )
 
   return (
-    <div className="p-10 text-white">
-      <h1 className="text-3xl font-bold mb-6">Gestione Soci</h1>
+    <div className="p-10">
+
+      <h1 className="text-3xl font-bold mb-6 text-gray-900">
+        Gestione Soci
+      </h1>
 
       {errore && (
-        <div className="mb-4 text-red-400">
+        <div className="mb-4 text-red-600 font-semibold">
           {errore}
         </div>
       )}
 
-      <div className="bg-black p-6 border border-yellow-500 rounded mb-10">
+      {/* FORM */}
+      <div className="bg-white p-6 border border-gray-300 rounded shadow-sm mb-10">
+
         <input
           type="text"
           placeholder="Nome socio"
           value={nome}
           onChange={(e) => setNome(e.target.value)}
-          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+          className="block mb-4 p-3 bg-white text-gray-900 border border-gray-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
 
         <input
@@ -125,52 +130,64 @@ export default function SociPage() {
           placeholder="Quota percentuale"
           value={quotaPercentuale}
           onChange={(e) => setQuotaPercentuale(e.target.value)}
-          className="block mb-4 p-3 bg-black border border-yellow-500 rounded w-full"
+          className="block mb-4 p-3 bg-white text-gray-900 border border-gray-300 rounded w-full focus:outline-none focus:ring-2 focus:ring-yellow-500"
         />
 
         <button
           onClick={handleSubmit}
-          className="bg-yellow-500 text-black px-6 py-3 rounded hover:bg-yellow-400 transition"
+          className="bg-yellow-500 text-black px-6 py-3 rounded hover:bg-yellow-400 transition font-semibold"
         >
           {editId ? "Aggiorna Socio" : "Aggiungi Socio"}
         </button>
+
       </div>
 
-      <h2 className="text-xl mb-4">
+      <h2 className="text-xl mb-4 font-semibold text-gray-900">
         Totale Percentuali: {totalePercentuali}%
       </h2>
 
-      <table className="w-full border border-yellow-500">
-        <thead>
-          <tr className="bg-yellow-500 text-black">
-            <th className="p-2">Nome</th>
-            <th className="p-2">Quota %</th>
-            <th className="p-2">Azioni</th>
-          </tr>
-        </thead>
-        <tbody>
-          {soci.map((s) => (
-            <tr key={s.id} className="border-t border-yellow-500">
-              <td className="p-2">{s.nome}</td>
-              <td className="p-2">{s.quota_percentuale}%</td>
-              <td className="p-2 space-x-2">
-                <button
-                  onClick={() => handleEdit(s)}
-                  className="bg-blue-500 px-3 py-1 rounded"
-                >
-                  Modifica
-                </button>
-                <button
-                  onClick={() => handleDelete(s.id)}
-                  className="bg-red-500 px-3 py-1 rounded"
-                >
-                  Elimina
-                </button>
-              </td>
+      {/* TABELLA */}
+      <div className="bg-white border border-gray-300 rounded shadow-sm overflow-hidden">
+        <table className="w-full">
+
+          <thead>
+            <tr className="bg-gray-100 text-gray-800">
+              <th className="p-3 text-left">Nome</th>
+              <th className="p-3 text-left">Quota %</th>
+              <th className="p-3 text-left">Azioni</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+
+          <tbody>
+            {soci.map((s) => (
+              <tr key={s.id} className="border-t border-gray-200 hover:bg-gray-50">
+                <td className="p-3 text-gray-900">
+                  {s.nome}
+                </td>
+                <td className="p-3 text-gray-900">
+                  {s.quota_percentuale}%
+                </td>
+                <td className="p-3 space-x-2">
+                  <button
+                    onClick={() => handleEdit(s)}
+                    className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 transition"
+                  >
+                    Modifica
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s.id)}
+                    className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 transition"
+                  >
+                    Elimina
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+
+        </table>
+      </div>
+
     </div>
   )
 }
