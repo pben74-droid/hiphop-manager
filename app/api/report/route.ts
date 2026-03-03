@@ -49,20 +49,12 @@ export async function GET(request: Request) {
     m => m.tipo === "incasso" && m.categoria !== "trasferimento"
   ) || []
 
-  const speseInsegnanti = movimenti?.filter(
-    m => m.categoria === "insegnante"
-  ) || []
-
-  const speseVarie = movimenti?.filter(
-    m => m.categoria === "spesa_generica"
-  ) || []
-
-  const speseTotali = movimenti?.filter(
+  const spese = movimenti?.filter(
     m => m.tipo === "spesa"
   ) || []
 
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
-  const totaleSpese = speseTotali.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
+  const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
 
   const perdita = totaleSpese > totaleIncassi
     ? totaleSpese - totaleIncassi
@@ -104,6 +96,9 @@ export async function GET(request: Request) {
 
   const newLine = (space = 16) => { y -= space }
 
+  const getColor = (value: number) =>
+    value >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
+
   const drawText = (
     text: string,
     x: number,
@@ -122,9 +117,9 @@ export async function GET(request: Request) {
 
   const drawRightText = (
     text: string,
+    value: number,
     size = 10,
-    bold = false,
-    color = rgb(0, 0, 0)
+    bold = false
   ) => {
     const textWidth = bold
       ? boldFont.widthOfTextAtSize(text, size)
@@ -135,7 +130,7 @@ export async function GET(request: Request) {
       y,
       size,
       font: bold ? boldFont : font,
-      color
+      color: getColor(value)
     })
   }
 
@@ -149,93 +144,60 @@ export async function GET(request: Request) {
   newLine(30)
 
   /* =========================
-     RIEPILOGO CONTABILE
+     RIEPILOGO
   ========================= */
 
   drawText("RIEPILOGO CONTABILE", margin, 14, true)
   newLine(20)
 
   drawText("Totale Incassi", margin)
-  drawRightText(`${totaleIncassi.toFixed(2)} €`, 11, true)
+  drawRightText(`${totaleIncassi.toFixed(2)} €`, totaleIncassi, 11, true)
   newLine(14)
 
   drawText("Totale Spese", margin)
-  drawRightText(`${totaleSpese.toFixed(2)} €`, 11, true)
+  drawRightText(`${-totaleSpese.toFixed(2)} €`, -totaleSpese, 11, true)
   newLine(20)
 
-  drawText("Totale costi da ripartire", margin, 12, true, rgb(0.8, 0, 0))
-  drawRightText(`${perdita.toFixed(2)} €`, 12, true, rgb(0.8, 0, 0))
+  drawText("Totale costi da ripartire", margin, 12, true)
+  drawRightText(`${-perdita.toFixed(2)} €`, -perdita, 12, true)
   newLine(14)
 
-  drawText("Cassa mese precedente", margin, 11, true, rgb(0, 0.6, 0))
-  drawRightText(`${saldoInizialeCassa.toFixed(2)} €`, 11, true, rgb(0, 0.6, 0))
+  drawText("Cassa mese precedente", margin)
+  drawRightText(`${saldoInizialeCassa.toFixed(2)} €`, saldoInizialeCassa, 11, true)
   newLine(14)
 
-  drawText("Residuo da ripartire", margin, 12, true,
-    residuoDaRipartire > 0 ? rgb(0.8, 0, 0) : rgb(0, 0.6, 0)
-  )
-  drawRightText(`${residuoDaRipartire.toFixed(2)} €`, 12, true)
+  drawText("Residuo da ripartire", margin, 12, true)
+  drawRightText(`${-residuoDaRipartire.toFixed(2)} €`, -residuoDaRipartire, 12, true)
   newLine(20)
 
   drawText("Saldo Cassa Finale", margin)
-  drawRightText(`${saldoCassaFinale.toFixed(2)} €`, 11, true)
+  drawRightText(`${saldoCassaFinale.toFixed(2)} €`, saldoCassaFinale, 11, true)
   newLine(14)
 
   drawText("Saldo Banca Finale", margin)
-  drawRightText(`${saldoBancaFinale.toFixed(2)} €`, 11, true)
+  drawRightText(`${saldoBancaFinale.toFixed(2)} €`, saldoBancaFinale, 11, true)
   newLine(30)
 
   /* =========================
-     INCASSI DETTAGLIO
+     RIPARTIZIONE SOCI - TABELLA
   ========================= */
 
-  drawText("DETTAGLIO INCASSI", margin, 14, true)
+  drawText("RIPARTIZIONE SOCI", margin, 14, true)
   newLine(20)
 
-  incassi.forEach(i => {
-    drawText(i.descrizione, margin)
-    drawRightText(`${Number(i.importo).toFixed(2)} €`)
-    newLine(14)
-  })
+  const colSocio = margin
+  const colCosti = margin + 150
+  const colIncassi = margin + 250
+  const colRisultato = margin + 360
+  const colVersato = margin + 470
 
-  newLine(20)
+  drawText("Socio", colSocio, 10, true)
+  drawText("Quota Costi", colCosti, 10, true)
+  drawText("Quota Incassi", colIncassi, 10, true)
+  drawText("Risultato", colRisultato, 10, true)
+  drawText("Versato", colVersato, 10, true)
 
-  /* =========================
-     SPESE INSEGNANTI
-  ========================= */
-
-  drawText("COMPENSI INSEGNANTI", margin, 14, true)
-  newLine(20)
-
-  speseInsegnanti.forEach(s => {
-    drawText(s.descrizione, margin)
-    drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
-    newLine(14)
-  })
-
-  newLine(20)
-
-  /* =========================
-     SPESE VARIE
-  ========================= */
-
-  drawText("SPESE VARIE", margin, 14, true)
-  newLine(20)
-
-  speseVarie.forEach(s => {
-    drawText(s.descrizione, margin)
-    drawRightText(`${Math.abs(Number(s.importo)).toFixed(2)} €`)
-    newLine(14)
-  })
-
-  newLine(30)
-
-  /* =========================
-     RIPARTIZIONE ANALITICA SOCI
-  ========================= */
-
-  drawText("RIPARTIZIONE ANALITICA TRA SOCI", margin, 14, true)
-  newLine(20)
+  newLine(14)
 
   soci?.forEach(s => {
 
@@ -249,26 +211,41 @@ export async function GET(request: Request) {
       ?.filter(v => v.socio_id === s.id)
       .reduce((a, v) => a + Number(v.importo), 0) || 0
 
-    drawText(s.nome, margin, 11, true)
+    drawText(s.nome, colSocio)
+
+    page.drawText(`${quotaCosti.toFixed(2)} €`, {
+      x: colCosti,
+      y,
+      size: 9,
+      font,
+      color: getColor(-quotaCosti)
+    })
+
+    page.drawText(`${quotaIncassi.toFixed(2)} €`, {
+      x: colIncassi,
+      y,
+      size: 9,
+      font,
+      color: getColor(quotaIncassi)
+    })
+
+    page.drawText(`${risultatoSocio.toFixed(2)} €`, {
+      x: colRisultato,
+      y,
+      size: 9,
+      font,
+      color: getColor(risultatoSocio)
+    })
+
+    page.drawText(`${versato.toFixed(2)} €`, {
+      x: colVersato,
+      y,
+      size: 9,
+      font,
+      color: getColor(versato)
+    })
+
     newLine(14)
-
-    drawText(`Quota costi: ${quotaCosti.toFixed(2)} €`, margin + 20)
-    newLine(12)
-
-    drawText(`Quota incassi: ${quotaIncassi.toFixed(2)} €`, margin + 20)
-    newLine(12)
-
-    drawText(
-      `Risultato: ${risultatoSocio.toFixed(2)} €`,
-      margin + 20,
-      10,
-      false,
-      risultatoSocio >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
-    )
-    newLine(12)
-
-    drawText(`Versato: ${versato.toFixed(2)} €`, margin + 20)
-    newLine(20)
   })
 
   const pdfBytes = await pdfDoc.save()
