@@ -68,7 +68,7 @@ export async function GET(request: Request) {
       .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
   /* =========================
-     INSEGNANTI AGGREGATI
+     INSEGNANTI
   ========================= */
 
   const insegnantiAggregati: Record<string, number> = {}
@@ -98,7 +98,7 @@ export async function GET(request: Request) {
   const nomiInsegnanti = Object.keys(insegnantiAggregati)
 
   /* =========================
-     MESE IN ITALIANO
+     MESE ITALIANO
   ========================= */
 
   const mesiItaliani = [
@@ -110,7 +110,7 @@ export async function GET(request: Request) {
   const meseTitolo = mesiItaliani[Number(meseNumero) - 1] + " " + anno
 
   /* =========================
-     PDF SETUP
+     PDF
   ========================= */
 
   const pdfDoc = await PDFDocument.create()
@@ -129,20 +129,13 @@ export async function GET(request: Request) {
 
   const newLine = (space = 16) => { y -= space }
 
-  const checkPageBreak = () => {
-    if (y < 80) {
-      page = pdfDoc.addPage([595, 842])
-      y = 800
-    }
+  const newPage = () => {
+    page = pdfDoc.addPage([595, 842])
+    y = 800
   }
 
-  const drawLine = (thickness = 1) => {
-    page.drawLine({
-      start: { x: margin, y },
-      end: { x: pageWidth - margin, y },
-      thickness,
-      color: rgb(0.85, 0.85, 0.85)
-    })
+  const checkSpace = (spaceNeeded: number) => {
+    if (y - spaceNeeded < 80) newPage()
   }
 
   const drawText = (
@@ -152,7 +145,6 @@ export async function GET(request: Request) {
     bold = false,
     color = rgb(0,0,0)
   ) => {
-
     page.drawText(text, {
       x,
       y,
@@ -160,10 +152,9 @@ export async function GET(request: Request) {
       font: bold ? boldFont : font,
       color
     })
-
   }
 
-  const drawRightValue = (value: number, bold = false) => {
+  const drawRight = (value: number, bold=false) => {
 
     const text = `${value.toFixed(2)} €`
 
@@ -171,12 +162,12 @@ export async function GET(request: Request) {
       ? boldFont.widthOfTextAtSize(text, 10)
       : font.widthOfTextAtSize(text, 10)
 
-    page.drawText(text, {
+    page.drawText(text,{
       x: pageWidth - margin - width,
       y,
-      size: 10,
+      size:10,
       font: bold ? boldFont : font,
-      color: getColor(value)
+      color:getColor(value)
     })
 
   }
@@ -188,21 +179,17 @@ export async function GET(request: Request) {
   try {
 
     const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
-
     const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
-
     const logoImage = await pdfDoc.embedPng(logoBytes)
 
-    page.drawImage(logoImage, {
+    page.drawImage(logoImage,{
       x: pageWidth - 140,
       y: 720,
       width: 90,
       height: 90
     })
 
-  } catch (err) {
-    console.log("Logo non caricato")
-  }
+  } catch {}
 
   /* =========================
      HEADER
@@ -215,7 +202,6 @@ export async function GET(request: Request) {
   newLine(18)
 
   drawText(meseTitolo, margin, 12, true)
-
   newLine(30)
 
   /* =========================
@@ -226,81 +212,74 @@ export async function GET(request: Request) {
   newLine(20)
 
   drawText("Totale Incassi", margin)
-  drawRightValue(totaleIncassi, true)
-  newLine(14)
+  drawRight(totaleIncassi,true)
+  newLine()
 
   drawText("Totale Spese", margin)
-  drawRightValue(-totaleSpese, true)
-  newLine(14)
+  drawRight(-totaleSpese,true)
+  newLine()
 
   drawText("Totale costi da ripartire", margin)
-  drawRightValue(-perdita, true)
-  newLine(14)
+  drawRight(-perdita,true)
+  newLine()
 
   drawText("Cassa mese precedente", margin)
-  drawRightValue(saldoInizialeCassa, true)
-  newLine(14)
+  drawRight(saldoInizialeCassa,true)
+  newLine()
 
   drawText("Residuo da ripartire", margin)
-  drawRightValue(-residuoDaRipartire, true)
-  newLine(14)
+  drawRight(-residuoDaRipartire,true)
+  newLine()
 
   drawText("Saldo Cassa Finale", margin)
-  drawRightValue(saldoCassaFinale, true)
-  newLine(14)
+  drawRight(saldoCassaFinale,true)
+  newLine()
 
   drawText("Saldo Banca Finale", margin)
-  drawRightValue(saldoBancaFinale, true)
+  drawRight(saldoBancaFinale,true)
 
   newLine(30)
 
   /* =========================
-     DETTAGLIO INCASSI
+     INCASSI
   ========================= */
+
+  checkSpace((incassi.length*16)+40)
 
   drawText("DETTAGLIO INCASSI", margin, 14, true)
   newLine(20)
 
-  incassi.forEach(i => {
-
-    checkPageBreak()
-
+  incassi.forEach(i=>{
     drawText(i.descrizione || "-", margin)
-    drawRightValue(Number(i.importo))
-
-    newLine(12)
-    drawLine(0.5)
-    newLine(6)
-
+    drawRight(Number(i.importo))
+    newLine(14)
   })
 
   newLine(20)
 
   /* =========================
-     DETTAGLIO SPESE
+     SPESE
   ========================= */
+
+  checkSpace((spese.length*16)+40)
 
   drawText("DETTAGLIO SPESE", margin, 14, true)
   newLine(20)
 
-  spese.forEach(s => {
-
-    checkPageBreak()
-
+  spese.forEach(s=>{
     drawText(s.descrizione || "-", margin)
-    drawRightValue(-Math.abs(Number(s.importo)))
-
-    newLine(12)
-    drawLine(0.5)
-    newLine(6)
-
+    drawRight(-Math.abs(Number(s.importo)))
+    newLine(14)
   })
 
   newLine(30)
 
   /* =========================
-     CONTEGGI SOCI
+     SOCI
   ========================= */
+
+  const spazioTabella = (soci?.length || 0) * 20 + 80
+  checkSpace(spazioTabella)
 
   drawText("CONTEGGI SOCI", margin, 14, true)
   newLine(20)
@@ -308,85 +287,78 @@ export async function GET(request: Request) {
   const colWidth = 80
   const colStart = margin
 
-  drawText("SOCIO", colStart, 9, true)
+  drawText("SOCIO", colStart,9,true)
 
-  nomiInsegnanti.forEach((nome, i) => {
-    drawText(nome, colStart + colWidth * (i + 1), 9, true)
+  nomiInsegnanti.forEach((nome,i)=>{
+    drawText(nome,colStart + colWidth*(i+1),9,true)
   })
 
-  const quotaCol = colStart + colWidth * (nomiInsegnanti.length + 1)
-  const totaleCol = colStart + colWidth * (nomiInsegnanti.length + 2)
+  const quotaCol = colStart + colWidth*(nomiInsegnanti.length+1)
+  const totaleCol = colStart + colWidth*(nomiInsegnanti.length+2)
 
-  drawText("QUOTA DISP.", quotaCol, 9, true)
-  drawText("RISULTATO", totaleCol, 9, true)
+  drawText("QUOTA DISP.", quotaCol,9,true)
+  drawText("RISULTATO", totaleCol,9,true)
 
-  newLine(10)
-  drawLine(2)
-  newLine(10)
+  newLine(12)
 
-  soci?.forEach(s => {
+  soci?.forEach(s=>{
 
-    checkPageBreak()
-
-    const perc = Number(s.quota_percentuale) / 100
+    const perc = Number(s.quota_percentuale)/100
 
     const quotaDisponibile =
-      (saldoInizialeCassa + totaleIncassi) * perc
+      (saldoInizialeCassa + totaleIncassi)*perc
 
     let totaleCosti = 0
 
-    drawText(s.nome, colStart)
+    drawText(s.nome,colStart)
 
-    nomiInsegnanti.forEach((nome, i) => {
+    nomiInsegnanti.forEach((nome,i)=>{
 
-      const quota = insegnantiAggregati[nome] * perc
-
+      const quota = insegnantiAggregati[nome]*perc
       totaleCosti += quota
 
-      page.drawText(`${(-quota).toFixed(2)} €`, {
-        x: colStart + colWidth * (i + 1),
+      page.drawText(`${(-quota).toFixed(2)} €`,{
+        x: colStart + colWidth*(i+1),
         y,
-        size: 9,
+        size:9,
         font,
-        color: getColor(-quota)
+        color:getColor(-quota)
       })
 
     })
 
-    page.drawText(`${quotaDisponibile.toFixed(2)} €`, {
+    page.drawText(`${quotaDisponibile.toFixed(2)} €`,{
       x: quotaCol,
       y,
-      size: 9,
+      size:9,
       font,
-      color: getColor(quotaDisponibile)
+      color:getColor(quotaDisponibile)
     })
 
     const totaleMensile = quotaDisponibile - totaleCosti
 
-    page.drawText(`${totaleMensile.toFixed(2)} €`, {
+    page.drawText(`${totaleMensile.toFixed(2)} €`,{
       x: totaleCol,
       y,
-      size: 9,
+      size:9,
       font,
-      color: getColor(totaleMensile)
+      color:getColor(totaleMensile)
     })
 
-    newLine(12)
-    drawLine(0.5)
-    newLine(8)
+    newLine(18)
 
   })
 
   /* =========================
-     NUMERO PAGINE
+     PAGINE
   ========================= */
 
   const pages = pdfDoc.getPages()
 
-  pages.forEach((p, index) => {
+  pages.forEach((p,index)=>{
 
     p.drawText(
-      `Pagina ${index + 1} / ${pages.length}`,
+      `Pagina ${index+1} / ${pages.length}`,
       {
         x: pageWidth - 120,
         y: 20,
@@ -398,12 +370,12 @@ export async function GET(request: Request) {
   })
 
   const pdfBytes = await pdfDoc.save()
-  const buffer = Buffer.from(pdfBytes)
 
-  return new NextResponse(buffer, {
-    headers: {
-      "Content-Type": "application/pdf",
-      "Content-Disposition": `inline; filename=report_${mese}.pdf`
+  return new NextResponse(Buffer.from(pdfBytes),{
+    headers:{
+      "Content-Type":"application/pdf",
+      "Content-Disposition":`inline; filename=report_${mese}.pdf`
     }
   })
+
 }
