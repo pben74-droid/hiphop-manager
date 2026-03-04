@@ -1,12 +1,35 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 export default function ReportPage() {
-  const [mese, setMese] = useState("2026-02");
+
+  const [mese, setMese] = useState("");
+  const [listaMesi, setListaMesi] = useState<string[]>([]);
+
+  useEffect(() => {
+    caricaMesi();
+  }, []);
+
+  const caricaMesi = async () => {
+
+    const { data } = await supabase
+      .from("mesi")
+      .select("mese")
+      .order("mese", { ascending: false });
+
+    const mesi = data?.map(m => m.mese) || [];
+
+    setListaMesi(mesi);
+
+    if (mesi.length > 0) {
+      setMese(mesi[0]); // mese più recente
+    }
+  };
 
   const generaReport = async () => {
+
     const { data: movimenti } = await supabase
       .from("movimenti_finanziari")
       .select("*")
@@ -18,7 +41,6 @@ export default function ReportPage() {
 
     if (!movimenti) return;
 
-    // 🔹 Incassi reali (esclude versamenti soci e trasferimenti)
     const incassi = movimenti.filter(
       m =>
         m.tipo === "incasso" &&
@@ -154,18 +176,35 @@ export default function ReportPage() {
   };
 
   return (
-    <div>
-      <h1>Report Mensile</h1>
+    <div className="space-y-6">
 
-      <input
-        type="month"
-        value={mese}
-        onChange={(e) => setMese(e.target.value)}
-      />
+      <h1 className="text-3xl font-bold">
+        Archivio Report Mensili
+      </h1>
 
-      <button onClick={generaReport}>
-        Genera Report PDF
-      </button>
+      <div className="flex gap-4 items-center">
+
+        <select
+          value={mese}
+          onChange={(e) => setMese(e.target.value)}
+          className="border p-2 rounded"
+        >
+          {listaMesi.map(m => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+
+        <button
+          onClick={generaReport}
+          className="bg-black text-white px-6 py-2 rounded"
+        >
+          Genera Report
+        </button>
+
+      </div>
+
     </div>
   );
 }
