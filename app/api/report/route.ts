@@ -164,11 +164,13 @@ export async function GET(request: Request) {
 
   }
 
-  /* =========================
-     LOGO
-  ========================= */
+/* =========================
+   LOGO
+========================= */
 
-  const logoUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/LOGO_DEFINITIVO_TRASPARENTE.png`
+try {
+
+  const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
 
   const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
 
@@ -180,6 +182,10 @@ export async function GET(request: Request) {
     width: 90,
     height: 90
   })
+
+} catch (err) {
+  console.error("Logo non caricato:", err)
+}
 
   /* =========================
      PAGINA 1 - RIEPILOGO
