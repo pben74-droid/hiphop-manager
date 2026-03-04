@@ -21,7 +21,9 @@ export async function GET(request: Request) {
     .select("*")
     .eq("mese", mese)
 
-  const { data: soci } = await supabase.from("soci").select("*")
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
 
   const { data: meseData } = await supabase
     .from("mesi")
@@ -42,10 +44,6 @@ export async function GET(request: Request) {
 
   const insegnantiRaw = movimenti?.filter(
     m => m.categoria === "insegnante"
-  ) || []
-
-  const speseVarie = movimenti?.filter(
-    m => m.categoria === "spesa_generica"
   ) || []
 
   const totaleIncassi = incassi.reduce((a, m) => a + Number(m.importo), 0)
@@ -76,7 +74,9 @@ export async function GET(request: Request) {
   const insegnantiAggregati: Record<string, number> = {}
 
   insegnantiRaw.forEach(m => {
+
     let nome = (m.descrizione || "ALTRO").toUpperCase()
+
     if (nome.includes("SNOOP")) nome = "SNOOP"
 
     if (!insegnantiAggregati[nome]) {
@@ -84,22 +84,37 @@ export async function GET(request: Request) {
     }
 
     insegnantiAggregati[nome] += Math.abs(Number(m.importo))
+
   })
 
   const nomiInsegnanti = Object.keys(insegnantiAggregati)
+
+  /* =========================
+     MESE IN FORMATO ITALIANO
+  ========================= */
+
+  const mesiItaliani = [
+    "GENNAIO","FEBBRAIO","MARZO","APRILE","MAGGIO","GIUGNO",
+    "LUGLIO","AGOSTO","SETTEMBRE","OTTOBRE","NOVEMBRE","DICEMBRE"
+  ]
+
+  const [anno, meseNumero] = mese.split("-")
+  const meseTitolo = mesiItaliani[Number(meseNumero) - 1] + " " + anno
 
   /* =========================
      PDF SETUP
   ========================= */
 
   const pdfDoc = await PDFDocument.create()
+
   const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
   const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-  let page = pdfDoc.addPage([595, 842])
-  let y = 800
   const margin = 50
   const pageWidth = 595
+
+  let page = pdfDoc.addPage([595, 842])
+  let y = 800
 
   const getColor = (v: number) =>
     v >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
@@ -132,7 +147,9 @@ export async function GET(request: Request) {
   }
 
   const drawRightValue = (value: number, bold = false) => {
+
     const text = `${value.toFixed(2)} €`
+
     const width = bold
       ? boldFont.widthOfTextAtSize(text, 10)
       : font.widthOfTextAtSize(text, 10)
@@ -144,19 +161,22 @@ export async function GET(request: Request) {
       font: bold ? boldFont : font,
       color: getColor(value)
     })
+
   }
 
   /* =========================
-     LOGO IN ALTO A DESTRA
+     LOGO
   ========================= */
 
-  const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
+  const logoUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/LOGO_DEFINITIVO_TRASPARENTE.png`
+
   const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
+
   const logoImage = await pdfDoc.embedPng(logoBytes)
 
   page.drawImage(logoImage, {
     x: pageWidth - 140,
-    y: 730,
+    y: 720,
     width: 90,
     height: 90
   })
@@ -166,8 +186,13 @@ export async function GET(request: Request) {
   ========================= */
 
   drawText("HIP HOP FAMILY MANAGER", margin, 18, true)
-  newLine(22)
-  drawText(`Report Mensile – ${mese}`, margin, 12, true)
+  newLine(20)
+
+  drawText("REPORT AMMINISTRATIVO", margin, 12, true)
+  newLine(18)
+
+  drawText(meseTitolo, margin, 12, true)
+
   newLine(30)
 
   drawText("RIEPILOGO CONTABILE", margin, 14, true)
@@ -201,7 +226,49 @@ export async function GET(request: Request) {
   drawRightValue(saldoBancaFinale, true)
 
   /* =========================
-     PAGINA 2 - CONTEGGI SOCI
+     PAGINA INCASSI
+  ========================= */
+
+  page = pdfDoc.addPage([595, 842])
+  y = 800
+
+  drawText("DETTAGLIO INCASSI", margin, 14, true)
+  newLine(20)
+
+  incassi.forEach(i => {
+
+    drawText(i.descrizione || "-", margin)
+    drawRightValue(Number(i.importo))
+
+    newLine(12)
+    drawLine(0.5)
+    newLine(6)
+
+  })
+
+  /* =========================
+     PAGINA SPESE
+  ========================= */
+
+  page = pdfDoc.addPage([595, 842])
+  y = 800
+
+  drawText("DETTAGLIO SPESE", margin, 14, true)
+  newLine(20)
+
+  spese.forEach(s => {
+
+    drawText(s.descrizione || "-", margin)
+    drawRightValue(-Math.abs(Number(s.importo)))
+
+    newLine(12)
+    drawLine(0.5)
+    newLine(6)
+
+  })
+
+  /* =========================
+     PAGINA SOCI
   ========================= */
 
   page = pdfDoc.addPage([595, 842])
@@ -232,6 +299,7 @@ export async function GET(request: Request) {
   soci?.forEach(s => {
 
     const perc = Number(s.quota_percentuale) / 100
+
     const quotaDisponibile =
       (saldoInizialeCassa + totaleIncassi) * perc
 
@@ -240,7 +308,9 @@ export async function GET(request: Request) {
     drawText(s.nome, colStart)
 
     nomiInsegnanti.forEach((nome, i) => {
+
       const quota = insegnantiAggregati[nome] * perc
+
       totaleCosti += quota
 
       page.drawText(`${(-quota).toFixed(2)} €`, {
@@ -250,6 +320,7 @@ export async function GET(request: Request) {
         font,
         color: getColor(-quota)
       })
+
     })
 
     page.drawText(`${quotaDisponibile.toFixed(2)} €`, {
@@ -273,6 +344,27 @@ export async function GET(request: Request) {
     newLine(12)
     drawLine(0.5)
     newLine(8)
+
+  })
+
+  /* =========================
+     NUMERO PAGINE
+  ========================= */
+
+  const pages = pdfDoc.getPages()
+
+  pages.forEach((p, index) => {
+
+    p.drawText(
+      `Pagina ${index + 1} / ${pages.length}`,
+      {
+        x: pageWidth - 120,
+        y: 20,
+        size: 9,
+        font
+      }
+    )
+
   })
 
   const pdfBytes = await pdfDoc.save()
