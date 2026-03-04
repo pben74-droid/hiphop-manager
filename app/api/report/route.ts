@@ -131,7 +131,6 @@ const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
 const margin = 50
-const pageWidth = 842
 const rowHeight = 18
 
 let page = pdfDoc.addPage([842,595])
@@ -235,7 +234,6 @@ x+=c.width
 })
 
 y-=rowHeight
-checkPage()
 
 }
 
@@ -301,6 +299,9 @@ margin,
 INCASSI
 ========================= */
 
+const spazioIncassi = (incassi.length+1)*rowHeight+40
+if(y<spazioIncassi) newPage()
+
 y -= 30
 drawHeader("DETTAGLIO INCASSI")
 
@@ -328,6 +329,9 @@ margin,
 /* =========================
 SPESE
 ========================= */
+
+const spazioSpese = (spese.length+1)*rowHeight+40
+if(y<spazioSpese) newPage()
 
 y -= 30
 drawHeader("DETTAGLIO SPESE")
@@ -357,33 +361,17 @@ margin,
 RIPARTIZIONE COSTI SOCI
 ========================= */
 
+const spazioSoci = ((soci?.length||0)+1)*rowHeight+60
+if(y<spazioSoci) newPage()
+
 y -= 30
-
-/* controlla spazio necessario */
-
-const spazioNecessario = (soci?.length || 0) * rowHeight + 60
-if(y < spazioNecessario) newPage()
-
 drawHeader("RIPARTIZIONE COSTI SOCI")
 
-/* larghezza dinamica colonne */
-
-const spazioDisponibile = pageWidth - margin*2
-const colSocio = 120
-const colQuota = 120
-const colVersare = 140
-
-const spazioInsegnanti =
-spazioDisponibile - colSocio - colQuota - colVersare
-
-const colInsegnante =
-Math.floor(spazioInsegnanti / (nomiInsegnanti.length || 1))
-
 const sociCols = [
-{label:"SOCIO",width:colSocio},
-...nomiInsegnanti.map(n=>({label:n,width:colInsegnante})),
-{label:"QUOTA DISP.",width:colQuota},
-{label:"IMPORTO DA VERSARE",width:colVersare}
+{label:"SOCIO",width:150},
+...nomiInsegnanti.map(n=>({label:n,width:100})),
+{label:"QUOTA DISP.",width:140},
+{label:"IMPORTO DA VERSARE",width:180}
 ]
 
 drawTableHeader(sociCols,margin)
@@ -426,6 +414,9 @@ drawRow(sociCols,valori,margin,colori)
 VERSAMENTI SOCI
 ========================= */
 
+const spazioVers = ((soci?.length||0)+1)*rowHeight+40
+if(y<spazioVers) newPage()
+
 y -= 30
 drawHeader("VERSAMENTI SOCI")
 
@@ -458,6 +449,9 @@ margin,
 /* =========================
 AFFITTO
 ========================= */
+
+const spazioAffitto = ((soci?.length||0)+1)*rowHeight+40
+if(y<spazioAffitto) newPage()
 
 y -= 30
 drawHeader("GESTIONE AFFITTO")
