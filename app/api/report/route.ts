@@ -113,7 +113,7 @@ const [anno,meseNumero]=mese.split("-")
 const meseTitolo = mesiItaliani[Number(meseNumero)-1]+" "+anno
 
 /* =========================
-PDF SETUP
+PDF
 ========================= */
 
 const pdfDoc = await PDFDocument.create()
@@ -134,10 +134,12 @@ y = 800
 }
 
 function checkPage(){
-if(y < 100) newPage()
+if(y < 120) newPage()
 }
 
 function drawHeader(title:string){
+
+checkPage()
 
 page.drawText(title,{
 x:margin,
@@ -173,15 +175,9 @@ x,
 y:y-rowHeight+4,
 width:c.width,
 height:rowHeight,
-color:rgb(0.9,0.9,0.9)
-})
-
-page.drawRectangle({
-x,
-y:y-rowHeight+4,
-width:c.width,
-height:rowHeight,
-borderWidth:1
+color:rgb(0.92,0.92,0.92),
+borderWidth:1,
+borderColor:rgb(0.7,0.7,0.7)
 })
 
 page.drawText(c.label,{
@@ -198,7 +194,7 @@ x+=c.width
 y-=rowHeight
 }
 
-function drawRow(cols:any[],values:any[],startX:number,colors:any[]=[]){
+function drawRow(cols:any,values:any,startX:number,colors:any=[]){
 
 let x=startX
 
@@ -209,7 +205,9 @@ x,
 y:y-rowHeight+4,
 width:c.width,
 height:rowHeight,
-borderWidth:1
+color:rgb(1,1,1),
+borderWidth:1,
+borderColor:rgb(0.8,0.8,0.8)
 })
 
 const cellColor =
@@ -284,13 +282,13 @@ drawTableHeader(riepilogoCols,margin)
 drawRow(riepilogoCols,
 ["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],
 margin,
-[null,getColor(totaleIncassi)]
+[undefined,getColor(totaleIncassi)]
 )
 
 drawRow(riepilogoCols,
 ["Totale Spese",`${totaleSpese.toFixed(2)} €`],
 margin,
-[null,getColor(-totaleSpese)]
+[undefined,getColor(-totaleSpese)]
 )
 
 /* =========================
@@ -317,7 +315,7 @@ i.descrizione || "-",
 `${Number(i.importo).toFixed(2)} €`
 ],
 margin,
-[null,rgb(0,0.6,0)]
+[undefined,rgb(0,0.6,0)]
 )
 
 })
@@ -346,7 +344,7 @@ s.descrizione || "-",
 `${Math.abs(Number(s.importo)).toFixed(2)} €`
 ],
 margin,
-[null,rgb(0.8,0,0)]
+[undefined,rgb(0.8,0,0)]
 )
 
 })
@@ -380,7 +378,7 @@ s.nome,
 `${versato.toFixed(2)} €`
 ],
 margin,
-[null,getColor(versato)]
+[undefined,getColor(versato)]
 )
 
 })
@@ -426,8 +424,8 @@ s.nome,
 ],
 margin,
 [
-null,
-null,
+undefined,
+undefined,
 rgb(0,0.6,0),
 getColor(-saldo)
 ]
