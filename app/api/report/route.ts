@@ -39,9 +39,7 @@ export async function GET(request: Request) {
   const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
   const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
-  /* =========================
-     INCASSI OPERATIVI
-  ========================= */
+  /* INCASSI OPERATIVI */
 
   const incassi = movimenti?.filter(
     m =>
@@ -65,8 +63,6 @@ export async function GET(request: Request) {
     ? totaleSpese - totaleIncassi
     : 0
 
-  const residuoDaRipartire = Math.max(0, perdita - saldoInizialeCassa)
-
   const saldoCassaFinale =
     saldoInizialeCassa +
     (movimenti
@@ -79,9 +75,7 @@ export async function GET(request: Request) {
       ?.filter(m => m.contenitore === "banca")
       .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
-  /* =========================
-     INSEGNANTI
-  ========================= */
+  /* INSEGNANTI */
 
   const insegnantiAggregati: Record<string, number> = {}
 
@@ -106,9 +100,7 @@ export async function GET(request: Request) {
 
   const nomiInsegnanti = Object.keys(insegnantiAggregati)
 
-  /* =========================
-     MESE ITALIANO
-  ========================= */
+  /* MESE ITALIANO */
 
   const mesiItaliani = [
     "GENNAIO","FEBBRAIO","MARZO","APRILE","MAGGIO","GIUGNO",
@@ -118,9 +110,7 @@ export async function GET(request: Request) {
   const [anno, meseNumero] = mese.split("-")
   const meseTitolo = mesiItaliani[Number(meseNumero) - 1] + " " + anno
 
-  /* =========================
-     PDF SETUP
-  ========================= */
+  /* PDF */
 
   const pdfDoc = await PDFDocument.create()
 
@@ -132,9 +122,6 @@ export async function GET(request: Request) {
 
   let page = pdfDoc.addPage([595, 842])
   let y = 800
-
-  const getColor = (v: number) =>
-    v >= 0 ? rgb(0, 0.6, 0) : rgb(0.8, 0, 0)
 
   const newLine = (space = 16) => { y -= space }
 
@@ -151,15 +138,13 @@ export async function GET(request: Request) {
     text: string,
     x: number,
     size = 10,
-    bold = false,
-    color = rgb(0,0,0)
+    bold = false
   ) => {
     page.drawText(text,{
       x,
       y,
       size,
-      font: bold ? boldFont : font,
-      color
+      font: bold ? boldFont : font
     })
   }
 
@@ -175,15 +160,23 @@ export async function GET(request: Request) {
       x: pageWidth - margin - width,
       y,
       size:10,
-      font: bold ? boldFont : font,
-      color:getColor(value)
+      font: bold ? boldFont : font
     })
 
   }
 
-  /* =========================
-     LOGO
-  ========================= */
+  const drawLine = () => {
+
+    page.drawLine({
+      start:{x:margin,y},
+      end:{x:pageWidth-margin,y},
+      thickness:0.5,
+      color:rgb(0.7,0.7,0.7)
+    })
+
+  }
+
+  /* LOGO */
 
   try {
 
@@ -200,9 +193,7 @@ export async function GET(request: Request) {
 
   } catch {}
 
-  /* =========================
-     HEADER
-  ========================= */
+  /* HEADER */
 
   drawText("HIP HOP FAMILY MANAGER", margin,18,true)
   newLine(22)
@@ -213,9 +204,7 @@ export async function GET(request: Request) {
   drawText(meseTitolo, margin,12,true)
   newLine(30)
 
-  /* =========================
-     RIEPILOGO
-  ========================= */
+  /* RIEPILOGO */
 
   drawText("RIEPILOGO CONTABILE", margin,14,true)
   newLine(20)
@@ -236,10 +225,6 @@ export async function GET(request: Request) {
   drawRight(saldoInizialeCassa,true)
   newLine()
 
-  drawText("Residuo da ripartire", margin)
-  drawRight(-residuoDaRipartire,true)
-  newLine()
-
   drawText("Saldo Cassa Finale", margin)
   drawRight(saldoCassaFinale,true)
   newLine()
@@ -249,9 +234,7 @@ export async function GET(request: Request) {
 
   newLine(30)
 
-  /* =========================
-     DETTAGLIO INCASSI
-  ========================= */
+  /* INCASSI */
 
   drawText("DETTAGLIO INCASSI", margin,14,true)
   newLine(20)
@@ -260,13 +243,13 @@ export async function GET(request: Request) {
     drawText(i.descrizione || "-", margin)
     drawRight(Number(i.importo))
     newLine(14)
+    drawLine()
+    newLine(6)
   })
 
   newLine(30)
 
-  /* =========================
-     DETTAGLIO SPESE
-  ========================= */
+  /* SPESE */
 
   drawText("DETTAGLIO SPESE", margin,14,true)
   newLine(20)
@@ -275,18 +258,18 @@ export async function GET(request: Request) {
     drawText(s.descrizione || "-", margin)
     drawRight(-Math.abs(Number(s.importo)))
     newLine(14)
+    drawLine()
+    newLine(6)
   })
 
-  newLine(40)
+  newLine(30)
 
-  /* =========================
-     RIPARTIZIONE SOCI
-  ========================= */
+  /* RIPARTIZIONE SOCI */
 
   drawText("RIPARTIZIONE COSTI SOCI", margin,14,true)
   newLine(20)
 
-  const colWidth = 80
+  const colWidth = 70
   const colStart = margin
 
   drawText("SOCIO", colStart,9,true)
@@ -296,12 +279,14 @@ export async function GET(request: Request) {
   })
 
   const quotaCol = colStart + colWidth*(nomiInsegnanti.length+1)
-  const dovutoCol = quotaCol + 120
+  const dovutoCol = quotaCol + 110
 
   drawText("QUOTA DISP.", quotaCol,9,true)
   drawText("IMPORTO DA VERSARE", dovutoCol,9,true)
 
-  newLine(14)
+  newLine(12)
+  drawLine()
+  newLine(8)
 
   const debitiSoci:any[] = []
 
@@ -325,8 +310,7 @@ export async function GET(request: Request) {
         x: colStart + colWidth*(i+1),
         y,
         size:9,
-        font,
-        color:getColor(-quota)
+        font
       })
 
     })
@@ -335,8 +319,7 @@ export async function GET(request: Request) {
       x: quotaCol,
       y,
       size:9,
-      font,
-      color:getColor(quotaDisponibile)
+      font
     })
 
     const dovuto = Math.max(0, totaleCosti - quotaDisponibile)
@@ -345,8 +328,7 @@ export async function GET(request: Request) {
       x: dovutoCol,
       y,
       size:9,
-      font,
-      color:getColor(-dovuto)
+      font
     })
 
     debitiSoci.push({
@@ -354,13 +336,13 @@ export async function GET(request: Request) {
       dovuto
     })
 
-    newLine(18)
+    newLine(16)
+    drawLine()
+    newLine(6)
 
   })
 
-  /* =========================
-     VERSAMENTI SOCI
-  ========================= */
+  /* VERSAMENTI SOCI */
 
   checkSpace((soci?.length || 0) * 20 + 80)
 
@@ -370,11 +352,13 @@ export async function GET(request: Request) {
   newLine(20)
 
   drawText("SOCIO", margin,9,true)
-  drawText("TOTALE DA VERSARE", margin+200,9,true)
-  drawText("TOTALE VERSATO", margin+360,9,true)
-  drawText("CREDITO DISPONIBILE", margin+500,9,true)
+  drawText("TOTALE DA VERSARE", margin+170,9,true)
+  drawText("TOTALE VERSATO", margin+320,9,true)
+  drawText("CREDITO DISP.", margin+460,9,true)
 
-  newLine(14)
+  newLine(12)
+  drawLine()
+  newLine(8)
 
   debitiSoci.forEach(d=>{
 
@@ -390,36 +374,33 @@ export async function GET(request: Request) {
     drawText(socio.nome, margin)
 
     page.drawText(`${d.dovuto.toFixed(2)} €`,{
-      x: margin+200,
+      x: margin+170,
       y,
       size:9,
-      font,
-      color:getColor(-d.dovuto)
+      font
     })
 
     page.drawText(`${versato.toFixed(2)} €`,{
-      x: margin+360,
+      x: margin+320,
       y,
       size:9,
-      font,
-      color:getColor(versato)
+      font
     })
 
     page.drawText(`${credito.toFixed(2)} €`,{
-      x: margin+500,
+      x: margin+460,
       y,
       size:9,
-      font,
-      color:getColor(credito)
+      font
     })
 
-    newLine(18)
+    newLine(16)
+    drawLine()
+    newLine(6)
 
   })
 
-  /* =========================
-     NUMERO PAGINE
-  ========================= */
+  /* NUMERO PAGINE */
 
   const pages = pdfDoc.getPages()
 
