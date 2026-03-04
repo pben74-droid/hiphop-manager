@@ -204,8 +204,6 @@ y-=rowHeight
 
 function drawRow(cols:any,values:any,startX:number,colors:any=[]){
 
-/* controllo cambio pagina automatico */
-
 if(y < 120){
 newPage()
 drawTableHeader(cols,startX)
@@ -230,15 +228,11 @@ colors && colors[i] ? colors[i] : rgb(0,0,0)
 
 let text = String(values[i] ?? "")
 
-/* taglio automatico testo */
-
 const maxChars = Math.floor((c.width-10)/4)
 
 if(text.length > maxChars){
 text = text.substring(0,maxChars-1) + "…"
 }
-
-/* font dinamico */
 
 let fontSize = 9
 if(c.width < 80) fontSize = 8
@@ -294,6 +288,64 @@ page.drawText(meseTitolo,{x:margin,y,size:12,font:boldFont})
 y -= 30
 
 /* =========================
+SITUAZIONE DEL MESE
+========================= */
+
+drawHeader("SITUAZIONE DEL MESE")
+
+const totaleVersamenti =
+versamentiSoci?.reduce((a,v)=>a+Number(v.importo),0) || 0
+
+const differenzaDaCoprire =
+Math.max(0, totaleSpese - totaleIncassi - saldoInizialeCassa)
+
+const residuoDaVersare =
+Math.max(0, differenzaDaCoprire - totaleVersamenti)
+
+const situazioneCols=[
+{label:"VOCE",width:450},
+{label:"IMPORTO",width:150}
+]
+
+drawTableHeader(situazioneCols,margin)
+
+drawRow(situazioneCols,
+["Totale Costi",`${totaleSpese.toFixed(2)} €`],
+margin,
+[undefined,getColor(-totaleSpese)]
+)
+
+drawRow(situazioneCols,
+["Incassi Corsi",`${totaleIncassi.toFixed(2)} €`],
+margin,
+[undefined,getColor(totaleIncassi)]
+)
+
+drawRow(situazioneCols,
+["Cassa Disponibile",`${saldoInizialeCassa.toFixed(2)} €`],
+margin,
+[undefined,getColor(saldoInizialeCassa)]
+)
+
+drawRow(situazioneCols,
+["Differenza da Coprire",`${differenzaDaCoprire.toFixed(2)} €`],
+margin,
+[undefined,getColor(-differenzaDaCoprire)]
+)
+
+drawRow(situazioneCols,
+["Versamenti Soci",`${totaleVersamenti.toFixed(2)} €`],
+margin,
+[undefined,getColor(totaleVersamenti)]
+)
+
+drawRow(situazioneCols,
+["Residuo da Versare",`${residuoDaVersare.toFixed(2)} €`],
+margin,
+[undefined,getColor(-residuoDaVersare)]
+)
+
+/* =========================
 RIEPILOGO
 ========================= */
 
@@ -317,233 +369,3 @@ drawRow(riepilogoCols,
 margin,
 [undefined,getColor(-totaleSpese)]
 )
-
-/* =========================
-INCASSI
-========================= */
-
-const spazioIncassi = (incassi.length+1)*rowHeight+40
-if(y<spazioIncassi) newPage()
-
-y -= 30
-drawHeader("DETTAGLIO INCASSI")
-
-const incassiCols=[
-{label:"DESCRIZIONE",width:450},
-{label:"IMPORTO",width:150}
-]
-
-drawTableHeader(incassiCols,margin)
-
-incassi.forEach(i=>{
-
-drawRow(
-incassiCols,
-[
-i.descrizione || "-",
-`${Number(i.importo).toFixed(2)} €`
-],
-margin,
-[undefined,rgb(0,0.6,0)]
-)
-
-})
-
-/* =========================
-SPESE
-========================= */
-
-const spazioSpese = (spese.length+1)*rowHeight+40
-if(y<spazioSpese) newPage()
-
-y -= 30
-drawHeader("DETTAGLIO SPESE")
-
-const speseCols=[
-{label:"DESCRIZIONE",width:450},
-{label:"IMPORTO",width:150}
-]
-
-drawTableHeader(speseCols,margin)
-
-spese.forEach(s=>{
-
-drawRow(
-speseCols,
-[
-s.descrizione || "-",
-`${Math.abs(Number(s.importo)).toFixed(2)} €`
-],
-margin,
-[undefined,rgb(0.8,0,0)]
-)
-
-})
-
-/* =========================
-RIPARTIZIONE COSTI SOCI
-========================= */
-
-const spazioSoci = ((soci?.length||0)+1)*rowHeight+60
-if(y<spazioSoci) newPage()
-
-y -= 30
-drawHeader("RIPARTIZIONE COSTI SOCI")
-
-const pageWidth = 842
-const usableWidth = pageWidth - (margin * 2)
-
-const socioWidth = 140
-const quotaWidth = 120
-const dovutoWidth = 140
-
-const fixedWidth =
-socioWidth + quotaWidth + dovutoWidth
-
-const remainingWidth =
-usableWidth - fixedWidth
-
-const insegnanteWidth =
-Math.max(
-60,
-remainingWidth / Math.max(1, nomiInsegnanti.length)
-)
-
-const sociCols = [
-{label:"SOCIO",width:socioWidth},
-...nomiInsegnanti.map(n=>({label:n,width:insegnanteWidth})),
-{label:"QUOTA DISP.",width:quotaWidth},
-{label:"IMPORTO DA VERSARE",width:dovutoWidth}
-]
-
-drawTableHeader(sociCols,margin)
-
-soci?.forEach(s=>{
-
-const perc = Number(s.quota_percentuale)/100
-
-const quotaDisponibile =
-(totaleIncassi + saldoInizialeCassa) * perc
-
-let totaleCosti = 0
-
-const valori:any = [s.nome]
-const colori:any = [undefined]
-
-nomiInsegnanti.forEach(nome=>{
-
-const quota = insegnantiAggregati[nome] * perc
-totaleCosti += quota
-
-valori.push(`${(-quota).toFixed(2)} €`)
-colori.push(rgb(0.8,0,0))
-
-})
-
-valori.push(`${quotaDisponibile.toFixed(2)} €`)
-colori.push(rgb(0,0.6,0))
-
-const dovuto = Math.max(0, totaleCosti - quotaDisponibile)
-
-valori.push(`${dovuto.toFixed(2)} €`)
-colori.push(getColor(-dovuto))
-
-drawRow(sociCols,valori,margin,colori)
-
-})
-
-/* =========================
-VERSAMENTI SOCI
-========================= */
-
-const spazioVers = ((soci?.length||0)+1)*rowHeight+40
-if(y<spazioVers) newPage()
-
-y -= 30
-drawHeader("VERSAMENTI SOCI")
-
-const versCols=[
-{label:"SOCIO",width:350},
-{label:"VERSATO",width:200}
-]
-
-drawTableHeader(versCols,margin)
-
-soci?.forEach(s=>{
-
-const versato =
-versamentiSoci
-?.filter(v=>v.socio_id===s.id)
-.reduce((a,v)=>a+Number(v.importo),0) || 0
-
-drawRow(
-versCols,
-[
-s.nome,
-`${versato.toFixed(2)} €`
-],
-margin,
-[undefined,getColor(versato)]
-)
-
-})
-
-/* =========================
-AFFITTO
-========================= */
-
-const spazioAffitto = ((soci?.length||0)+1)*rowHeight+40
-if(y<spazioAffitto) newPage()
-
-y -= 30
-drawHeader("GESTIONE AFFITTO")
-
-const affittoCols=[
-{label:"SOCIO",width:250},
-{label:"QUOTA",width:150},
-{label:"VERSATO",width:150},
-{label:"SALDO",width:150}
-]
-
-drawTableHeader(affittoCols,margin)
-
-soci?.forEach(s=>{
-
-const quota = costoAffittoTotale*(Number(s.quota_percentuale)/100)
-
-const versato =
-affittoPagamenti
-?.filter(p=>p.socio_id===s.id)
-.reduce((a,p)=>a+Number(p.importo),0) || 0
-
-const saldo = quota - versato
-
-drawRow(
-affittoCols,
-[
-s.nome,
-`${quota.toFixed(2)} €`,
-`${versato.toFixed(2)} €`,
-`${saldo.toFixed(2)} €`
-],
-margin,
-[
-undefined,
-undefined,
-rgb(0,0.6,0),
-getColor(-saldo)
-]
-)
-
-})
-
-const pdfBytes = await pdfDoc.save()
-
-return new NextResponse(Buffer.from(pdfBytes),{
-headers:{
-"Content-Type":"application/pdf",
-"Content-Disposition":`inline; filename=report_${mese}.pdf`
-}
-})
-
-}
