@@ -178,44 +178,72 @@ export default function IncassiPage() {
 
       </div>
 
-      {/* ELENCO */}
+      {/* TABELLA */}
       <div className="border border-gray-300 p-6 rounded bg-white">
 
         <h2 className="text-xl mb-4">Elenco Incassi</h2>
 
-        {incassi.map((mov) => (
-          <div
-            key={mov.id}
-            className="flex justify-between border-b border-gray-200 py-2"
-          >
-            <span>{formatData(mov.data)}</span>
-            <span>{mov.descrizione}</span>
-            <span>{mov.contenitore}</span>
+        <table className="w-full border-collapse">
 
-            {/* IMPORTO VERDE */}
-            <span className="text-green-600 font-semibold">
-              {Number(mov.importo).toFixed(2)} €
-            </span>
+          <thead>
+            <tr className="border-b border-gray-300 text-left">
+              <th className="py-2">Data</th>
+              <th className="py-2">Descrizione</th>
+              <th className="py-2">Contenitore</th>
+              <th className="py-2 text-right">Importo</th>
+              {!meseChiuso && <th className="py-2 text-right">Azioni</th>}
+            </tr>
+          </thead>
 
-            {!meseChiuso && (
-              <div className="space-x-2">
-                <button
-                  onClick={() => modificaIncasso(mov)}
-                  className="text-yellow-600"
-                >
-                  Modifica
-                </button>
-                <button
-                  onClick={() => eliminaIncasso(mov.id)}
-                  className="text-red-600"
-                >
-                  Elimina
-                </button>
-              </div>
-            )}
+          <tbody>
 
-          </div>
-        ))}
+            {incassi.map((mov) => (
+
+              <tr key={mov.id} className="border-b border-gray-200">
+
+                <td className="py-2">
+                  {formatData(mov.data)}
+                </td>
+
+                <td className="py-2">
+                  {mov.descrizione}
+                </td>
+
+                <td className="py-2">
+                  {mov.contenitore}
+                </td>
+
+                <td className="py-2 text-right text-green-600 font-semibold">
+                  {Number(mov.importo).toFixed(2)} €
+                </td>
+
+                {!meseChiuso && (
+                  <td className="py-2 text-right space-x-3">
+
+                    <button
+                      onClick={() => modificaIncasso(mov)}
+                      className="text-yellow-600 hover:underline"
+                    >
+                      Modifica
+                    </button>
+
+                    <button
+                      onClick={() => eliminaIncasso(mov.id)}
+                      className="text-red-600 hover:underline"
+                    >
+                      Elimina
+                    </button>
+
+                  </td>
+                )}
+
+              </tr>
+
+            ))}
+
+          </tbody>
+
+        </table>
 
       </div>
 
