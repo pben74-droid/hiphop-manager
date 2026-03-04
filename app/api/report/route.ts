@@ -169,6 +169,111 @@ return rgb(0,0,0)
 }
 
 /* =========================
+TABELLE
+========================= */
+
+function drawTableHeader(cols:any,startX:number){
+
+let x=startX
+
+cols.forEach(c=>{
+
+page.drawRectangle({
+x,
+y:y-rowHeight+4,
+width:c.width,
+height:rowHeight,
+color:rgb(0.92,0.92,0.92),
+borderWidth:1,
+borderColor:rgb(0.7,0.7,0.7)
+})
+
+page.drawText(c.label,{
+x:x+4,
+y:y-12,
+size:c.width < 80 ? 8 : 9,
+font:boldFont
+})
+
+x+=c.width
+
+})
+
+y-=rowHeight
+}
+
+function drawRow(cols:any,values:any,startX:number,colors:any=[]){
+
+if(y < 120){
+newPage()
+drawTableHeader(cols,startX)
+}
+
+let x=startX
+
+cols.forEach((c,i)=>{
+
+page.drawRectangle({
+x,
+y:y-rowHeight+4,
+width:c.width,
+height:rowHeight,
+color:rgb(1,1,1),
+borderWidth:1,
+borderColor:rgb(0.8,0.8,0.8)
+})
+
+const cellColor =
+colors && colors[i] ? colors[i] : rgb(0,0,0)
+
+let text = String(values[i] ?? "")
+
+const maxChars = Math.floor((c.width-10)/4)
+
+if(text.length > maxChars){
+text = text.substring(0,maxChars-1) + "…"
+}
+
+let fontSize = 9
+if(c.width < 80) fontSize = 8
+if(c.width < 60) fontSize = 7
+
+page.drawText(text,{
+x:x+4,
+y:y-12,
+size:fontSize,
+font,
+color:cellColor
+})
+
+x+=c.width
+
+})
+
+y-=rowHeight
+
+}
+
+/* =========================
+LOGO
+========================= */
+
+try{
+
+const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png",request.url)
+const logoBytes = await fetch(logoUrl).then(res=>res.arrayBuffer())
+const logoImage = await pdfDoc.embedPng(logoBytes)
+
+page.drawImage(logoImage,{
+x:720,
+y:460,
+width:90,
+height:90
+})
+
+}catch{}
+
+/* =========================
 HEADER
 ========================= */
 
@@ -183,31 +288,61 @@ page.drawText(meseTitolo,{x:margin,y,size:12,font:boldFont})
 y -= 30
 
 /* =========================
-SITUAZIONE DEL MESE
+RIEPILOGO
 ========================= */
 
-drawHeader("SITUAZIONE DEL MESE")
+drawHeader("RIEPILOGO CONTABILE")
 
-const totaleVersamenti =
-versamentiSoci?.reduce((a,v)=>a+Number(v.importo),0) || 0
+const riepilogoCols=[
+{label:"VOCE",width:450},
+{label:"IMPORTO",width:150}
+]
 
-const differenzaDaCoprire =
-Math.max(0, totaleSpese - totaleIncassi - saldoInizialeCassa)
+drawTableHeader(riepilogoCols,margin)
 
-const residuoDaVersare =
-Math.max(0, differenzaDaCoprire - totaleVersamenti)
+drawRow(riepilogoCols,
+["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],
+margin,
+[undefined,getColor(totaleIncassi)]
+)
 
-page.drawText(`Totale Costi: ${totaleSpese.toFixed(2)} €`,{x:margin,y,font})
-y -= 18
-page.drawText(`Incassi Corsi: ${totaleIncassi.toFixed(2)} €`,{x:margin,y,font})
-y -= 18
-page.drawText(`Cassa Disponibile: ${saldoInizialeCassa.toFixed(2)} €`,{x:margin,y,font})
-y -= 18
-page.drawText(`Differenza da Coprire: ${differenzaDaCoprire.toFixed(2)} €`,{x:margin,y,font})
-y -= 18
-page.drawText(`Versamenti Soci: ${totaleVersamenti.toFixed(2)} €`,{x:margin,y,font})
-y -= 18
-page.drawText(`Residuo da Versare: ${residuoDaVersare.toFixed(2)} €`,{x:margin,y,font})
+drawRow(riepilogoCols,
+["Totale Spese",`${totaleSpese.toFixed(2)} €`],
+margin,
+[undefined,getColor(-totaleSpese)]
+)
+
+/* =========================
+RIPARTIZIONE COSTI SOCI
+========================= */
+
+const pageWidth = 842
+const usableWidth = pageWidth - (margin * 2)
+
+const socioWidth = 140
+const quotaWidth = 120
+const dovutoWidth = 140
+
+const fixedWidth =
+socioWidth + quotaWidth + dovutoWidth
+
+const remainingWidth =
+usableWidth - fixedWidth
+
+const insegnanteWidth =
+Math.max(
+60,
+remainingWidth / Math.max(1, nomiInsegnanti.length)
+)
+
+const sociCols = [
+{label:"SOCIO",width:socioWidth},
+...nomiInsegnanti.map(n=>({label:n,width:insegnanteWidth})),
+{label:"QUOTA DISP.",width:quotaWidth},
+{label:"IMPORTO DA VERSARE",width:dovutoWidth}
+]
+
+drawTableHeader(sociCols,margin)
 
 /* =========================
 CHIUSURA PDF
