@@ -40,8 +40,11 @@ const { data:meseData } = await supabase
 .eq("mese",mese)
 .maybeSingle()
 
+const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
+const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
+
 /* =========================
-AFFITTO DATI
+AFFITTO
 ========================= */
 
 const { data:affittoMese } = await supabase
@@ -56,9 +59,6 @@ const { data:affittoPagamenti } = await supabase
 .eq("mese",mese)
 
 const costoAffittoTotale = Number(affittoMese?.costo_mensile) || 0
-
-const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
-const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
 /* =========================
 MOVIMENTI
@@ -77,10 +77,6 @@ m => m.tipo==="spesa"
 const insegnantiRaw = movimenti?.filter(
 m => m.categoria==="insegnante"
 ) || []
-
-/* =========================
-TOTALI
-========================= */
 
 const totaleIncassi = incassi.reduce((a,m)=>a+Number(m.importo),0)
 const totaleSpese = spese.reduce((a,m)=>a+Math.abs(Number(m.importo)),0)
@@ -132,6 +128,7 @@ const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
 const margin = 50
 const rowHeight = 18
+const sectionSpacing = 30
 
 let page = pdfDoc.addPage([842,595])
 let y = 540
@@ -141,13 +138,14 @@ page = pdfDoc.addPage([842,595])
 y = 540
 }
 
-function checkPage(){
-if(y < 120) newPage()
+function ensureSpace(rows:number){
+const needed = rows * rowHeight + 40
+if(y < needed) newPage()
 }
 
 function drawHeader(title:string){
 
-checkPage()
+ensureSpace(2)
 
 page.drawText(title,{
 x:margin,
@@ -160,12 +158,9 @@ y -= 20
 }
 
 function getColor(v:number){
-
 if(v>0) return rgb(0,0.6,0)
 if(v<0) return rgb(0.8,0,0)
-
 return rgb(0,0,0)
-
 }
 
 /* =========================
@@ -285,10 +280,41 @@ y -= 18
 
 page.drawText(meseTitolo,{x:margin,y,size:12,font:boldFont})
 
-y -= 30
+y -= sectionSpacing
 
 /* =========================
-RIEPILOGO
+SITUAZIONE DEL MESE
+========================= */
+
+drawHeader("SITUAZIONE DEL MESE")
+
+const totaleVersamenti =
+versamentiSoci?.reduce((a,v)=>a+Number(v.importo),0) || 0
+
+const differenzaDaCoprire =
+Math.max(0, totaleSpese - totaleIncassi - saldoInizialeCassa)
+
+const residuoDaVersare =
+Math.max(0, differenzaDaCoprire - totaleVersamenti)
+
+const situazioneCols=[
+{label:"VOCE",width:450},
+{label:"IMPORTO",width:150}
+]
+
+drawTableHeader(situazioneCols,margin)
+
+drawRow(situazioneCols,["Totale Costi",`${totaleSpese.toFixed(2)} €`],margin,[undefined,getColor(-totaleSpese)])
+drawRow(situazioneCols,["Incassi Corsi",`${totaleIncassi.toFixed(2)} €`],margin,[undefined,getColor(totaleIncassi)])
+drawRow(situazioneCols,["Saldo Cassa",`${saldoInizialeCassa.toFixed(2)} €`],margin,[undefined,getColor(saldoInizialeCassa)])
+drawRow(situazioneCols,["Saldo Banca",`${saldoInizialeBanca.toFixed(2)} €`],margin,[undefined,getColor(saldoInizialeBanca)])
+drawRow(situazioneCols,["Differenza da Coprire",`${differenzaDaCoprire.toFixed(2)} €`],margin,[undefined,getColor(-differenzaDaCoprire)])
+drawRow(situazioneCols,["Versamenti Soci",`${totaleVersamenti.toFixed(2)} €`],margin,[undefined,getColor(totaleVersamenti)])
+drawRow(situazioneCols,["Residuo da Versare",`${residuoDaVersare.toFixed(2)} €`],margin,[undefined,getColor(-residuoDaVersare)])
+
+y -= sectionSpacing
+  /* =========================
+RIEPILOGO CONTABILE
 ========================= */
 
 drawHeader("RIEPILOGO CONTABILE")
@@ -300,26 +326,17 @@ const riepilogoCols=[
 
 drawTableHeader(riepilogoCols,margin)
 
-drawRow(riepilogoCols,
-["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],
-margin,
-[undefined,getColor(totaleIncassi)]
-)
+drawRow(riepilogoCols,["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],margin,[undefined,getColor(totaleIncassi)])
+drawRow(riepilogoCols,["Totale Spese",`${totaleSpese.toFixed(2)} €`],margin,[undefined,getColor(-totaleSpese)])
 
-drawRow(riepilogoCols,
-["Totale Spese",`${totaleSpese.toFixed(2)} €`],
-margin,
-[undefined,getColor(-totaleSpese)]
-)
+y -= sectionSpacing
 
 /* =========================
 DETTAGLIO INCASSI
 ========================= */
 
-const spazioIncassi = (incassi.length+1)*rowHeight+40
-if(y<spazioIncassi) newPage()
+ensureSpace(incassi.length+2)
 
-y -= 30
 drawHeader("DETTAGLIO INCASSI")
 
 const incassiCols=[
@@ -330,27 +347,22 @@ const incassiCols=[
 drawTableHeader(incassiCols,margin)
 
 incassi.forEach(i=>{
-
 drawRow(
 incassiCols,
-[
-i.descrizione || "-",
-`${Number(i.importo).toFixed(2)} €`
-],
+[i.descrizione || "-",`${Number(i.importo).toFixed(2)} €`],
 margin,
 [undefined,rgb(0,0.6,0)]
 )
-
 })
+
+y -= sectionSpacing
 
 /* =========================
 DETTAGLIO SPESE
 ========================= */
 
-const spazioSpese = (spese.length+1)*rowHeight+40
-if(y<spazioSpese) newPage()
+ensureSpace(spese.length+2)
 
-y -= 30
 drawHeader("DETTAGLIO SPESE")
 
 const speseCols=[
@@ -361,22 +373,21 @@ const speseCols=[
 drawTableHeader(speseCols,margin)
 
 spese.forEach(s=>{
-
 drawRow(
 speseCols,
-[
-s.descrizione || "-",
-`${Math.abs(Number(s.importo)).toFixed(2)} €`
-],
+[s.descrizione || "-",`${Math.abs(Number(s.importo)).toFixed(2)} €`],
 margin,
 [undefined,rgb(0.8,0,0)]
 )
-
 })
+
+y -= sectionSpacing
 
 /* =========================
 RIPARTIZIONE COSTI SOCI
 ========================= */
+
+drawHeader("RIPARTIZIONE COSTI SOCI")
 
 const pageWidth = 842
 const usableWidth = pageWidth - (margin * 2)
@@ -440,14 +451,12 @@ drawRow(sociCols,valori,margin,colori)
 
 })
 
+y -= sectionSpacing
+
 /* =========================
 VERSAMENTI SOCI
 ========================= */
 
-const spazioVers = ((soci?.length||0)+1)*rowHeight+40
-if(y<spazioVers) newPage()
-
-y -= 30
 drawHeader("VERSAMENTI SOCI")
 
 const versCols=[
@@ -476,14 +485,12 @@ margin,
 
 })
 
+y -= sectionSpacing
+
 /* =========================
 AFFITTO
 ========================= */
 
-const spazioAffitto = ((soci?.length||0)+1)*rowHeight+40
-if(y<spazioAffitto) newPage()
-
-y -= 30
 drawHeader("GESTIONE AFFITTO")
 
 const affittoCols=[
