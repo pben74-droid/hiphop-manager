@@ -40,6 +40,23 @@ const { data:meseData } = await supabase
 .eq("mese",mese)
 .maybeSingle()
 
+/* =========================
+AFFITTO DATI
+========================= */
+
+const { data:affittoMese } = await supabase
+.from("affitto_mese")
+.select("*")
+.eq("mese",mese)
+.maybeSingle()
+
+const { data:affittoPagamenti } = await supabase
+.from("affitto_pagamenti")
+.select("*")
+.eq("mese",mese)
+
+const costoAffittoTotale = Number(affittoMese?.costo_mensile) || 0
+
 const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
 const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
@@ -59,14 +76,6 @@ m => m.tipo==="spesa"
 
 const insegnantiRaw = movimenti?.filter(
 m => m.categoria==="insegnante"
-) || []
-
-const versamentiAffitto = movimenti?.filter(
-m => m.tipo==="versamento_affitto"
-) || []
-
-const pagamentiAffitto = movimenti?.filter(
-m => m.tipo==="pagamento_affitto"
 ) || []
 
 /* =========================
@@ -124,12 +133,14 @@ const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 const margin = 50
 const rowHeight = 18
 
-let page = pdfDoc.addPage([595,842])
-let y = 800
+/* PAGINA ORIZZONTALE */
+
+let page = pdfDoc.addPage([842,595])
+let y = 540
 
 function newPage(){
-page = pdfDoc.addPage([595,842])
-y = 800
+page = pdfDoc.addPage([842,595])
+y = 540
 }
 
 function checkPage(){
@@ -241,8 +252,8 @@ const logoBytes = await fetch(logoUrl).then(res=>res.arrayBuffer())
 const logoImage = await pdfDoc.embedPng(logoBytes)
 
 page.drawImage(logoImage,{
-x:430,
-y:720,
+x:720,
+y:460,
 width:90,
 height:90
 })
@@ -270,8 +281,8 @@ RIEPILOGO
 drawHeader("RIEPILOGO CONTABILE")
 
 const riepilogoCols=[
-{label:"VOCE",width:350},
-{label:"IMPORTO",width:120}
+{label:"VOCE",width:450},
+{label:"IMPORTO",width:150}
 ]
 
 drawTableHeader(riepilogoCols,margin)
@@ -297,8 +308,8 @@ y -= 30
 drawHeader("DETTAGLIO INCASSI")
 
 const incassiCols=[
-{label:"DESCRIZIONE",width:350},
-{label:"IMPORTO",width:120}
+{label:"DESCRIZIONE",width:450},
+{label:"IMPORTO",width:150}
 ]
 
 drawTableHeader(incassiCols,margin)
@@ -326,8 +337,8 @@ y -= 30
 drawHeader("DETTAGLIO SPESE")
 
 const speseCols=[
-{label:"DESCRIZIONE",width:350},
-{label:"IMPORTO",width:120}
+{label:"DESCRIZIONE",width:450},
+{label:"IMPORTO",width:150}
 ]
 
 drawTableHeader(speseCols,margin)
@@ -355,10 +366,10 @@ y -= 30
 drawHeader("RIPARTIZIONE COSTI SOCI")
 
 const sociCols = [
-{label:"SOCIO",width:120},
-...nomiInsegnanti.map(n=>({label:n,width:70})),
-{label:"QUOTA DISP.",width:100},
-{label:"IMPORTO DA VERSARE",width:140}
+{label:"SOCIO",width:150},
+...nomiInsegnanti.map(n=>({label:n,width:100})),
+{label:"QUOTA DISP.",width:140},
+{label:"IMPORTO DA VERSARE",width:180}
 ]
 
 drawTableHeader(sociCols,margin)
@@ -406,8 +417,8 @@ y -= 30
 drawHeader("VERSAMENTI SOCI")
 
 const versCols=[
-{label:"SOCIO",width:250},
-{label:"VERSATO",width:150}
+{label:"SOCIO",width:350},
+{label:"VERSATO",width:200}
 ]
 
 drawTableHeader(versCols,margin)
@@ -440,25 +451,22 @@ y -= 30
 drawHeader("GESTIONE AFFITTO")
 
 const affittoCols=[
-{label:"SOCIO",width:180},
-{label:"QUOTA",width:100},
-{label:"VERSATO",width:100},
-{label:"SALDO",width:100}
+{label:"SOCIO",width:250},
+{label:"QUOTA",width:150},
+{label:"VERSATO",width:150},
+{label:"SALDO",width:150}
 ]
 
 drawTableHeader(affittoCols,margin)
-
-const costoAffittoTotale =
-pagamentiAffitto.reduce((a,p)=>a+Math.abs(Number(p.importo)),0)
 
 soci?.forEach(s=>{
 
 const quota = costoAffittoTotale*(Number(s.quota_percentuale)/100)
 
 const versato =
-versamentiAffitto
-.filter(v=>v.socio_id===s.id)
-.reduce((a,v)=>a+Number(v.importo),0)
+affittoPagamenti
+?.filter(p=>p.socio_id===s.id)
+.reduce((a,p)=>a+Number(p.importo),0) || 0
 
 const saldo = quota - versato
 
@@ -480,10 +488,6 @@ getColor(-saldo)
 )
 
 })
-
-/* =========================
-PDF
-========================= */
 
 const pdfBytes = await pdfDoc.save()
 
