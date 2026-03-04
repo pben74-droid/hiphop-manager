@@ -119,7 +119,7 @@ export async function GET(request: Request) {
   const meseTitolo = mesiItaliani[Number(meseNumero) - 1] + " " + anno
 
   /* =========================
-     PDF
+     PDF SETUP
   ========================= */
 
   const pdfDoc = await PDFDocument.create()
@@ -280,10 +280,10 @@ export async function GET(request: Request) {
   newLine(40)
 
   /* =========================
-     TABELLA SOCI
+     RIPARTIZIONE SOCI
   ========================= */
 
-  drawText("RIPARTIZIONE SOCI", margin,14,true)
+  drawText("RIPARTIZIONE COSTI SOCI", margin,14,true)
   newLine(20)
 
   const colWidth = 80
@@ -296,16 +296,14 @@ export async function GET(request: Request) {
   })
 
   const quotaCol = colStart + colWidth*(nomiInsegnanti.length+1)
-  const versamentiCol = quotaCol + 80
-  const risultatoCol = versamentiCol + 80
+  const dovutoCol = quotaCol + 120
 
   drawText("QUOTA DISP.", quotaCol,9,true)
-  drawText("VERSAMENTI", versamentiCol,9,true)
-  drawText("RISULTATO", risultatoCol,9,true)
+  drawText("IMPORTO DA VERSARE", dovutoCol,9,true)
 
   newLine(14)
 
-  const creditiSoci:any[] = []
+  const debitiSoci:any[] = []
 
   soci?.forEach(s=>{
 
@@ -313,11 +311,6 @@ export async function GET(request: Request) {
 
     const quotaDisponibile =
       (saldoInizialeCassa + totaleIncassi)*perc
-
-    const versato =
-      versamenti
-        ?.filter(v => v.socio_id === s.id)
-        .reduce((a,v)=>a+Number(v.importo),0) || 0
 
     let totaleCosti = 0
 
@@ -346,56 +339,83 @@ export async function GET(request: Request) {
       color:getColor(quotaDisponibile)
     })
 
-    page.drawText(`${versato.toFixed(2)} €`,{
-      x: versamentiCol,
+    const dovuto = Math.max(0, totaleCosti - quotaDisponibile)
+
+    page.drawText(`${dovuto.toFixed(2)} €`,{
+      x: dovutoCol,
       y,
       size:9,
       font,
-      color:getColor(versato)
+      color:getColor(-dovuto)
     })
 
-    const risultato = quotaDisponibile + versato - totaleCosti
-
-    page.drawText(`${risultato.toFixed(2)} €`,{
-      x: risultatoCol,
-      y,
-      size:9,
-      font,
-      color:getColor(risultato)
+    debitiSoci.push({
+      socio:s,
+      dovuto
     })
-
-    if(risultato>0){
-      creditiSoci.push({
-        nome:s.nome,
-        credito:risultato
-      })
-    }
 
     newLine(18)
 
   })
 
   /* =========================
-     CREDITI SOCI
+     VERSAMENTI SOCI
   ========================= */
 
-  if(creditiSoci.length>0){
+  checkSpace((soci?.length || 0) * 20 + 80)
 
-    newLine(30)
+  newLine(30)
 
-    drawText("CREDITI SOCI PER MESE SUCCESSIVO", margin,14,true)
-    newLine(20)
+  drawText("VERSAMENTI SOCI", margin,14,true)
+  newLine(20)
 
-    creditiSoci.forEach(c=>{
+  drawText("SOCIO", margin,9,true)
+  drawText("TOTALE DA VERSARE", margin+200,9,true)
+  drawText("TOTALE VERSATO", margin+360,9,true)
+  drawText("CREDITO DISPONIBILE", margin+500,9,true)
 
-      drawText(c.nome, margin)
-      drawRight(c.credito)
+  newLine(14)
 
-      newLine(14)
+  debitiSoci.forEach(d=>{
 
+    const socio = d.socio
+
+    const versato =
+      versamenti
+        ?.filter(v => v.socio_id === socio.id)
+        .reduce((a,v)=>a+Number(v.importo),0) || 0
+
+    const credito = versato - d.dovuto
+
+    drawText(socio.nome, margin)
+
+    page.drawText(`${d.dovuto.toFixed(2)} €`,{
+      x: margin+200,
+      y,
+      size:9,
+      font,
+      color:getColor(-d.dovuto)
     })
 
-  }
+    page.drawText(`${versato.toFixed(2)} €`,{
+      x: margin+360,
+      y,
+      size:9,
+      font,
+      color:getColor(versato)
+    })
+
+    page.drawText(`${credito.toFixed(2)} €`,{
+      x: margin+500,
+      y,
+      size:9,
+      font,
+      color:getColor(credito)
+    })
+
+    newLine(18)
+
+  })
 
   /* =========================
      NUMERO PAGINE
