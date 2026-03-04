@@ -191,7 +191,7 @@ borderColor:rgb(0.7,0.7,0.7)
 page.drawText(c.label,{
 x:x+4,
 y:y-12,
-size:9,
+size:c.width < 80 ? 8 : 9,
 font:boldFont
 })
 
@@ -203,6 +203,13 @@ y-=rowHeight
 }
 
 function drawRow(cols:any,values:any,startX:number,colors:any=[]){
+
+/* controllo cambio pagina automatico */
+
+if(y < 120){
+newPage()
+drawTableHeader(cols,startX)
+}
 
 let x=startX
 
@@ -221,10 +228,26 @@ borderColor:rgb(0.8,0.8,0.8)
 const cellColor =
 colors && colors[i] ? colors[i] : rgb(0,0,0)
 
-page.drawText(values[i],{
+let text = String(values[i] ?? "")
+
+/* taglio automatico testo */
+
+const maxChars = Math.floor((c.width-10)/4)
+
+if(text.length > maxChars){
+text = text.substring(0,maxChars-1) + "…"
+}
+
+/* font dinamico */
+
+let fontSize = 9
+if(c.width < 80) fontSize = 8
+if(c.width < 60) fontSize = 7
+
+page.drawText(text,{
 x:x+4,
 y:y-12,
-size:9,
+size:fontSize,
 font,
 color:cellColor
 })
@@ -367,11 +390,30 @@ if(y<spazioSoci) newPage()
 y -= 30
 drawHeader("RIPARTIZIONE COSTI SOCI")
 
+const pageWidth = 842
+const usableWidth = pageWidth - (margin * 2)
+
+const socioWidth = 140
+const quotaWidth = 120
+const dovutoWidth = 140
+
+const fixedWidth =
+socioWidth + quotaWidth + dovutoWidth
+
+const remainingWidth =
+usableWidth - fixedWidth
+
+const insegnanteWidth =
+Math.max(
+60,
+remainingWidth / Math.max(1, nomiInsegnanti.length)
+)
+
 const sociCols = [
-{label:"SOCIO",width:150},
-...nomiInsegnanti.map(n=>({label:n,width:100})),
-{label:"QUOTA DISP.",width:140},
-{label:"IMPORTO DA VERSARE",width:180}
+{label:"SOCIO",width:socioWidth},
+...nomiInsegnanti.map(n=>({label:n,width:insegnanteWidth})),
+{label:"QUOTA DISP.",width:quotaWidth},
+{label:"IMPORTO DA VERSARE",width:dovutoWidth}
 ]
 
 drawTableHeader(sociCols,margin)
