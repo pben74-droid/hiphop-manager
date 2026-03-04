@@ -25,6 +25,11 @@ export async function GET(request: Request) {
     .from("soci")
     .select("*")
 
+  const { data: versamenti } = await supabase
+    .from("versamenti_soci")
+    .select("*")
+    .eq("mese", mese)
+
   const { data: meseData } = await supabase
     .from("mesi")
     .select("saldo_iniziale_cassa, saldo_iniziale_banca")
@@ -145,7 +150,7 @@ export async function GET(request: Request) {
     bold = false,
     color = rgb(0,0,0)
   ) => {
-    page.drawText(text, {
+    page.drawText(text,{
       x,
       y,
       size,
@@ -154,13 +159,13 @@ export async function GET(request: Request) {
     })
   }
 
-  const drawRight = (value: number, bold=false) => {
+  const drawRight = (value: number,bold=false) => {
 
     const text = `${value.toFixed(2)} €`
 
     const width = bold
-      ? boldFont.widthOfTextAtSize(text, 10)
-      : font.widthOfTextAtSize(text, 10)
+      ? boldFont.widthOfTextAtSize(text,10)
+      : font.widthOfTextAtSize(text,10)
 
     page.drawText(text,{
       x: pageWidth - margin - width,
@@ -195,20 +200,20 @@ export async function GET(request: Request) {
      HEADER
   ========================= */
 
-  drawText("HIP HOP FAMILY MANAGER", margin, 18, true)
+  drawText("HIP HOP FAMILY MANAGER", margin,18,true)
   newLine(22)
 
-  drawText("REPORT AMMINISTRATIVO", margin, 12, true)
+  drawText("REPORT AMMINISTRATIVO", margin,12,true)
   newLine(18)
 
-  drawText(meseTitolo, margin, 12, true)
+  drawText(meseTitolo, margin,12,true)
   newLine(30)
 
   /* =========================
      RIEPILOGO
   ========================= */
 
-  drawText("RIEPILOGO CONTABILE", margin, 14, true)
+  drawText("RIEPILOGO CONTABILE", margin,14,true)
   newLine(20)
 
   drawText("Totale Incassi", margin)
@@ -246,7 +251,7 @@ export async function GET(request: Request) {
 
   checkSpace((incassi.length*16)+40)
 
-  drawText("DETTAGLIO INCASSI", margin, 14, true)
+  drawText("DETTAGLIO INCASSI", margin,14,true)
   newLine(20)
 
   incassi.forEach(i=>{
@@ -263,7 +268,7 @@ export async function GET(request: Request) {
 
   checkSpace((spese.length*16)+40)
 
-  drawText("DETTAGLIO SPESE", margin, 14, true)
+  drawText("DETTAGLIO SPESE", margin,14,true)
   newLine(20)
 
   spese.forEach(s=>{
@@ -275,13 +280,13 @@ export async function GET(request: Request) {
   newLine(30)
 
   /* =========================
-     SOCI
+     TABELLA SOCI (FOGLIO 6)
   ========================= */
 
-  const spazioTabella = (soci?.length || 0) * 20 + 80
+  const spazioTabella = (soci?.length || 0) * 20 + 100
   checkSpace(spazioTabella)
 
-  drawText("CONTEGGI SOCI", margin, 14, true)
+  drawText("CONTEGGI SOCI", margin,14,true)
   newLine(20)
 
   const colWidth = 80
@@ -294,10 +299,12 @@ export async function GET(request: Request) {
   })
 
   const quotaCol = colStart + colWidth*(nomiInsegnanti.length+1)
-  const totaleCol = colStart + colWidth*(nomiInsegnanti.length+2)
+  const versamentiCol = quotaCol + 80
+  const risultatoCol = versamentiCol + 80
 
   drawText("QUOTA DISP.", quotaCol,9,true)
-  drawText("RISULTATO", totaleCol,9,true)
+  drawText("VERSAMENTI", versamentiCol,9,true)
+  drawText("RISULTATO", risultatoCol,9,true)
 
   newLine(12)
 
@@ -307,6 +314,11 @@ export async function GET(request: Request) {
 
     const quotaDisponibile =
       (saldoInizialeCassa + totaleIncassi)*perc
+
+    const versato =
+      versamenti
+        ?.filter(v => v.socio_id === s.id)
+        .reduce((a,v)=>a+Number(v.importo),0) || 0
 
     let totaleCosti = 0
 
@@ -335,14 +347,22 @@ export async function GET(request: Request) {
       color:getColor(quotaDisponibile)
     })
 
-    const totaleMensile = quotaDisponibile - totaleCosti
-
-    page.drawText(`${totaleMensile.toFixed(2)} €`,{
-      x: totaleCol,
+    page.drawText(`${versato.toFixed(2)} €`,{
+      x: versamentiCol,
       y,
       size:9,
       font,
-      color:getColor(totaleMensile)
+      color:getColor(versato)
+    })
+
+    const risultato = quotaDisponibile + versato - totaleCosti
+
+    page.drawText(`${risultato.toFixed(2)} €`,{
+      x: risultatoCol,
+      y,
+      size:9,
+      font,
+      color:getColor(risultato)
     })
 
     newLine(18)
