@@ -39,8 +39,15 @@ export async function GET(request: Request) {
   const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
   const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
+  /* =========================
+     INCASSI OPERATIVI
+  ========================= */
+
   const incassi = movimenti?.filter(
-    m => m.tipo === "incasso" && m.categoria !== "trasferimento"
+    m =>
+      m.tipo === "incasso" &&
+      m.categoria !== "trasferimento" &&
+      m.categoria !== "versamento_socio"
   ) || []
 
   const spese = movimenti?.filter(
@@ -86,9 +93,6 @@ export async function GET(request: Request) {
       .replace("COMPENSO", "")
       .replace("INSEGNANTE", "")
       .trim()
-
-    if (nome.includes("SNOOP")) nome = "SNOOP"
-    if (nome.includes("AMIR")) nome = "AMIR"
 
     if (!nome) nome = "ALTRO"
 
@@ -246,10 +250,8 @@ export async function GET(request: Request) {
   newLine(30)
 
   /* =========================
-     INCASSI
+     DETTAGLIO INCASSI
   ========================= */
-
-  checkSpace((incassi.length*16)+40)
 
   drawText("DETTAGLIO INCASSI", margin,14,true)
   newLine(20)
@@ -260,13 +262,11 @@ export async function GET(request: Request) {
     newLine(14)
   })
 
-  newLine(20)
+  newLine(30)
 
   /* =========================
-     SPESE
+     DETTAGLIO SPESE
   ========================= */
-
-  checkSpace((spese.length*16)+40)
 
   drawText("DETTAGLIO SPESE", margin,14,true)
   newLine(20)
@@ -277,16 +277,13 @@ export async function GET(request: Request) {
     newLine(14)
   })
 
-  newLine(30)
+  newLine(40)
 
   /* =========================
-     TABELLA SOCI (FOGLIO 6)
+     TABELLA SOCI
   ========================= */
 
-  const spazioTabella = (soci?.length || 0) * 20 + 100
-  checkSpace(spazioTabella)
-
-  drawText("CONTEGGI SOCI", margin,14,true)
+  drawText("RIPARTIZIONE SOCI", margin,14,true)
   newLine(20)
 
   const colWidth = 80
@@ -306,7 +303,9 @@ export async function GET(request: Request) {
   drawText("VERSAMENTI", versamentiCol,9,true)
   drawText("RISULTATO", risultatoCol,9,true)
 
-  newLine(12)
+  newLine(14)
+
+  const creditiSoci:any[] = []
 
   soci?.forEach(s=>{
 
@@ -365,12 +364,41 @@ export async function GET(request: Request) {
       color:getColor(risultato)
     })
 
+    if(risultato>0){
+      creditiSoci.push({
+        nome:s.nome,
+        credito:risultato
+      })
+    }
+
     newLine(18)
 
   })
 
   /* =========================
-     PAGINE
+     CREDITI SOCI
+  ========================= */
+
+  if(creditiSoci.length>0){
+
+    newLine(30)
+
+    drawText("CREDITI SOCI PER MESE SUCCESSIVO", margin,14,true)
+    newLine(20)
+
+    creditiSoci.forEach(c=>{
+
+      drawText(c.nome, margin)
+      drawRight(c.credito)
+
+      newLine(14)
+
+    })
+
+  }
+
+  /* =========================
+     NUMERO PAGINE
   ========================= */
 
   const pages = pdfDoc.getPages()
