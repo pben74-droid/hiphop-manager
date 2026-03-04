@@ -16,7 +16,9 @@ process.env.NEXT_PUBLIC_SUPABASE_URL!,
 process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-/* DATI BASE */
+/* =========================
+DATI
+========================= */
 
 const { data:movimenti } = await supabase
 .from("movimenti_finanziari")
@@ -41,48 +43,42 @@ const { data:meseData } = await supabase
 const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
 const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
 
-/* MOVIMENTI */
+/* =========================
+MOVIMENTI
+========================= */
 
 const incassi = movimenti?.filter(
-m=>m.tipo==="incasso" &&
+m => m.tipo==="incasso" &&
 m.categoria!=="trasferimento" &&
 m.categoria!=="versamento_socio"
 ) || []
 
 const spese = movimenti?.filter(
-m=>m.tipo==="spesa"
+m => m.tipo==="spesa"
 ) || []
 
 const insegnantiRaw = movimenti?.filter(
-m=>m.categoria==="insegnante"
+m => m.categoria==="insegnante"
 ) || []
 
 const versamentiAffitto = movimenti?.filter(
-m=>m.tipo==="versamento_affitto"
+m => m.tipo==="versamento_affitto"
 ) || []
 
 const pagamentiAffitto = movimenti?.filter(
-m=>m.tipo==="pagamento_affitto"
+m => m.tipo==="pagamento_affitto"
 ) || []
 
-/* TOTALI */
+/* =========================
+TOTALI
+========================= */
 
 const totaleIncassi = incassi.reduce((a,m)=>a+Number(m.importo),0)
 const totaleSpese = spese.reduce((a,m)=>a+Math.abs(Number(m.importo)),0)
 
-/* SALDI */
-
-const saldoCassaFinale =
-saldoInizialeCassa +
-(movimenti?.filter(m=>m.contenitore==="cassa_operativa")
-.reduce((a,m)=>a+Number(m.importo),0) || 0)
-
-const saldoBancaFinale =
-saldoInizialeBanca +
-(movimenti?.filter(m=>m.contenitore==="banca")
-.reduce((a,m)=>a+Number(m.importo),0) || 0)
-
-/* INSEGNANTI */
+/* =========================
+INSEGNANTI
+========================= */
 
 const insegnantiAggregati:Record<string,number>={}
 
@@ -104,7 +100,9 @@ insegnantiAggregati[nome]+=Math.abs(Number(m.importo))
 
 const nomiInsegnanti = Object.keys(insegnantiAggregati)
 
-/* MESE */
+/* =========================
+MESE
+========================= */
 
 const mesiItaliani=[
 "GENNAIO","FEBBRAIO","MARZO","APRILE","MAGGIO","GIUGNO",
@@ -114,37 +112,134 @@ const mesiItaliani=[
 const [anno,meseNumero]=mese.split("-")
 const meseTitolo = mesiItaliani[Number(meseNumero)-1]+" "+anno
 
-/* PDF */
+/* =========================
+PDF SETUP
+========================= */
 
 const pdfDoc = await PDFDocument.create()
 
 const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
-const margin=50
-const pageWidth=595
+const margin = 50
+const pageWidth = 595
+const rowHeight = 18
 
 let page = pdfDoc.addPage([595,842])
-let y=800
-
-function newLine(space=16){y-=space}
+let y = 800
 
 function newPage(){
 page = pdfDoc.addPage([595,842])
-y=800
+y = 800
+}
+
+function checkPage(){
+if(y < 100) newPage()
+}
+
+function drawHeader(title:string){
+
+page.drawText(title,{
+x:margin,
+y,
+size:14,
+font:boldFont
+})
+
+y -= 20
 }
 
 function getColor(v:number){
+
 if(v>0) return rgb(0,0.6,0)
 if(v<0) return rgb(0.8,0,0)
+
 return rgb(0,0,0)
+
 }
 
-/* LOGO */
+/* =========================
+TABELLE
+========================= */
+
+function drawTableHeader(cols:any,startX:number){
+
+let x=startX
+
+cols.forEach(c=>{
+
+page.drawRectangle({
+x,
+y:y-rowHeight+4,
+width:c.width,
+height:rowHeight,
+color:rgb(0.9,0.9,0.9)
+})
+
+page.drawRectangle({
+x,
+y:y-rowHeight+4,
+width:c.width,
+height:rowHeight,
+borderWidth:1
+})
+
+page.drawText(c.label,{
+x:x+4,
+y:y-12,
+size:9,
+font:boldFont
+})
+
+x+=c.width
+
+})
+
+y-=rowHeight
+}
+
+function drawRow(cols:any,values:any,startX:number,colors:any=[]){
+
+let x=startX
+
+cols.forEach((c,i)=>{
+
+page.drawRectangle({
+x,
+y:y-rowHeight+4,
+width:c.width,
+height:rowHeight,
+borderWidth:1
+})
+
+page.drawText(values[i],{
+x:x+4,
+y:y-12,
+size:9,
+font,
+color:colors || rgb(0,0,0)
+})
+
+x+=c.width
+
+})
+
+y-=rowHeight
+
+checkPage()
+
+}
+
+/* =========================
+LOGO
+========================= */
 
 try{
+
 const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png",request.url)
+
 const logoBytes = await fetch(logoUrl).then(res=>res.arrayBuffer())
+
 const logoImage = await pdfDoc.embedPng(logoBytes)
 
 page.drawImage(logoImage,{
@@ -153,153 +248,120 @@ y:720,
 width:90,
 height:90
 })
+
 }catch{}
 
-/* HEADER */
+/* =========================
+HEADER
+========================= */
 
 page.drawText("HIP HOP FAMILY MANAGER",{x:margin,y,size:18,font:boldFont})
-newLine(22)
+y -= 22
 
 page.drawText("REPORT AMMINISTRATIVO",{x:margin,y,size:12,font:boldFont})
-newLine(16)
+y -= 18
 
 page.drawText(meseTitolo,{x:margin,y,size:12,font:boldFont})
 
-newLine(30)
+y -= 30
 
-/* RIEPILOGO */
+/* =========================
+RIEPILOGO
+========================= */
 
-page.drawText("RIEPILOGO CONTABILE",{x:margin,y,size:14,font:boldFont})
-newLine(20)
+drawHeader("RIEPILOGO CONTABILE")
 
-function row(label,value){
+const riepilogoCols=[
+{label:"VOCE",width:350},
+{label:"IMPORTO",width:120}
+]
 
-page.drawText(label,{x:margin,y,size:10,font})
+drawTableHeader(riepilogoCols,margin)
 
-page.drawText(
-`${value.toFixed(2)} €`,
-{
-x:450,
-y,
-size:10,
-font,
-color:getColor(value)
-})
+drawRow(riepilogoCols,
+["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],
+margin,
+[null,getColor(totaleIncassi)]
+)
 
-newLine()
+drawRow(riepilogoCols,
+["Totale Spese",`${totaleSpese.toFixed(2)} €`],
+margin,
+[null,getColor(-totaleSpese)]
+)
 
-}
+/* =========================
+INCASSI
+========================= */
 
-row("Totale Incassi",totaleIncassi)
-row("Totale Spese",-totaleSpese)
-row("Cassa mese precedente",saldoInizialeCassa)
-row("Saldo Cassa Finale",saldoCassaFinale)
-row("Saldo Banca Finale",saldoBancaFinale)
+y -= 30
 
-newLine(30)
+drawHeader("DETTAGLIO INCASSI")
 
-/* INCASSI */
+const incassiCols=[
+{label:"DESCRIZIONE",width:350},
+{label:"IMPORTO",width:120}
+]
 
-page.drawText("DETTAGLIO INCASSI",{x:margin,y,size:14,font:boldFont})
-newLine(20)
+drawTableHeader(incassiCols,margin)
 
 incassi.forEach(i=>{
 
-page.drawText(i.descrizione || "-",{x:margin,y,size:10,font})
-
-page.drawText(
-`${Number(i.importo).toFixed(2)} €`,
-{
-x:450,
-y,
-size:10,
-font,
-color:rgb(0,0.6,0)
-})
-
-newLine()
+drawRow(
+incassiCols,
+[
+i.descrizione || "-",
+`${Number(i.importo).toFixed(2)} €`
+],
+margin,
+[null,rgb(0,0.6,0)]
+)
 
 })
 
-newLine(20)
+/* =========================
+SPESE
+========================= */
 
-/* SPESE */
+y -= 30
 
-page.drawText("DETTAGLIO SPESE",{x:margin,y,size:14,font:boldFont})
-newLine(20)
+drawHeader("DETTAGLIO SPESE")
+
+const speseCols=[
+{label:"DESCRIZIONE",width:350},
+{label:"IMPORTO",width:120}
+]
+
+drawTableHeader(speseCols,margin)
 
 spese.forEach(s=>{
 
-page.drawText(s.descrizione || "-",{x:margin,y,size:10,font})
-
-page.drawText(
-`${Math.abs(Number(s.importo)).toFixed(2)} €`,
-{
-x:450,
-y,
-size:10,
-font,
-color:rgb(0.8,0,0)
-})
-
-newLine()
+drawRow(
+speseCols,
+[
+s.descrizione || "-",
+`${Math.abs(Number(s.importo)).toFixed(2)} €`
+],
+margin,
+[null,rgb(0.8,0,0)]
+)
 
 })
 
-newLine(30)
+/* =========================
+VERSAMENTI SOCI
+========================= */
 
-/* RIPARTIZIONE SOCI */
+y -= 30
 
-page.drawText("RIPARTIZIONE COSTI SOCI",{x:margin,y,size:14,font:boldFont})
-newLine(20)
+drawHeader("VERSAMENTI SOCI")
 
-soci?.forEach(s=>{
+const versCols=[
+{label:"SOCIO",width:250},
+{label:"VERSATO",width:150}
+]
 
-const perc = Number(s.quota_percentuale)/100
-
-const quotaDisponibile =
-(totaleIncassi + saldoInizialeCassa) * perc
-
-let totaleCosti=0
-
-nomiInsegnanti.forEach(nome=>{
-totaleCosti+=insegnantiAggregati[nome]*perc
-})
-
-const dovuto = totaleCosti - quotaDisponibile
-
-page.drawText(s.nome,{x:margin,y,size:10,font})
-
-page.drawText(
-`${quotaDisponibile.toFixed(2)} €`,
-{
-x:300,
-y,
-size:10,
-font,
-color:rgb(0,0.6,0)
-})
-
-page.drawText(
-`${dovuto.toFixed(2)} €`,
-{
-x:450,
-y,
-size:10,
-font,
-color:rgb(0.8,0,0)
-})
-
-newLine()
-
-})
-
-newLine(30)
-
-/* VERSAMENTI SOCI */
-
-page.drawText("VERSAMENTI SOCI",{x:margin,y,size:14,font:boldFont})
-newLine(20)
+drawTableHeader(versCols,margin)
 
 soci?.forEach(s=>{
 
@@ -308,35 +370,41 @@ versamentiSoci
 ?.filter(v=>v.socio_id===s.id)
 .reduce((a,v)=>a+Number(v.importo),0) || 0
 
-page.drawText(s.nome,{x:margin,y,size:10,font})
-
-page.drawText(
-`${versato.toFixed(2)} €`,
-{
-x:450,
-y,
-size:10,
-font,
-color:getColor(versato)
-})
-
-newLine()
+drawRow(
+versCols,
+[
+s.nome,
+`${versato.toFixed(2)} €`
+],
+margin,
+[null,getColor(versato)]
+)
 
 })
 
-newLine(30)
+/* =========================
+AFFITTO
+========================= */
 
-/* AFFITTO */
+y -= 30
 
-page.drawText("GESTIONE AFFITTO",{x:margin,y,size:14,font:boldFont})
-newLine(20)
+drawHeader("GESTIONE AFFITTO")
+
+const affittoCols=[
+{label:"SOCIO",width:180},
+{label:"QUOTA",width:100},
+{label:"VERSATO",width:100},
+{label:"SALDO",width:100}
+]
+
+drawTableHeader(affittoCols,margin)
 
 const costoAffittoTotale =
 pagamentiAffitto.reduce((a,p)=>a+Math.abs(Number(p.importo)),0)
 
 soci?.forEach(s=>{
 
-const quota = costoAffittoTotale * (Number(s.quota_percentuale)/100)
+const quota = costoAffittoTotale*(Number(s.quota_percentuale)/100)
 
 const versato =
 versamentiAffitto
@@ -345,26 +413,28 @@ versamentiAffitto
 
 const saldo = quota - versato
 
-page.drawText(s.nome,{x:margin,y,size:10,font})
-
-page.drawText(
+drawRow(
+affittoCols,
+[
+s.nome,
 `${quota.toFixed(2)} €`,
-{x:250,y,size:10,font}
-)
-
-page.drawText(
 `${versato.toFixed(2)} €`,
-{x:360,y,size:10,font,color:rgb(0,0.6,0)}
+`${saldo.toFixed(2)} €`
+],
+margin,
+[
+null,
+null,
+rgb(0,0.6,0),
+getColor(-saldo)
+]
 )
-
-page.drawText(
-`${saldo.toFixed(2)} €`,
-{x:450,y,size:10,font,color:getColor(-saldo)}
-)
-
-newLine()
 
 })
+
+/* =========================
+PDF
+========================= */
 
 const pdfBytes = await pdfDoc.save()
 
