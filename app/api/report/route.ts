@@ -75,9 +75,17 @@ export async function GET(request: Request) {
 
   insegnantiRaw.forEach(m => {
 
-    let nome = (m.descrizione || "ALTRO").toUpperCase()
+    let nome = (m.descrizione || "").toUpperCase()
+
+    nome = nome
+      .replace("COMPENSO", "")
+      .replace("INSEGNANTE", "")
+      .trim()
 
     if (nome.includes("SNOOP")) nome = "SNOOP"
+    if (nome.includes("AMIR")) nome = "AMIR"
+
+    if (!nome) nome = "ALTRO"
 
     if (!insegnantiAggregati[nome]) {
       insegnantiAggregati[nome] = 0
@@ -90,7 +98,7 @@ export async function GET(request: Request) {
   const nomiInsegnanti = Object.keys(insegnantiAggregati)
 
   /* =========================
-     MESE IN FORMATO ITALIANO
+     MESE IN ITALIANO
   ========================= */
 
   const mesiItaliani = [
@@ -121,12 +129,19 @@ export async function GET(request: Request) {
 
   const newLine = (space = 16) => { y -= space }
 
+  const checkPageBreak = () => {
+    if (y < 80) {
+      page = pdfDoc.addPage([595, 842])
+      y = 800
+    }
+  }
+
   const drawLine = (thickness = 1) => {
     page.drawLine({
       start: { x: margin, y },
       end: { x: pageWidth - margin, y },
       thickness,
-      color: rgb(0.8, 0.8, 0.8)
+      color: rgb(0.85, 0.85, 0.85)
     })
   }
 
@@ -135,8 +150,9 @@ export async function GET(request: Request) {
     x: number,
     size = 10,
     bold = false,
-    color = rgb(0, 0, 0)
+    color = rgb(0,0,0)
   ) => {
+
     page.drawText(text, {
       x,
       y,
@@ -144,6 +160,7 @@ export async function GET(request: Request) {
       font: bold ? boldFont : font,
       color
     })
+
   }
 
   const drawRightValue = (value: number, bold = false) => {
@@ -164,35 +181,35 @@ export async function GET(request: Request) {
 
   }
 
-/* =========================
-   LOGO
-========================= */
+  /* =========================
+     LOGO
+  ========================= */
 
-try {
+  try {
 
-  const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
+    const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png", request.url)
 
-  const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
+    const logoBytes = await fetch(logoUrl).then(res => res.arrayBuffer())
 
-  const logoImage = await pdfDoc.embedPng(logoBytes)
+    const logoImage = await pdfDoc.embedPng(logoBytes)
 
-  page.drawImage(logoImage, {
-    x: pageWidth - 140,
-    y: 720,
-    width: 90,
-    height: 90
-  })
+    page.drawImage(logoImage, {
+      x: pageWidth - 140,
+      y: 720,
+      width: 90,
+      height: 90
+    })
 
-} catch (err) {
-  console.error("Logo non caricato:", err)
-}
+  } catch (err) {
+    console.log("Logo non caricato")
+  }
 
   /* =========================
-     PAGINA 1 - RIEPILOGO
+     HEADER
   ========================= */
 
   drawText("HIP HOP FAMILY MANAGER", margin, 18, true)
-  newLine(20)
+  newLine(22)
 
   drawText("REPORT AMMINISTRATIVO", margin, 12, true)
   newLine(18)
@@ -200,6 +217,10 @@ try {
   drawText(meseTitolo, margin, 12, true)
 
   newLine(30)
+
+  /* =========================
+     RIEPILOGO
+  ========================= */
 
   drawText("RIEPILOGO CONTABILE", margin, 14, true)
   newLine(20)
@@ -231,17 +252,18 @@ try {
   drawText("Saldo Banca Finale", margin)
   drawRightValue(saldoBancaFinale, true)
 
-  /* =========================
-     PAGINA INCASSI
-  ========================= */
+  newLine(30)
 
-  page = pdfDoc.addPage([595, 842])
-  y = 800
+  /* =========================
+     DETTAGLIO INCASSI
+  ========================= */
 
   drawText("DETTAGLIO INCASSI", margin, 14, true)
   newLine(20)
 
   incassi.forEach(i => {
+
+    checkPageBreak()
 
     drawText(i.descrizione || "-", margin)
     drawRightValue(Number(i.importo))
@@ -252,17 +274,18 @@ try {
 
   })
 
-  /* =========================
-     PAGINA SPESE
-  ========================= */
+  newLine(20)
 
-  page = pdfDoc.addPage([595, 842])
-  y = 800
+  /* =========================
+     DETTAGLIO SPESE
+  ========================= */
 
   drawText("DETTAGLIO SPESE", margin, 14, true)
   newLine(20)
 
   spese.forEach(s => {
+
+    checkPageBreak()
 
     drawText(s.descrizione || "-", margin)
     drawRightValue(-Math.abs(Number(s.importo)))
@@ -273,12 +296,11 @@ try {
 
   })
 
-  /* =========================
-     PAGINA SOCI
-  ========================= */
+  newLine(30)
 
-  page = pdfDoc.addPage([595, 842])
-  y = 800
+  /* =========================
+     CONTEGGI SOCI
+  ========================= */
 
   drawText("CONTEGGI SOCI", margin, 14, true)
   newLine(20)
@@ -296,13 +318,15 @@ try {
   const totaleCol = colStart + colWidth * (nomiInsegnanti.length + 2)
 
   drawText("QUOTA DISP.", quotaCol, 9, true)
-  drawText("TOTALE MENSILE", totaleCol, 9, true)
+  drawText("RISULTATO", totaleCol, 9, true)
 
   newLine(10)
   drawLine(2)
   newLine(10)
 
   soci?.forEach(s => {
+
+    checkPageBreak()
 
     const perc = Number(s.quota_percentuale) / 100
 
