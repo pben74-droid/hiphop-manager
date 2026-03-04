@@ -313,6 +313,68 @@ margin,
 )
 
 /* =========================
+DETTAGLIO INCASSI
+========================= */
+
+const spazioIncassi = (incassi.length+1)*rowHeight+40
+if(y<spazioIncassi) newPage()
+
+y -= 30
+drawHeader("DETTAGLIO INCASSI")
+
+const incassiCols=[
+{label:"DESCRIZIONE",width:450},
+{label:"IMPORTO",width:150}
+]
+
+drawTableHeader(incassiCols,margin)
+
+incassi.forEach(i=>{
+
+drawRow(
+incassiCols,
+[
+i.descrizione || "-",
+`${Number(i.importo).toFixed(2)} €`
+],
+margin,
+[undefined,rgb(0,0.6,0)]
+)
+
+})
+
+/* =========================
+DETTAGLIO SPESE
+========================= */
+
+const spazioSpese = (spese.length+1)*rowHeight+40
+if(y<spazioSpese) newPage()
+
+y -= 30
+drawHeader("DETTAGLIO SPESE")
+
+const speseCols=[
+{label:"DESCRIZIONE",width:450},
+{label:"IMPORTO",width:150}
+]
+
+drawTableHeader(speseCols,margin)
+
+spese.forEach(s=>{
+
+drawRow(
+speseCols,
+[
+s.descrizione || "-",
+`${Math.abs(Number(s.importo)).toFixed(2)} €`
+],
+margin,
+[undefined,rgb(0.8,0,0)]
+)
+
+})
+
+/* =========================
 RIPARTIZIONE COSTI SOCI
 ========================= */
 
