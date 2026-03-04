@@ -131,9 +131,8 @@ const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
 const margin = 50
+const pageWidth = 842
 const rowHeight = 18
-
-/* PAGINA ORIZZONTALE */
 
 let page = pdfDoc.addPage([842,595])
 let y = 540
@@ -236,7 +235,6 @@ x+=c.width
 })
 
 y-=rowHeight
-
 checkPage()
 
 }
@@ -304,7 +302,6 @@ INCASSI
 ========================= */
 
 y -= 30
-
 drawHeader("DETTAGLIO INCASSI")
 
 const incassiCols=[
@@ -333,7 +330,6 @@ SPESE
 ========================= */
 
 y -= 30
-
 drawHeader("DETTAGLIO SPESE")
 
 const speseCols=[
@@ -363,13 +359,31 @@ RIPARTIZIONE COSTI SOCI
 
 y -= 30
 
+/* controlla spazio necessario */
+
+const spazioNecessario = (soci?.length || 0) * rowHeight + 60
+if(y < spazioNecessario) newPage()
+
 drawHeader("RIPARTIZIONE COSTI SOCI")
 
+/* larghezza dinamica colonne */
+
+const spazioDisponibile = pageWidth - margin*2
+const colSocio = 120
+const colQuota = 120
+const colVersare = 140
+
+const spazioInsegnanti =
+spazioDisponibile - colSocio - colQuota - colVersare
+
+const colInsegnante =
+Math.floor(spazioInsegnanti / (nomiInsegnanti.length || 1))
+
 const sociCols = [
-{label:"SOCIO",width:150},
-...nomiInsegnanti.map(n=>({label:n,width:100})),
-{label:"QUOTA DISP.",width:140},
-{label:"IMPORTO DA VERSARE",width:180}
+{label:"SOCIO",width:colSocio},
+...nomiInsegnanti.map(n=>({label:n,width:colInsegnante})),
+{label:"QUOTA DISP.",width:colQuota},
+{label:"IMPORTO DA VERSARE",width:colVersare}
 ]
 
 drawTableHeader(sociCols,margin)
@@ -413,7 +427,6 @@ VERSAMENTI SOCI
 ========================= */
 
 y -= 30
-
 drawHeader("VERSAMENTI SOCI")
 
 const versCols=[
@@ -447,7 +460,6 @@ AFFITTO
 ========================= */
 
 y -= 30
-
 drawHeader("GESTIONE AFFITTO")
 
 const affittoCols=[
