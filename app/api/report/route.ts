@@ -70,19 +70,16 @@ const totaleSpese = spese.reduce((a, m) => a + Math.abs(Number(m.importo)), 0)
 
 const saldoCassaFinale =
 saldoInizialeCassa +
-(movimenti
-?.filter(m => m.contenitore === "cassa_operativa")
+(movimenti?.filter(m => m.contenitore === "cassa_operativa")
 .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
 const saldoBancaFinale =
 saldoInizialeBanca +
-(movimenti
-?.filter(m => m.contenitore === "banca")
+(movimenti?.filter(m => m.contenitore === "banca")
 .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
 const saldoAffitto =
-(movimenti
-?.filter(m => m.contenitore === "cassa_affitto")
+(movimenti?.filter(m => m.contenitore === "cassa_affitto")
 .reduce((a, m) => a + Number(m.importo), 0) || 0)
 
 /* INSEGNANTI */
@@ -140,8 +137,8 @@ page = pdfDoc.addPage([595, 842])
 y = 800
 }
 
-const checkSpace = (spaceNeeded:number) => {
-if (y - spaceNeeded < 80) newPage()
+const checkSpace = (space:number) => {
+if (y - space < 80) newPage()
 }
 
 const getColor = (v:number)=>{
@@ -161,7 +158,7 @@ page.drawText(text,{
 x,
 y,
 size,
-font: bold ? boldFont : font,
+font:bold?boldFont:font,
 color
 })
 }
@@ -175,20 +172,11 @@ const width = bold
 : font.widthOfTextAtSize(text,10)
 
 page.drawText(text,{
-x: pageWidth - margin - width,
+x: pageWidth-margin-width,
 y,
 size:10,
-font: bold ? boldFont : font,
+font:bold?boldFont:font,
 color:getColor(value)
-})
-}
-
-const drawLine = ()=>{
-page.drawLine({
-start:{x:margin,y},
-end:{x:pageWidth-margin,y},
-thickness:0.6,
-color:rgb(0.75,0.75,0.75)
 })
 }
 
@@ -200,10 +188,10 @@ const logoBytes = await fetch(logoUrl).then(res=>res.arrayBuffer())
 const logoImage = await pdfDoc.embedPng(logoBytes)
 
 page.drawImage(logoImage,{
-x: pageWidth - 140,
-y: 720,
-width: 90,
-height: 90
+x: pageWidth-140,
+y:720,
+width:90,
+height:90
 })
 }catch{}
 
@@ -222,7 +210,7 @@ newLine(30)
 /* RIEPILOGO */
 
 drawText("RIEPILOGO CONTABILE",margin,14,true)
-newLine(18)
+newLine(20)
 
 drawText("Totale Incassi",margin)
 drawRight(totaleIncassi,true)
@@ -248,9 +236,7 @@ newLine(30)
 /* DETTAGLIO INCASSI */
 
 drawText("DETTAGLIO INCASSI",margin,14,true)
-newLine(18)
-drawLine()
-newLine(8)
+newLine(20)
 
 incassi.forEach(i=>{
 
@@ -260,8 +246,6 @@ drawText(i.descrizione || "-",margin)
 drawRight(Number(i.importo))
 
 newLine(14)
-drawLine()
-newLine(6)
 
 })
 
@@ -270,9 +254,7 @@ newLine(30)
 /* DETTAGLIO SPESE */
 
 drawText("DETTAGLIO SPESE",margin,14,true)
-newLine(18)
-drawLine()
-newLine(8)
+newLine(20)
 
 spese.forEach(s=>{
 
@@ -282,8 +264,6 @@ drawText(s.descrizione || "-",margin)
 drawRight(-Math.abs(Number(s.importo)))
 
 newLine(14)
-drawLine()
-newLine(6)
 
 })
 
@@ -291,10 +271,11 @@ newLine(30)
 
 /* RIPARTIZIONE SOCI */
 
+const spazioTabellaSoci = (soci?.length || 0) * 22 + 120
+checkSpace(spazioTabellaSoci)
+
 drawText("RIPARTIZIONE COSTI SOCI",margin,14,true)
-newLine(18)
-drawLine()
-newLine(8)
+newLine(20)
 
 const colWidth = 55
 const colStart = margin
@@ -302,22 +283,18 @@ const colStart = margin
 drawText("SOCIO",colStart,10,true)
 
 nomiInsegnanti.forEach((nome,i)=>{
-drawText(nome,colStart + colWidth*(i+1),9,true)
+drawText(nome,colStart + colWidth*(i+1),10,true)
 })
 
 const quotaCol = colStart + colWidth*(nomiInsegnanti.length+1)
 const dovutoCol = quotaCol + 80
 
-drawText("QUOTA DISP.",quotaCol,9,true)
-drawText("IMPORTO DA VERSARE",dovutoCol,9,true)
+drawText("QUOTA DISP.",quotaCol,10,true)
+drawText("IMPORTO DA VERSARE",dovutoCol,10,true)
 
-newLine(12)
-drawLine()
-newLine(6)
+newLine(16)
 
 soci?.forEach(s=>{
-
-checkSpace(20)
 
 const perc = Number(s.quota_percentuale)/100
 
@@ -330,11 +307,11 @@ drawText(s.nome,colStart)
 
 nomiInsegnanti.forEach((nome,i)=>{
 
-const quota = insegnantiAggregati[nome] * perc
+const quota = insegnantiAggregati[nome]*perc
 totaleCosti += quota
 
 page.drawText(`${(-quota).toFixed(2)} €`,{
-x: colStart + colWidth*(i+1),
+x:colStart + colWidth*(i+1),
 y,
 size:9,
 font,
@@ -344,16 +321,17 @@ color:getColor(-quota)
 })
 
 page.drawText(`${quotaDisponibile.toFixed(2)} €`,{
-x: quotaCol,
+x:quotaCol,
 y,
 size:9,
-font
+font,
+color:rgb(0,0.6,0)
 })
 
 const dovuto = Math.max(0,totaleCosti - quotaDisponibile)
 
 page.drawText(`${dovuto.toFixed(2)} €`,{
-x: dovutoCol,
+x:dovutoCol,
 y,
 size:9,
 font,
@@ -361,8 +339,6 @@ color:rgb(0.8,0,0)
 })
 
 newLine(16)
-drawLine()
-newLine(6)
 
 })
 
@@ -371,7 +347,7 @@ newLine(30)
 /* AFFITTO */
 
 drawText("GESTIONE AFFITTO",margin,14,true)
-newLine(18)
+newLine(20)
 
 versamentiAffitto.forEach(v=>{
 drawText("Versamento Affitto",margin)
