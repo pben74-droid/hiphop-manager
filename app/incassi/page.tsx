@@ -100,6 +100,11 @@ export default function IncassiPage() {
     setDataIncasso(mov.data)
   }
 
+  const formatData = (dataString: string) => {
+    const data = new Date(dataString)
+    return data.toLocaleDateString("it-IT")
+  }
+
   const incassiCassa = incassi.filter(i => i.contenitore === "cassa_operativa")
   const incassiBanca = incassi.filter(i => i.contenitore === "banca")
 
@@ -114,7 +119,7 @@ export default function IncassiPage() {
       </h1>
 
       {/* FORM */}
-      <div className="border border-yellow-500 p-6 rounded space-y-4">
+      <div className="border border-gray-300 p-6 rounded bg-white space-y-4">
 
         <input
           type="text"
@@ -122,7 +127,7 @@ export default function IncassiPage() {
           value={descrizione}
           onChange={(e) => setDescrizione(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         />
 
         <input
@@ -132,7 +137,7 @@ export default function IncassiPage() {
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         />
 
         <input
@@ -140,14 +145,14 @@ export default function IncassiPage() {
           value={dataIncasso}
           onChange={(e) => setDataIncasso(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         />
 
         <select
           value={contenitore}
           onChange={(e) => setContenitore(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         >
           <option value="cassa_operativa">Cassa Operativa</option>
           <option value="banca">Banca</option>
@@ -164,7 +169,7 @@ export default function IncassiPage() {
       </div>
 
       {/* RIEPILOGO */}
-      <div className="border border-yellow-500 p-6 rounded">
+      <div className="border border-gray-300 p-6 rounded bg-white">
 
         <h2 className="text-xl mb-4">Riepilogo Incassi</h2>
 
@@ -174,25 +179,29 @@ export default function IncassiPage() {
       </div>
 
       {/* ELENCO */}
-      <div className="border border-yellow-500 p-6 rounded">
+      <div className="border border-gray-300 p-6 rounded bg-white">
 
         <h2 className="text-xl mb-4">Elenco Incassi</h2>
 
         {incassi.map((mov) => (
           <div
             key={mov.id}
-            className="flex justify-between border-b border-yellow-500 py-2 text-green-400"
+            className="flex justify-between border-b border-gray-200 py-2"
           >
-            <span>{mov.data}</span>
+            <span>{formatData(mov.data)}</span>
             <span>{mov.descrizione}</span>
             <span>{mov.contenitore}</span>
-            <span>{Number(mov.importo).toFixed(2)} €</span>
+
+            {/* IMPORTO VERDE */}
+            <span className="text-green-600 font-semibold">
+              {Number(mov.importo).toFixed(2)} €
+            </span>
 
             {!meseChiuso && (
               <div className="space-x-2">
                 <button
                   onClick={() => modificaIncasso(mov)}
-                  className="text-yellow-400"
+                  className="text-yellow-600"
                 >
                   Modifica
                 </button>
