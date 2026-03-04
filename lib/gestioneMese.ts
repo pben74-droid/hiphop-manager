@@ -60,6 +60,12 @@ export async function calcolaSaldi(mese: string) {
 
     const importo = Number(m.importo) || 0
 
+    // ignoriamo movimenti che non devono influenzare il saldo reale
+    if (
+      m.categoria === "insegnante" ||
+      m.categoria === "versamento_socio"
+    ) return
+
     if (m.contenitore === "cassa_operativa") {
       saldo_cassa += importo
     }
