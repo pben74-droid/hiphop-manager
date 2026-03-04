@@ -97,6 +97,11 @@ export default function SpesePage() {
     setDataSpesa(mov.data)
   }
 
+  const formatData = (dataString: string) => {
+    const data = new Date(dataString)
+    return data.toLocaleDateString("it-IT")
+  }
+
   const speseCassa = spese.filter(s => s.contenitore === "cassa_operativa")
   const speseBanca = spese.filter(s => s.contenitore === "banca")
 
@@ -111,7 +116,7 @@ export default function SpesePage() {
       </h1>
 
       {/* FORM */}
-      <div className="border border-yellow-500 p-6 rounded space-y-4">
+      <div className="border border-gray-300 p-6 rounded bg-white space-y-4">
 
         <input
           type="text"
@@ -119,7 +124,7 @@ export default function SpesePage() {
           value={descrizione}
           onChange={(e) => setDescrizione(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         />
 
         <input
@@ -128,7 +133,7 @@ export default function SpesePage() {
           value={importo}
           onChange={(e) => setImporto(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         />
 
         <input
@@ -136,14 +141,14 @@ export default function SpesePage() {
           value={dataSpesa}
           onChange={(e) => setDataSpesa(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         />
 
         <select
           value={contenitore}
           onChange={(e) => setContenitore(e.target.value)}
           disabled={meseChiuso}
-          className="bg-black text-white border border-yellow-500 p-2 rounded w-full"
+          className="bg-white text-gray-900 border border-gray-300 p-2 rounded w-full"
         >
           <option value="cassa_operativa">Cassa Operativa</option>
           <option value="banca">Banca</option>
@@ -160,7 +165,7 @@ export default function SpesePage() {
       </div>
 
       {/* RIEPILOGO */}
-      <div className="border border-yellow-500 p-6 rounded">
+      <div className="border border-gray-300 p-6 rounded bg-white">
 
         <h2 className="text-xl mb-4">Riepilogo Spese</h2>
 
@@ -170,25 +175,29 @@ export default function SpesePage() {
       </div>
 
       {/* ELENCO */}
-      <div className="border border-yellow-500 p-6 rounded">
+      <div className="border border-gray-300 p-6 rounded bg-white">
 
         <h2 className="text-xl mb-4">Elenco Spese</h2>
 
         {spese.map((mov) => (
           <div
             key={mov.id}
-            className="flex justify-between border-b border-yellow-500 py-2 text-red-400"
+            className="flex justify-between border-b border-gray-200 py-2"
           >
-            <span>{mov.data}</span>
+            <span>{formatData(mov.data)}</span>
             <span>{mov.descrizione}</span>
             <span>{mov.contenitore}</span>
-            <span>{Math.abs(Number(mov.importo)).toFixed(2)} €</span>
+
+            {/* IMPORTO ROSSO */}
+            <span className="text-red-600 font-semibold">
+              {Math.abs(Number(mov.importo)).toFixed(2)} €
+            </span>
 
             {!meseChiuso && (
               <div className="space-x-2">
                 <button
                   onClick={() => modificaSpesa(mov)}
-                  className="text-yellow-400"
+                  className="text-yellow-600"
                 >
                   Modifica
                 </button>
