@@ -344,9 +344,124 @@ const sociCols = [
 
 drawTableHeader(sociCols,margin)
 
+soci?.forEach(s=>{
+
+const perc = Number(s.quota_percentuale)/100
+
+const quotaDisponibile =
+(totaleIncassi + saldoInizialeCassa) * perc
+
+let totaleCosti = 0
+
+const valori:any = [s.nome]
+const colori:any = [undefined]
+
+nomiInsegnanti.forEach(nome=>{
+
+const quota = insegnantiAggregati[nome] * perc
+totaleCosti += quota
+
+valori.push(`${(-quota).toFixed(2)} €`)
+colori.push(rgb(0.8,0,0))
+
+})
+
+valori.push(`${quotaDisponibile.toFixed(2)} €`)
+colori.push(rgb(0,0.6,0))
+
+const dovuto = Math.max(0, totaleCosti - quotaDisponibile)
+
+valori.push(`${dovuto.toFixed(2)} €`)
+colori.push(getColor(-dovuto))
+
+drawRow(sociCols,valori,margin,colori)
+
+})
+
 /* =========================
-CHIUSURA PDF
+VERSAMENTI SOCI
 ========================= */
+
+const spazioVers = ((soci?.length||0)+1)*rowHeight+40
+if(y<spazioVers) newPage()
+
+y -= 30
+drawHeader("VERSAMENTI SOCI")
+
+const versCols=[
+{label:"SOCIO",width:350},
+{label:"VERSATO",width:200}
+]
+
+drawTableHeader(versCols,margin)
+
+soci?.forEach(s=>{
+
+const versato =
+versamentiSoci
+?.filter(v=>v.socio_id===s.id)
+.reduce((a,v)=>a+Number(v.importo),0) || 0
+
+drawRow(
+versCols,
+[
+s.nome,
+`${versato.toFixed(2)} €`
+],
+margin,
+[undefined,getColor(versato)]
+)
+
+})
+
+/* =========================
+AFFITTO
+========================= */
+
+const spazioAffitto = ((soci?.length||0)+1)*rowHeight+40
+if(y<spazioAffitto) newPage()
+
+y -= 30
+drawHeader("GESTIONE AFFITTO")
+
+const affittoCols=[
+{label:"SOCIO",width:250},
+{label:"QUOTA",width:150},
+{label:"VERSATO",width:150},
+{label:"SALDO",width:150}
+]
+
+drawTableHeader(affittoCols,margin)
+
+soci?.forEach(s=>{
+
+const quota = costoAffittoTotale*(Number(s.quota_percentuale)/100)
+
+const versato =
+affittoPagamenti
+?.filter(p=>p.socio_id===s.id)
+.reduce((a,p)=>a+Number(p.importo),0) || 0
+
+const saldo = quota - versato
+
+drawRow(
+affittoCols,
+[
+s.nome,
+`${quota.toFixed(2)} €`,
+`${versato.toFixed(2)} €`,
+`${saldo.toFixed(2)} €`
+],
+margin,
+[
+undefined,
+undefined,
+rgb(0,0.6,0),
+getColor(-saldo)
+]
+)
+
+})
 
 const pdfBytes = await pdfDoc.save()
 
