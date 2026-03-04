@@ -254,50 +254,46 @@ export default function DashboardPage() {
       )}
 
       {/* AZIONI */}
-      <div className="flex justify-between">
-        <button
-          onClick={chiudiMese}
-          disabled={meseChiuso || quotaSoci?.differenza_finale < 0}
-          className="bg-red-600 text-white px-6 py-2 rounded disabled:opacity-50"
-        >
-          Chiudi Mese
-        </button>
-{meseChiuso && (
+<div className="flex justify-between">
+
   <button
-    onClick={async () => {
-
-      const password = prompt("Inserisci password per riaprire il mese")
-      if (!password) return
-
-      const res = await fetch("/api/riapri-mese", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mese, password })
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        alert(data.error || "Errore riapertura")
-        return
-      }
-
-      alert("Mese riaperto correttamente")
-      caricaDashboard()
-    }}
-    className="bg-blue-600 text-white px-6 py-2 rounded"
+    onClick={chiudiMese}
+    disabled={meseChiuso || quotaSoci?.differenza_finale < 0}
+    className="bg-red-600 text-white px-6 py-2 rounded disabled:opacity-50"
   >
-    Riapri Mese
+    Chiudi Mese
   </button>
-)}
-        <a
-          href={`/api/report?mese=${mese}`}
-          target="_blank"
-          className="bg-yellow-500 text-black px-6 py-2 rounded"
-        >
-          Genera Report PDF
-        </a>
-      </div>
+
+  {meseChiuso && (
+    <button
+      onClick={async () => {
+
+        const password = prompt("Inserisci password per riaprire il mese")
+        if (!password) return
+
+        const res = await fetch("/api/riapri-mese", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mese, password })
+        })
+
+        const data = await res.json()
+
+        if (!res.ok) {
+          alert(data.error || "Errore riapertura")
+          return
+        }
+
+        alert("Mese riaperto correttamente")
+        caricaDashboard()
+      }}
+      className="bg-blue-600 text-white px-6 py-2 rounded"
+    >
+      Riapri Mese
+    </button>
+  )}
+
+</div>
 
     </div>
   )
