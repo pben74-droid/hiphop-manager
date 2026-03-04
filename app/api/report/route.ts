@@ -198,7 +198,7 @@ x+=c.width
 y-=rowHeight
 }
 
-function drawRow(cols:any,values:any,startX:number,colors:any=[]){
+function drawRow(cols:any[],values:any[],startX:number,colors:any[]=[]){
 
 let x=startX
 
@@ -212,12 +212,15 @@ height:rowHeight,
 borderWidth:1
 })
 
+const cellColor =
+colors && colors[i] ? colors[i] : rgb(0,0,0)
+
 page.drawText(values[i],{
 x:x+4,
 y:y-12,
 size:9,
 font,
-color:colors || rgb(0,0,0)
+color:cellColor
 })
 
 x+=c.width
