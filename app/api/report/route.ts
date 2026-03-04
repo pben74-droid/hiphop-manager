@@ -122,7 +122,6 @@ const font = await pdfDoc.embedFont(StandardFonts.Helvetica)
 const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
 
 const margin = 50
-const pageWidth = 595
 const rowHeight = 18
 
 let page = pdfDoc.addPage([595,842])
@@ -238,13 +237,11 @@ LOGO
 try{
 
 const logoUrl = new URL("/LOGO_DEFINITIVO_TRASPARENTE.png",request.url)
-
 const logoBytes = await fetch(logoUrl).then(res=>res.arrayBuffer())
-
 const logoImage = await pdfDoc.embedPng(logoBytes)
 
 page.drawImage(logoImage,{
-x:pageWidth-140,
+x:430,
 y:720,
 width:90,
 height:90
@@ -346,6 +343,57 @@ s.descrizione || "-",
 margin,
 [undefined,rgb(0.8,0,0)]
 )
+
+})
+
+/* =========================
+RIPARTIZIONE COSTI SOCI
+========================= */
+
+y -= 30
+
+drawHeader("RIPARTIZIONE COSTI SOCI")
+
+const sociCols = [
+{label:"SOCIO",width:120},
+...nomiInsegnanti.map(n=>({label:n,width:70})),
+{label:"QUOTA DISP.",width:100},
+{label:"IMPORTO DA VERSARE",width:140}
+]
+
+drawTableHeader(sociCols,margin)
+
+soci?.forEach(s=>{
+
+const perc = Number(s.quota_percentuale)/100
+
+const quotaDisponibile =
+(totaleIncassi + saldoInizialeCassa) * perc
+
+let totaleCosti = 0
+
+const valori:any = [s.nome]
+const colori:any = [undefined]
+
+nomiInsegnanti.forEach(nome=>{
+
+const quota = insegnantiAggregati[nome] * perc
+totaleCosti += quota
+
+valori.push(`${(-quota).toFixed(2)} €`)
+colori.push(rgb(0.8,0,0))
+
+})
+
+valori.push(`${quotaDisponibile.toFixed(2)} €`)
+colori.push(rgb(0,0.6,0))
+
+const dovuto = Math.max(0, totaleCosti - quotaDisponibile)
+
+valori.push(`${dovuto.toFixed(2)} €`)
+colori.push(getColor(-dovuto))
+
+drawRow(sociCols,valori,margin,colori)
 
 })
 
