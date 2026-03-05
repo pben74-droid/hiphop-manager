@@ -35,17 +35,26 @@ nome
 )
 `)
 .eq("mese", mese)
-const soci = sociQuote?.map(q => {
 
-  const socio = Array.isArray(q.soci) ? q.soci[0] : q.soci
+/* FIX JOIN SUPABASE */
 
-  return {
-    id: socio?.id,
-    nome: socio?.nome,
-    quota_percentuale: q.quota_percentuale
-  }
+const soci =
+sociQuote
+?.map(q=>{
 
-}) || []
+const socio = Array.isArray(q.soci) ? q.soci[0] : q.soci
+
+if(!socio) return null
+
+return {
+id:socio.id,
+nome:socio.nome,
+quota_percentuale:q.quota_percentuale
+}
+
+})
+.filter(Boolean) || []
+
 const { data:versamentiSoci } = await supabase
 .from("versamenti_soci")
 .select("*")
@@ -160,8 +169,6 @@ const needed = rows * rowHeight + 40
 if(y < needed) newPage()
 }
 
-/* NUOVA FUNZIONE PER NON SPEZZARE TABELLE */
-
 function ensureTableSpace(rows:number){
 const neededHeight = (rows * rowHeight) + 40
 if(y < neededHeight){
@@ -188,8 +195,7 @@ if(v>0) return rgb(0,0.6,0)
 if(v<0) return rgb(0.8,0,0)
 return rgb(0,0,0)
 }
-
-/* =========================
+  /* =========================
 TABELLE
 ========================= */
 
@@ -232,6 +238,7 @@ newPage()
 drawTableHeader(cols,startX)
 
 }
+
 let x=startX
 
 cols.forEach((c,i)=>{
@@ -341,6 +348,7 @@ drawRow(situazioneCols,["Versamenti Soci",`${totaleVersamenti.toFixed(2)} €`],
 drawRow(situazioneCols,["Residuo da Versare",`${residuoDaVersare.toFixed(2)} €`],margin,[undefined,getColor(-residuoDaVersare)])
 
 y -= sectionSpacing
+
 /* =========================
 RIEPILOGO CONTABILE
 ========================= */
