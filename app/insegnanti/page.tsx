@@ -381,7 +381,53 @@ export default function InsegnantiPage() {
       </div>
 
     </div>
+{/* ELENCO INSEGNANTI */}
 
+<div className="border p-4 rounded bg-white space-y-2">
+
+<h2 className="font-bold">
+Insegnanti registrati
+</h2>
+
+{insegnanti.map(ins => {
+
+const fasce =
+fasceDb.filter(f => f.insegnante_id === ins.id)
+
+return (
+
+<div
+key={ins.id}
+className="border p-2 space-y-1"
+>
+
+<strong>{ins.nome}</strong>
+
+<div className="text-sm">
+Rimborso benzina: {ins.rimborso_benzina} €
+</div>
+
+{fasce.map(f => (
+
+<div
+key={f.id}
+className="text-sm text-gray-600"
+>
+
+{giorniSettimana.find(g => g.value === f.giorno_settimana)?.label}
+ — {f.ore}h × {f.costo_orario}€
+
+</div>
+
+))}
+
+</div>
+
+)
+
+})}
+
+</div>
   )
 
 }
