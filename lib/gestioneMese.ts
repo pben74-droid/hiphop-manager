@@ -43,17 +43,17 @@ export async function inizializzaMese(mese: string) {
      ========================= */
 
   const { data: soci } = await supabase
-    .from("soci")
-    .select("id, quota_percentuale")
+.from("soci")
+.select("id, nome, quota_percentuale")
 
   if (!soci) return
 
   const quoteMese = soci.map(s => ({
-    mese,
-    socio_id: s.id,
-    quota_percentuale: s.quota_percentuale
-  }))
-
+  mese,
+  socio_id: s.id,
+  nome_socio: s.nome,
+  quota_percentuale: s.quota_percentuale
+}))
   await supabase
     .from("soci_quote_mese")
     .insert(quoteMese)
