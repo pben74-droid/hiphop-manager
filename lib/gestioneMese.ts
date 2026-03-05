@@ -211,3 +211,47 @@ export async function calcolaQuotaSoci(mese: string) {
     soci: sociCalcolo
   }
 }
+export async function generaSezioneAffitto(mese: string) {
+
+  const { data: affittoMese } = await supabase
+    .from("affitto_mese")
+    .select("*")
+    .eq("mese", mese)
+    .maybeSingle()
+
+  if (!affittoMese) return null
+
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("*")
+
+  const { data: pagamenti } = await supabase
+    .from("affitto_pagamenti")
+    .select("*")
+    .eq("mese", mese)
+
+  const sociAffitto = soci?.map(s => {
+
+    const percentuale = Number(s.quota_percentuale) || 0
+
+    const quota =
+      Number(affittoMese.costo_mensile) *
+      (percentuale / 100)
+
+    const versato = pagamenti
+      ?.filter(p => p.socio_id === s.id)
+      .reduce((acc, p) => acc + Number(p.importo), 0) || 0
+
+    return {
+      id: s.id,
+      nome: s.nome,
+      quota: Number(quota.toFixed(2)),
+      versato: Number(versato.toFixed(2))
+    }
+  }) || []
+
+  return {
+    costo_mensile: Number(affittoMese.costo_mensile),
+    soci: sociAffitto
+  }
+}
