@@ -81,55 +81,13 @@ export default function CompensiInsegnantiPage() {
         totaleOre,
         compensoOre,
         compensoBenzina,
-        totaleCalcolato: totale,
-        override: totale
+        totale
       }
 
     })
 
     setRighe(calcolati)
     setLoading(false)
-  }
-
-  const aggiornaOverride = (id: string, valore: string) => {
-    setRighe(prev =>
-      prev.map(r =>
-        r.id === id
-          ? { ...r, override: Number(valore) }
-          : r
-      )
-    )
-  }
-    const generaCompensi = async () => {
-
-    if (meseChiuso) return
-
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("mese", mese)
-      .eq("categoria", "insegnante")
-
-    const movimenti = righe.map(r => ({
-      mese,
-      tipo: "spesa",
-      categoria: "insegnante",
-      descrizione: `Compenso ${r.nome}`,
-      contenitore: "cassa_operativa",
-      importo: -Math.abs(Number(r.override)),
-      data: new Date().toISOString().slice(0, 10)
-    }))
-
-    const { error } = await supabase
-      .from("movimenti_finanziari")
-      .insert(movimenti)
-
-    if (error) {
-      alert(error.message)
-      return
-    }
-
-    alert("Compensi registrati e cassa aggiornata")
   }
 
   if (loading) {
@@ -161,7 +119,6 @@ export default function CompensiInsegnantiPage() {
               <th className="p-2">Compenso Ore</th>
               <th className="p-2">Benzina</th>
               <th className="p-2">Totale</th>
-              <th className="p-2">Modifica</th>
             </tr>
           </thead>
 
@@ -174,6 +131,7 @@ export default function CompensiInsegnantiPage() {
                 </td>
 
                 <td className="p-2">{r.totaleGiornate}</td>
+
                 <td className="p-2">{r.totaleOre}</td>
 
                 <td className="p-2">
@@ -185,19 +143,7 @@ export default function CompensiInsegnantiPage() {
                 </td>
 
                 <td className="p-2 font-bold">
-                  {r.override.toFixed(2)} €
-                </td>
-
-                <td className="p-2">
-                  <input
-                    type="number"
-                    value={r.override}
-                    disabled={meseChiuso}
-                    onChange={e =>
-                      aggiornaOverride(r.id, e.target.value)
-                    }
-                    className="border p-1 w-24 text-center disabled:bg-gray-200"
-                  />
+                  {r.totale.toFixed(2)} €
                 </td>
 
               </tr>
@@ -207,14 +153,6 @@ export default function CompensiInsegnantiPage() {
         </table>
 
       </div>
-
-      <button
-        onClick={generaCompensi}
-        disabled={meseChiuso}
-        className="bg-black text-white px-6 py-2 rounded disabled:opacity-50"
-      >
-        Genera Movimenti
-      </button>
 
     </div>
   )
