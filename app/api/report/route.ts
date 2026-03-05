@@ -208,11 +208,13 @@ y-=rowHeight
 
 function drawRow(cols:any,values:any,startX:number,colors:any=[]){
 
-if(y < 120){
-newPage()
-drawTableHeader(cols,startX)
-}
+if(y < margin){
 
+newPage()
+
+drawTableHeader(cols,startX)
+
+}
 let x=startX
 
 cols.forEach((c,i)=>{
