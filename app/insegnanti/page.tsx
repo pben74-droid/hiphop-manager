@@ -1,4 +1,4 @@
- "use client"
+"use client"
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
@@ -185,7 +185,7 @@ export default function InsegnantiPage() {
 
             mese,
             insegnante_id:i.id,
-            data: `${anno}-${String(meseNumero).padStart(2,"0")}-${String(giorno).padStart(2,"0")}`
+            data: `${anno}-${String(meseNumero).padStart(2,"0")}-${String(giorno).padStart(2,"0")}`,
             ore:f.ore,
             costo_orario:f.costo_orario,
             rimborso_benzina:index===0 ? i.rimborso_benzina : 0,
@@ -213,7 +213,7 @@ export default function InsegnantiPage() {
     carica()
 
   }
-    const salvaLezione = async () => {
+   const salvaLezione = async () => {
 
     if(!insegnanteId || !data){
       alert("Inserisci insegnante e data")
