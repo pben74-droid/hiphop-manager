@@ -130,6 +130,8 @@ export default function InsegnantiPage() {
     setInsegnanteId(id)
     setData(dataLezione)
 
+    if (!id || !dataLezione) return
+
     const giorno =
       new Date(dataLezione).getDay() === 0
         ? 7
@@ -156,7 +158,8 @@ export default function InsegnantiPage() {
 
     setBenzina(ins?.rimborso_benzina || 0)
   }
-    const salvaLezione = async () => {
+
+  const salvaLezione = async () => {
 
     if (!insegnanteId || !data) {
       alert("Inserisci insegnante e data")
