@@ -25,35 +25,19 @@ const { data:movimenti } = await supabase
 .select("*")
 .eq("mese",mese)
 
+/* LETTURA SOCI DALLO STORICO */
+
 const { data:sociQuote } = await supabase
 .from("soci_quote_mese")
-.select(`
-quota_percentuale,
-soci (
-id,
-nome
-)
-`)
+.select("*")
 .eq("mese", mese)
 
-/* FIX JOIN SUPABASE */
-
 const soci =
-sociQuote
-?.map(q=>{
-
-const socio = Array.isArray(q.soci) ? q.soci[0] : q.soci
-
-if(!socio) return null
-
-return {
-id:socio.id,
-nome:socio.nome,
+sociQuote?.map(q=>({
+id:q.socio_id,
+nome:q.nome_socio,
 quota_percentuale:q.quota_percentuale
-}
-
-})
-.filter(Boolean) || []
+})) || []
 
 const { data:versamentiSoci } = await supabase
 .from("versamenti_soci")
@@ -234,7 +218,6 @@ function drawRow(cols:any,values:any,startX:number,colors:any=[]){
 if(y < margin){
 
 newPage()
-
 drawTableHeader(cols,startX)
 
 }
