@@ -5,22 +5,6 @@ import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso } from "@/lib/gestioneMese"
 
-function contaGiorniNelMese(meseString: string, giorno: number) {
-
-  const [anno, mese] = meseString.split("-").map(Number)
-
-  let count = 0
-  const date = new Date(anno, mese - 1, 1)
-
-  while (date.getMonth() === mese - 1) {
-    const jsDay = date.getDay() === 0 ? 7 : date.getDay()
-    if (jsDay === giorno) count++
-    date.setDate(date.getDate() + 1)
-  }
-
-  return count
-}
-
 export default function CompensiInsegnantiPage() {
 
   const { mese } = useMese()
@@ -46,51 +30,49 @@ export default function CompensiInsegnantiPage() {
       .select("*")
       .eq("attivo", true)
 
-    const { data: fasce } = await supabase
-      .from("insegnanti_fasce")
+    const { data: lezioni } = await supabase
+      .from("lezioni_insegnanti")
       .select("*")
+      .eq("mese", mese)
 
     const calcolati = (insegnanti || []).map(ins => {
 
-      const fasceInsegnante =
-        (fasce || []).filter(f => f.insegnante_id === ins.id)
-
-      const giorniUnici: number[] = []
-
-      fasceInsegnante.forEach(f => {
-        if (giorniUnici.indexOf(f.giorno_settimana) === -1) {
-          giorniUnici.push(f.giorno_settimana)
-        }
-      })
-
-      let totaleGiornate = 0
-
-      giorniUnici.forEach(giorno => {
-        totaleGiornate += contaGiorniNelMese(mese, giorno)
-      })
+      const lezioniInsegnante =
+        (lezioni || []).filter(
+          l =>
+            l.insegnante_id === ins.id &&
+            l.stato !== "annullata"
+        )
 
       let totaleOre = 0
       let compensoOre = 0
 
-      fasceInsegnante.forEach(f => {
+      const giorni: any = {}
 
-        const lezioni = contaGiorniNelMese(
-          mese,
-          f.giorno_settimana
-        )
+      lezioniInsegnante.forEach(l => {
 
-        totaleOre += lezioni * Number(f.ore)
+        totaleOre += Number(l.ore)
 
         compensoOre +=
-          lezioni *
-          Number(f.ore) *
-          Number(f.costo_orario)
+          Number(l.ore) *
+          Number(l.costo_orario)
+
+        giorni[l.data] = true
+
       })
 
-      const compensoBenzina =
-        totaleGiornate * Number(ins.rimborso_benzina || 0)
+      const totaleGiornate =
+        Object.keys(giorni).length
 
-      const totale = compensoOre + compensoBenzina
+      const compensoBenzina =
+        lezioniInsegnante.reduce(
+          (acc, l) =>
+            acc + Number(l.rimborso_benzina || 0),
+          0
+        )
+
+      const totale =
+        compensoOre + compensoBenzina
 
       return {
         id: ins.id,
@@ -118,12 +100,10 @@ export default function CompensiInsegnantiPage() {
       )
     )
   }
-
-  const generaCompensi = async () => {
+    const generaCompensi = async () => {
 
     if (meseChiuso) return
 
-    // 🔒 Evita duplicazione
     await supabase
       .from("movimenti_finanziari")
       .delete()
