@@ -25,10 +25,21 @@ const { data:movimenti } = await supabase
 .select("*")
 .eq("mese",mese)
 
-const { data:soci } = await supabase
-.from("soci")
-.select("*")
-
+const { data:sociQuote } = await supabase
+.from("soci_quote_mese")
+.select(`
+quota_percentuale,
+soci (
+id,
+nome
+)
+`)
+.eq("mese", mese)
+const soci = sociQuote?.map(q => ({
+id: q.soci.id,
+nome: q.soci.nome,
+quota_percentuale: q.quota_percentuale
+})) || []
 const { data:versamentiSoci } = await supabase
 .from("versamenti_soci")
 .select("*")
