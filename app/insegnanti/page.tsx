@@ -1,4 +1,4 @@
-  "use client"
+ "use client"
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
@@ -61,6 +61,7 @@ export default function InsegnantiPage() {
     setLezioni(lez || [])
 
     setLoading(false)
+
   }
 
   const aggiungiFascia = () => {
@@ -120,6 +121,25 @@ export default function InsegnantiPage() {
     setFasce([])
 
     carica()
+
+  }
+
+  const eliminaInsegnante = async (id:string) => {
+
+    if(!confirm("Eliminare insegnante?")) return
+
+    await supabase
+      .from("insegnanti")
+      .delete()
+      .eq("id",id)
+
+    await supabase
+      .from("insegnanti_fasce")
+      .delete()
+      .eq("insegnante_id",id)
+
+    carica()
+
   }
 
   const generaCalendario = async () => {
@@ -135,32 +155,29 @@ export default function InsegnantiPage() {
 
     const [anno,meseNumero]=mese.split("-").map(Number)
 
-    const giorniNelMese=new Date(
-      anno,
-      meseNumero,
-      0
-    ).getDate()
+    const giorniNelMese =
+      new Date(anno,meseNumero,0).getDate()
 
     const nuoveLezioni:any[]=[]
 
     for(let giorno=1;giorno<=giorniNelMese;giorno++){
 
-      const dataLezione=
+      const dataLezione =
         new Date(anno,meseNumero-1,giorno)
 
-      const giornoSettimana=
+      const giornoSettimana =
         dataLezione.getDay()===0
           ?7
           :dataLezione.getDay()
 
       ins?.forEach(i=>{
 
-        const fasceInsegnante=
+        const fasceInsegnante =
           fasce?.filter(
-            f=>
+            f =>
               f.insegnante_id===i.id &&
               f.giorno_settimana===giornoSettimana
-          )||[]
+          ) || []
 
         fasceInsegnante.forEach((f,index)=>{
 
@@ -206,7 +223,6 @@ export default function InsegnantiPage() {
     await supabase
       .from("lezioni_insegnanti")
       .insert({
-
         mese,
         insegnante_id:insegnanteId,
         data,
@@ -214,7 +230,6 @@ export default function InsegnantiPage() {
         costo_orario:Number(costo),
         rimborso_benzina:Number(benzina),
         stato:"svolta"
-
       })
 
     await sincronizzaCompensi(mese)
@@ -247,7 +262,7 @@ export default function InsegnantiPage() {
         Gestione Insegnanti
       </h1>
 
-      {/* NUOVO INSEGNANTE */}
+      {/* CREAZIONE INSEGNANTE */}
 
       <div className="border p-4 rounded bg-white space-y-4">
 
@@ -265,7 +280,7 @@ export default function InsegnantiPage() {
 
         <input
           type="number"
-          placeholder="Rimborso benzina per giornata"
+          placeholder="Rimborso benzina"
           value={rimborso}
           onChange={e=>setRimborso(e.target.value)}
           className="border p-2 w-full"
@@ -277,7 +292,7 @@ export default function InsegnantiPage() {
 
             <select
               value={f.giorno_settimana}
-              onChange={e=>
+              onChange={e =>
                 aggiornaFascia(
                   index,
                   "giorno_settimana",
@@ -299,7 +314,7 @@ export default function InsegnantiPage() {
               type="number"
               placeholder="Ore"
               value={f.ore}
-              onChange={e=>
+              onChange={e =>
                 aggiornaFascia(index,"ore",e.target.value)
               }
               className="border p-2 w-24"
@@ -309,7 +324,7 @@ export default function InsegnantiPage() {
               type="number"
               placeholder="Costo orario"
               value={f.costo_orario}
-              onChange={e=>
+              onChange={e =>
                 aggiornaFascia(index,"costo_orario",e.target.value)
               }
               className="border p-2 w-32"
@@ -335,6 +350,67 @@ export default function InsegnantiPage() {
 
       </div>
 
+      {/* ELENCO INSEGNANTI */}
+
+      <div className="border p-4 rounded bg-white space-y-2">
+
+        <h2 className="font-bold">
+          Insegnanti registrati
+        </h2>
+
+        {insegnanti.map(ins=>{
+
+          const fasce =
+            fasceDb.filter(
+              f=>f.insegnante_id===ins.id
+            )
+
+          return(
+
+            <div
+              key={ins.id}
+              className="border p-2 space-y-1"
+            >
+
+              <div className="flex justify-between">
+
+                <strong>{ins.nome}</strong>
+
+                <button
+                  onClick={()=>eliminaInsegnante(ins.id)}
+                  className="text-red-600"
+                >
+                  Elimina
+                </button>
+
+              </div>
+
+              <div className="text-sm">
+                Rimborso benzina: {ins.rimborso_benzina} €
+              </div>
+
+              {fasce.map(f=>(
+                <div key={f.id} className="text-sm">
+
+                  {giorniSettimana.find(
+                    g=>g.value===f.giorno_settimana
+                  )?.label}
+
+                  {" — "}
+
+                  {f.ore}h × {f.costo_orario}€
+
+                </div>
+              ))}
+
+            </div>
+
+          )
+
+        })}
+
+      </div>
+
       {/* GENERA CALENDARIO */}
 
       <button
@@ -350,8 +426,10 @@ export default function InsegnantiPage() {
 
         {lezioni.map(l=>{
 
-          const ins=
-            insegnanti.find(i=>i.id===l.insegnante_id)
+          const ins =
+            insegnanti.find(
+              i=>i.id===l.insegnante_id
+            )
 
           return(
 
@@ -381,53 +459,7 @@ export default function InsegnantiPage() {
       </div>
 
     </div>
-{/* ELENCO INSEGNANTI */}
 
-<div className="border p-4 rounded bg-white space-y-2">
-
-<h2 className="font-bold">
-Insegnanti registrati
-</h2>
-
-{insegnanti.map(ins => {
-
-const fasce =
-fasceDb.filter(f => f.insegnante_id === ins.id)
-
-return (
-
-<div
-key={ins.id}
-className="border p-2 space-y-1"
->
-
-<strong>{ins.nome}</strong>
-
-<div className="text-sm">
-Rimborso benzina: {ins.rimborso_benzina} €
-</div>
-
-{fasce.map(f => (
-
-<div
-key={f.id}
-className="text-sm text-gray-600"
->
-
-{giorniSettimana.find(g => g.value === f.giorno_settimana)?.label}
- — {f.ore}h × {f.costo_orario}€
-
-</div>
-
-))}
-
-</div>
-
-)
-
-})}
-
-</div>
   )
 
 }
