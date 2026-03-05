@@ -143,6 +143,15 @@ const needed = rows * rowHeight + 40
 if(y < needed) newPage()
 }
 
+/* NUOVA FUNZIONE PER NON SPEZZARE TABELLE */
+
+function ensureTableSpace(rows:number){
+const neededHeight = (rows * rowHeight) + 40
+if(y < neededHeight){
+newPage()
+}
+}
+
 function drawHeader(title:string){
 
 ensureSpace(2)
@@ -313,7 +322,7 @@ drawRow(situazioneCols,["Versamenti Soci",`${totaleVersamenti.toFixed(2)} €`],
 drawRow(situazioneCols,["Residuo da Versare",`${residuoDaVersare.toFixed(2)} €`],margin,[undefined,getColor(-residuoDaVersare)])
 
 y -= sectionSpacing
-  /* =========================
+/* =========================
 RIEPILOGO CONTABILE
 ========================= */
 
@@ -326,8 +335,19 @@ const riepilogoCols=[
 
 drawTableHeader(riepilogoCols,margin)
 
-drawRow(riepilogoCols,["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],margin,[undefined,getColor(totaleIncassi)])
-drawRow(riepilogoCols,["Totale Spese",`${totaleSpese.toFixed(2)} €`],margin,[undefined,getColor(-totaleSpese)])
+drawRow(
+riepilogoCols,
+["Totale Incassi",`${totaleIncassi.toFixed(2)} €`],
+margin,
+[undefined,getColor(totaleIncassi)]
+)
+
+drawRow(
+riepilogoCols,
+["Totale Spese",`${totaleSpese.toFixed(2)} €`],
+margin,
+[undefined,getColor(-totaleSpese)]
+)
 
 y -= sectionSpacing
 
@@ -335,7 +355,7 @@ y -= sectionSpacing
 DETTAGLIO INCASSI
 ========================= */
 
-ensureSpace(incassi.length+2)
+ensureTableSpace(incassi.length + 2)
 
 drawHeader("DETTAGLIO INCASSI")
 
@@ -347,12 +367,17 @@ const incassiCols=[
 drawTableHeader(incassiCols,margin)
 
 incassi.forEach(i=>{
+
 drawRow(
 incassiCols,
-[i.descrizione || "-",`${Number(i.importo).toFixed(2)} €`],
+[
+i.descrizione || "-",
+`${Number(i.importo).toFixed(2)} €`
+],
 margin,
 [undefined,rgb(0,0.6,0)]
 )
+
 })
 
 y -= sectionSpacing
@@ -361,7 +386,7 @@ y -= sectionSpacing
 DETTAGLIO SPESE
 ========================= */
 
-ensureSpace(spese.length+2)
+ensureTableSpace(spese.length + 2)
 
 drawHeader("DETTAGLIO SPESE")
 
@@ -373,12 +398,17 @@ const speseCols=[
 drawTableHeader(speseCols,margin)
 
 spese.forEach(s=>{
+
 drawRow(
 speseCols,
-[s.descrizione || "-",`${Math.abs(Number(s.importo)).toFixed(2)} €`],
+[
+s.descrizione || "-",
+`${Math.abs(Number(s.importo)).toFixed(2)} €`
+],
 margin,
 [undefined,rgb(0.8,0,0)]
 )
+
 })
 
 y -= sectionSpacing
@@ -386,6 +416,8 @@ y -= sectionSpacing
 /* =========================
 RIPARTIZIONE COSTI SOCI
 ========================= */
+
+ensureTableSpace((soci?.length || 0) + 2)
 
 drawHeader("RIPARTIZIONE COSTI SOCI")
 
@@ -457,6 +489,8 @@ y -= sectionSpacing
 VERSAMENTI SOCI
 ========================= */
 
+ensureTableSpace((soci?.length || 0) + 2)
+
 drawHeader("VERSAMENTI SOCI")
 
 const versCols=[
@@ -488,8 +522,10 @@ margin,
 y -= sectionSpacing
 
 /* =========================
-AFFITTO
+GESTIONE AFFITTO
 ========================= */
+
+ensureTableSpace((soci?.length || 0) + 2)
 
 drawHeader("GESTIONE AFFITTO")
 
