@@ -29,12 +29,35 @@ export async function inizializzaMese(mese: string) {
     saldo_iniziale_banca = Number(ultimoChiuso.saldo_iniziale_banca) || 0
   }
 
+  /* crea mese */
+
   await supabase.from("mesi").insert({
     mese,
     stato: "aperto",
     saldo_iniziale_cassa,
     saldo_iniziale_banca
   })
+
+  /* =========================
+     COPIA QUOTE SOCI DEL MESE
+     ========================= */
+
+  const { data: soci } = await supabase
+    .from("soci")
+    .select("id, quota_percentuale")
+
+  if (!soci) return
+
+  const quoteMese = soci.map(s => ({
+    mese,
+    socio_id: s.id,
+    quota_percentuale: s.quota_percentuale
+  }))
+
+  await supabase
+    .from("soci_quote_mese")
+    .insert(quoteMese)
+
 }
 
 /* =====================================================
