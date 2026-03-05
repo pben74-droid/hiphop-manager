@@ -29,8 +29,6 @@ export async function inizializzaMese(mese: string) {
     saldo_iniziale_banca = Number(ultimoChiuso.saldo_iniziale_banca) || 0
   }
 
-  /* crea mese */
-
   await supabase.from("mesi").insert({
     mese,
     stato: "aperto",
@@ -38,26 +36,22 @@ export async function inizializzaMese(mese: string) {
     saldo_iniziale_banca
   })
 
-  /* =========================
-     COPIA QUOTE SOCI DEL MESE
-     ========================= */
-
   const { data: soci } = await supabase
-.from("soci")
-.select("id, nome, quota_percentuale")
+    .from("soci")
+    .select("id, nome, quota_percentuale")
 
   if (!soci) return
 
   const quoteMese = soci.map(s => ({
-  mese,
-  socio_id: s.id,
-  nome_socio: s.nome,
-  quota_percentuale: s.quota_percentuale
-}))
+    mese,
+    socio_id: s.id,
+    nome_socio: s.nome,
+    quota_percentuale: s.quota_percentuale
+  }))
+
   await supabase
     .from("soci_quote_mese")
     .insert(quoteMese)
-
 }
 
 /* =====================================================
@@ -83,7 +77,6 @@ export async function calcolaSaldi(mese: string) {
 
     const importo = Number(m.importo) || 0
 
-    // ignoriamo movimenti che non devono influenzare il saldo reale
     if (
       m.categoria === "insegnante" ||
       m.categoria === "versamento_socio"
@@ -144,26 +137,16 @@ export async function calcolaQuotaSoci(mese: string) {
     .eq("mese", mese)
 
   const { data: sociQuote } = await supabase
-.from("soci_quote_mese")
-.select(`
-quota_percentuale,
-soci (
-id,
-nome
-)
-`)
-.eq("mese", mese)
-const soci = sociQuote?.map(q => {
+    .from("soci_quote_mese")
+    .select("socio_id, nome_socio, quota_percentuale")
+    .eq("mese", mese)
 
-  const socio = Array.isArray(q.soci) ? q.soci[0] : q.soci
-
-  return {
-    id: socio?.id,
-    nome: socio?.nome,
+  const soci = sociQuote?.map(q => ({
+    id: q.socio_id,
+    nome: q.nome_socio,
     quota_percentuale: q.quota_percentuale
-  }
+  })) || []
 
-}) || []
   const { data: versamenti } = await supabase
     .from("versamenti_soci")
     .select("*")
@@ -227,125 +210,4 @@ const soci = sociQuote?.map(q => {
     differenza_finale: Number((totale_versamenti - perdita).toFixed(2)),
     soci: sociCalcolo
   }
-}
-
-/* =====================================================
-   SEZIONE AFFITTO
-===================================================== */
-export async function generaSezioneAffitto(mese: string) {
-
-  const { data: affittoMese } = await supabase
-    .from("affitto_mese")
-    .select("*")
-    .eq("mese", mese)
-    .maybeSingle()
-
-  if (!affittoMese) return null
-
-  const { data: soci } = await supabase
-    .from("soci")
-    .select("*")
-
-  const { data: pagamenti } = await supabase
-    .from("affitto_pagamenti")
-    .select("*")
-    .eq("mese", mese)
-
-  const sociAffitto = soci?.map(s => {
-
-    const percentuale = Number(s.quota_percentuale) || 0
-
-    const quota =
-      Number(affittoMese.costo_mensile) *
-      (percentuale / 100)
-
-    const versato = pagamenti
-      ?.filter(p => p.socio_id === s.id)
-      .reduce((acc, p) => acc + Number(p.importo), 0) || 0
-
-    return {
-      id: s.id,
-      nome: s.nome,
-      quota: Number(quota.toFixed(2)),
-      versato: Number(versato.toFixed(2))
-    }
-  }) || []
-
-  return {
-    costo_mensile: Number(affittoMese.costo_mensile),
-    soci: sociAffitto
-  }
-}
-
-/* =====================================================
-   VERIFICA MESE CHIUSO
-===================================================== */
-export async function verificaMeseChiuso(mese: string) {
-
-  const { data } = await supabase
-    .from("mesi")
-    .select("stato")
-    .eq("mese", mese)
-    .maybeSingle()
-
-  return data?.stato === "chiuso"
-}
-
-/* =====================================================
-   CHIUDI MESE
-===================================================== */
-export async function chiudiMeseServer(mese: string) {
-
-  const { createClient } = await import("@supabase/supabase-js")
-
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  const riepilogo = await calcolaQuotaSoci(mese)
-
-  if (riepilogo.differenza_finale < 0) {
-    throw new Error("Mancano versamenti per coprire la perdita")
-  }
-
-  const saldi = await calcolaSaldi(mese)
-
-  const { error: closeError } = await supabaseAdmin
-    .from("mesi")
-    .update({ stato: "chiuso" })
-    .eq("mese", mese)
-
-  if (closeError) {
-    throw new Error(closeError.message)
-  }
-
-  const [anno, meseNumero] = mese.split("-").map(Number)
-
-  let nuovoAnno = anno
-  let nuovoMese = meseNumero + 1
-
-  if (nuovoMese === 13) {
-    nuovoMese = 1
-    nuovoAnno++
-  }
-
-  const meseSuccessivo = `${nuovoAnno}-${String(nuovoMese).padStart(2, "0")}`
-
-  const { data: esiste } = await supabaseAdmin
-    .from("mesi")
-    .select("mese")
-    .eq("mese", meseSuccessivo)
-    .maybeSingle()
-
-  if (!esiste) {
-    await supabaseAdmin.from("mesi").insert({
-      mese: meseSuccessivo,
-      stato: "aperto",
-      saldo_iniziale_cassa: saldi.saldo_cassa,
-      saldo_iniziale_banca: saldi.saldo_banca
-    })
-  }
-
-  return { success: true }
 }
