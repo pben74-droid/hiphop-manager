@@ -35,11 +35,17 @@ nome
 )
 `)
 .eq("mese", mese)
-const soci = sociQuote?.map(q => ({
-id: q.soci.id,
-nome: q.soci.nome,
-quota_percentuale: q.quota_percentuale
-})) || []
+const soci = sociQuote?.map(q => {
+
+  const socio = Array.isArray(q.soci) ? q.soci[0] : q.soci
+
+  return {
+    id: socio?.id,
+    nome: socio?.nome,
+    quota_percentuale: q.quota_percentuale
+  }
+
+}) || []
 const { data:versamentiSoci } = await supabase
 .from("versamenti_soci")
 .select("*")
