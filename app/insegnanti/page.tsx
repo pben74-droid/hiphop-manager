@@ -185,7 +185,7 @@ export default function InsegnantiPage() {
 
             mese,
             insegnante_id:i.id,
-            data:dataLezione.toISOString().slice(0,10),
+            data: `${anno}-${String(meseNumero).padStart(2,"0")}-${String(giorno).padStart(2,"0")}`
             ore:f.ore,
             costo_orario:f.costo_orario,
             rimborso_benzina:index===0 ? i.rimborso_benzina : 0,
