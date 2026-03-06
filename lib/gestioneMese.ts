@@ -80,8 +80,7 @@ export async function calcolaSaldi(mese: string) {
 
     if (
       m.categoria === "insegnante" ||
-      m.categoria === "versamento_socio"
-    ) return
+       ) return
 
     if (m.contenitore === "cassa_operativa") {
       saldo_cassa += importo
