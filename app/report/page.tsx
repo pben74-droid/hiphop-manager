@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
+import useRequireAuth from "@/lib/useRequireAuth"
 export default function ReportPage() {
-
+useRequireAuth()
   const [mese, setMese] = useState("");
   const [listaMesi, setListaMesi] = useState<string[]>([]);
 
