@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@supabase/supabase-js"
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib"
+import { calcolaSaldi } from "@/lib/gestioneMese"
 
 export async function GET(request: Request) {
 
@@ -62,8 +63,10 @@ const { data:meseData } = await supabase
 .eq("mese",mese)
 .maybeSingle()
 
-const saldoInizialeCassa = Number(meseData?.saldo_iniziale_cassa) || 0
-const saldoInizialeBanca = Number(meseData?.saldo_iniziale_banca) || 0
+const saldi = await calcolaSaldi(mese)
+
+const saldoInizialeCassa = saldi.saldo_cassa
+const saldoInizialeBanca = saldi.saldo_banca
 
 /* =========================
 AFFITTO
