@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { sincronizzaCompensi } from "@/lib/syncCompensi"
-
+import useRequireAuth from "@/lib/useRequireAuth"
 export default function LezioniPage() {
-
+useRequireAuth()
   const { mese } = useMese()
 
   const [lezioni,setLezioni] = useState<any[]>([])
