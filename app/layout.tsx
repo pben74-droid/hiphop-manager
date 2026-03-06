@@ -3,7 +3,6 @@ import Link from "next/link"
 import Image from "next/image"
 import { ReactNode } from "react"
 import { MeseProvider } from "@/lib/MeseContext"
-import AuthGuard from "@/components/AuthGuard"
 
 export default function RootLayout({
   children,
@@ -16,8 +15,7 @@ export default function RootLayout({
       <body className="bg-gray-100 text-gray-900">
 
        <MeseProvider>
- <AuthGuard>
-
+ 
   <div className="flex min-h-screen">
 
             {/* SIDEBAR */}
@@ -116,8 +114,7 @@ export default function RootLayout({
             </main>
 
           </div>
-
-          </AuthGuard>
+          
 </MeseProvider>
 
       </body>
