@@ -1,5 +1,6 @@
 "use client"
 
+import useRequireAuth from "@/lib/useRequireAuth"
 import { useEffect, useState } from "react"
 import { useMese } from "@/lib/MeseContext"
 import { supabase } from "@/lib/supabaseClient"
@@ -14,7 +15,7 @@ import {
 } from "@/lib/gestioneMese"
 
 export default function DashboardPage() {
-
+useRequireAuth()
   const { mese, setMese } = useMese()
 
   const [listaMesi, setListaMesi] = useState<string[]>([])
