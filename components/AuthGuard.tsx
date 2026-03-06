@@ -16,22 +16,24 @@ export default function AuthGuard({
 
   useEffect(()=>{
 
-    const checkUser = async () => {
+  const checkUser = async () => {
 
-      const { data } = await supabase.auth.getUser()
+    const { data } = await supabase.auth.getUser()
 
-      if(!data.user && pathname !== "/login"){
-  router.push("/login")
-} else {
-  setLoading(false)
-}
-
+    // se NON loggato e NON siamo su login → vai a login
+    if(!data.user && pathname !== "/login"){
+      router.push("/login")
+      return
     }
 
-    checkUser()
+    // se siamo su login oppure loggati → mostra pagina
+    setLoading(false)
 
-  },[])
+  }
 
+  checkUser()
+
+},[pathname])
   if(loading){
     return null
   }
