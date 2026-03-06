@@ -14,7 +14,7 @@ import {
 } from "@/lib/gestioneMese"
 
 export default function DashboardPage() {
-const router = useRouter()
+
   const { mese, setMese } = useMese()
 
   const [listaMesi, setListaMesi] = useState<string[]>([])
@@ -25,26 +25,7 @@ const router = useRouter()
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [loading, setLoading] = useState(false)
-const [checkingAuth, setCheckingAuth] = useState(true)
 
- useEffect(() => {
-
-  const checkSession = async () => {
-
-    const { data } = await supabase.auth.getSession()
-
-    if (!data.session) {
-      router.replace("/login")
-      return
-    }
-
-    setCheckingAuth(false)
-
-  }
-
-  checkSession()
-
-}, [])
   useEffect(() => {
     caricaListaMesi()
   }, [])
@@ -113,10 +94,6 @@ const [checkingAuth, setCheckingAuth] = useState(true)
   } catch (err) {
     console.error("Errore chiusura mese:", err)
   }
-}
-
-  if (checkingAuth) {
-  return <div className="p-10">Caricamento...</div>
 }
 
 return (
