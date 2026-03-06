@@ -238,7 +238,8 @@ const perdita =
 
 const risultato_reale =
   cassa_disponibile - totale_spese
-  const sociCalcolo = soci?.map(s => {
+  const spese_totali = totale_spese
+   const sociCalcolo = soci?.map(s => {
 
     const quota_calcolata =
       perdita * (Number(s.quota_percentuale) / 100)
