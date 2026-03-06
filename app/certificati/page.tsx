@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-
+import useRequireAuth from "@/lib/useRequireAuth"
 export default function CertificatiPage() {
+  useRequireAuth()
   const [atleti, setAtleti] = useState<any[]>([]);
   const [form, setForm] = useState({
     nome: "",
