@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { sincronizzaCompensi } from "@/lib/syncCompensi"
+import useRequireAuth from "@/lib/useRequireAuth"
 
 const giorniSettimana = [
   { value: 1, label: "Lunedì" },
@@ -16,7 +17,7 @@ const giorniSettimana = [
 ]
 
 export default function InsegnantiPage() {
-
+useRequireAuth()
   const { mese } = useMese()
 
   const [insegnanti,setInsegnanti] = useState<any[]>([])
