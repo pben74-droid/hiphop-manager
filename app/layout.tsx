@@ -16,7 +16,7 @@ export default function RootLayout({
       <body className="bg-gray-100 text-gray-900">
 
        <MeseProvider>
-  <AuthGuard>
+ {/* <AuthGuard> */}
 
   <div className="flex min-h-screen">
 
@@ -117,7 +117,7 @@ export default function RootLayout({
 
           </div>
 
-          </AuthGuard>
+          {/* </AuthGuard> */}
 </MeseProvider>
 
       </body>
