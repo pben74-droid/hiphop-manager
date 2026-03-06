@@ -79,7 +79,7 @@ export async function calcolaSaldi(mese: string) {
     const importo = Number(m.importo) || 0
 
     if (
-      m.categoria === "insegnante" ||
+      m.categoria === "insegnante"
        ) return
 
     if (m.contenitore === "cassa_operativa") {
