@@ -1,42 +1,35 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter, usePathname } from "next/navigation"
+import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 
-export default function AuthGuard({
-  children
-}: {
-  children: React.ReactNode
-}) {
+export default function AuthGuard({ children }: any) {
 
   const router = useRouter()
-  const pathname = usePathname()
-  const [loading,setLoading] = useState(true)
+  const [loading, setLoading] = useState(true)
 
-  useEffect(()=>{
+  useEffect(() => {
 
-  const checkUser = async () => {
+    const checkUser = async () => {
 
-    const { data } = await supabase.auth.getUser()
+      const { data } = await supabase.auth.getSession()
 
-    // se NON loggato e NON siamo su login → vai a login
-    if(!data.user && pathname !== "/login"){
-      router.push("/login")
-      return
+      if (!data.session) {
+        router.push("/login")
+      } else {
+        setLoading(false)
+      }
+
     }
 
-    // se siamo su login oppure loggati → mostra pagina
-    setLoading(false)
+    checkUser()
 
+  }, [])
+
+  if (loading) {
+    return <div className="p-6">Verifica accesso...</div>
   }
 
-  checkUser()
-
-},[pathname])
-  if(loading){
-    return null
-  }
-
-  return <>{children}</>
+  return children
 }
