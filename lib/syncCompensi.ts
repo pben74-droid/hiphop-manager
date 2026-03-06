@@ -2,12 +2,6 @@ import { supabase } from "./supabaseClient"
 
 export async function sincronizzaCompensi(mese: string) {
 
-  await supabase
-    .from("movimenti_finanziari")
-    .delete()
-    .eq("mese", mese)
-    .eq("categoria", "insegnante")
-
   const { data: lezioni } = await supabase
     .from("lezioni_insegnanti")
     .select("*")
@@ -15,7 +9,9 @@ export async function sincronizzaCompensi(mese: string) {
     .eq("pagato", false)
     .neq("stato", "annullata")
 
-  if (!lezioni || lezioni.length === 0) return
+  if (!lezioni || lezioni.length === 0) {
+    return []
+  }
 
   const totali: Record<string, number> = {}
 
@@ -36,22 +32,16 @@ export async function sincronizzaCompensi(mese: string) {
     .from("insegnanti")
     .select("id,nome")
 
-  const movimenti = Object.entries(totali).map(([id,tot]) => {
+  const riepilogo = Object.entries(totali).map(([id,tot]) => {
 
     const ins = insegnanti?.find(i => i.id === id)
 
     return {
-      mese,
-      tipo: "spesa",
-      categoria: "insegnante",
-      descrizione: `Compenso ${ins?.nome}`,
-      contenitore: "cassa_operativa",
-      importo: -Math.abs(Number(tot)),
-      data: new Date().toISOString().slice(0,10)
+      insegnante_id: id,
+      nome: ins?.nome,
+      totale: Number(tot)
     }
   })
 
-  await supabase
-    .from("movimenti_finanziari")
-    .insert(movimenti)
+  return riepilogo
 }
