@@ -430,7 +430,67 @@ export default function InsegnantiPage() {
       >
         Genera Calendario Mese
       </button>
+<div className="border p-4 rounded bg-white space-y-4">
 
+<h2 className="font-bold">
+  Lezione Straordinaria
+</h2>
+
+<select
+value={insegnanteId}
+onChange={e=>setInsegnanteId(e.target.value)}
+className="border p-2 w-full"
+>
+
+<option value="">Seleziona insegnante</option>
+
+{insegnanti.map(i=>(
+<option key={i.id} value={i.id}>
+{i.nome}
+</option>
+))}
+
+</select>
+
+<input
+type="date"
+value={data}
+onChange={e=>setData(e.target.value)}
+className="border p-2 w-full"
+/>
+
+<input
+type="number"
+placeholder="Ore"
+value={ore}
+onChange={e=>setOre(e.target.value)}
+className="border p-2 w-full"
+/>
+
+<input
+type="number"
+placeholder="Costo orario"
+value={costo}
+onChange={e=>setCosto(e.target.value)}
+className="border p-2 w-full"
+/>
+
+<input
+type="number"
+placeholder="Rimborso benzina"
+value={benzina}
+onChange={e=>setBenzina(e.target.value)}
+className="border p-2 w-full"
+/>
+
+<button
+onClick={salvaLezione}
+className="bg-blue-600 text-white px-6 py-2 rounded"
+>
+Salva Lezione
+</button>
+
+</div>
       <div className="space-y-2">
 
         {lezioni.map(l=>{
