@@ -144,7 +144,9 @@ insegnantiAggregati[nome]=0
 insegnantiAggregati[nome]+=Math.abs(Number(m.importo))
 
 })
-
+const { data: insegnanti } = await supabase
+.from("insegnanti")
+.select("id,nome")
 /* =========================
 AGGIUNTA LEZIONI NON PAGATE
 ========================= */
