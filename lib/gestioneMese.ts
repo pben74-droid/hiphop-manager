@@ -245,8 +245,9 @@ const risultato_reale =
 
 const quota_spesa = spese_totali * percentuale
 
-const quota_calcolata = perdita * percentuale
+const quota_cassa = cassa_disponibile * percentuale
 
+const quota_calcolata = perdita * percentuale
     const versato = versamenti
       ?.filter(v => v.socio_id === s.id)
       .reduce((acc, v) => acc + Number(v.importo), 0) || 0
@@ -254,12 +255,14 @@ const quota_calcolata = perdita * percentuale
     const differenza = versato - quota_calcolata
 
     return {
-      id: s.id,
-      nome: s.nome,
-       quota_spesa: Number(quota_spesa.toFixed(2)),
-      quota_calcolata: Number(quota_calcolata.toFixed(2)),
-      versato: Number(versato.toFixed(2)),
-      differenza: Number(differenza.toFixed(2))
+  id: s.id,
+  nome: s.nome,
+  quota_spesa: Number(quota_spesa.toFixed(2)),
+  quota_cassa: Number(quota_cassa.toFixed(2)),
+  quota_calcolata: Number(quota_calcolata.toFixed(2)),
+  versato: Number(versato.toFixed(2)),
+  differenza: Number(differenza.toFixed(2))
+}
     }
   }) || []
 
