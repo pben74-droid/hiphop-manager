@@ -1,79 +1,70 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { supabase } from "@/lib/supabaseClient";
-import { useRouter } from "next/navigation";
+import { useState } from "react"
+import { supabase } from "@/lib/supabaseClient"
 
 export default function LoginPage() {
 
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
-  const router = useRouter();
+  const [email,setEmail] = useState("")
+  const [password,setPassword] = useState("")
 
   const handleLogin = async () => {
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
-      password,
-    });
+      password
+    })
 
-    if (error) {
-      alert("Errore login: " + error.message);
-      return;
+    if(error){
+      alert("Errore login: " + error.message)
+      return
     }
 
-    if (data.user) {
-      router.replace("/");
-    }
+    window.location.href = "/"
 
-  };
+  }
 
   return (
-    <div
-      style={{
-        backgroundColor: "#0a0a0a",
-        height: "100vh",
-        display: "flex",
-        justifyContent: "center",
-        alignItems: "center",
-        color: "#FFD700",
-        fontFamily: "Arial",
-      }}
-    >
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+
+    <div style={{
+      height:"100vh",
+      display:"flex",
+      justifyContent:"center",
+      alignItems:"center",
+      background:"#0a0a0a",
+      color:"#FFD700"
+    }}>
+
+      <div style={{
+        display:"flex",
+        flexDirection:"column",
+        gap:10,
+        width:250
+      }}>
+
         <h2>Login Gestionale</h2>
 
         <input
           type="email"
           placeholder="Email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ padding: 10 }}
+          onChange={e=>setEmail(e.target.value)}
         />
 
         <input
           type="password"
           placeholder="Password"
           value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 10 }}
+          onChange={e=>setPassword(e.target.value)}
         />
 
-        <button
-          onClick={handleLogin}
-          style={{
-            backgroundColor: "#FFD700",
-            color: "black",
-            padding: 10,
-            fontWeight: "bold",
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={handleLogin}>
           Accedi
         </button>
 
       </div>
+
     </div>
-  );
+
+  )
 }
