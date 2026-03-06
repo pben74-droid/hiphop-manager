@@ -110,8 +110,10 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 
   const movimentiFiltrati = movimenti?.filter(m =>
     m.categoria !== "trasferimento" &&
-    m.categoria !== "versamento_socio"
+    m.categoria !== "versamento_socio" &&
+    m.categoria !== "pagamento_insegnante"
   ) || []
+
 /* =========================
 LEZIONI INSEGNANTI (nuovo sistema)
 ========================= */
@@ -120,6 +122,7 @@ const { data: lezioni } = await supabase
   .from("lezioni_insegnanti")
   .select("*")
   .eq("mese", mese)
+
   const totale_incassi = movimentiFiltrati
     .filter(m => m.tipo === "incasso")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
@@ -133,7 +136,6 @@ const { data: lezioni } = await supabase
     totale_spese: Number(totale_spese.toFixed(2))
   }
 }
-
 /* =====================================================
    CALCOLO QUOTA SOCI
 ===================================================== */
@@ -170,7 +172,8 @@ export async function calcolaQuotaSoci(mese: string) {
 
   const movimentiFiltrati = movimenti?.filter(m =>
     m.categoria !== "trasferimento" &&
-    m.categoria !== "versamento_socio"
+    m.categoria !== "versamento_socio" &&
+    m.categoria !== "pagamento_insegnante"
   ) || []
 
   const totale_incassi = movimentiFiltrati
