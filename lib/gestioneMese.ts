@@ -241,8 +241,11 @@ const risultato_reale =
   const spese_totali = totale_spese
    const sociCalcolo = soci?.map(s => {
 
-    const quota_calcolata =
-      perdita * (Number(s.quota_percentuale) / 100)
+    const percentuale = Number(s.quota_percentuale) / 100
+
+const quota_spesa = spese_totali * percentuale
+
+const quota_calcolata = perdita * percentuale
 
     const versato = versamenti
       ?.filter(v => v.socio_id === s.id)
