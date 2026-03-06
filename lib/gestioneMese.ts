@@ -110,26 +110,41 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 
   const movimentiFiltrati = movimenti?.filter(m =>
     m.categoria !== "trasferimento" &&
-    m.categoria !== "versamento_socio" &&
-    m.categoria !== "pagamento_insegnante"
+    m.categoria !== "versamento_socio"
   ) || []
-
-/* =========================
-LEZIONI INSEGNANTI (nuovo sistema)
-========================= */
-
-const { data: lezioni } = await supabase
-  .from("lezioni_insegnanti")
-  .select("*")
-  .eq("mese", mese)
 
   const totale_incassi = movimentiFiltrati
     .filter(m => m.tipo === "incasso")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
-  const totale_spese = movimentiFiltrati
+  const totale_spese_movimenti = movimentiFiltrati
     .filter(m => m.tipo === "spesa")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
+
+  /* =========================
+  LEZIONI INSEGNANTI NON PAGATE
+  ========================= */
+
+  const { data: lezioni } = await supabase
+    .from("lezioni_insegnanti")
+    .select("*")
+    .eq("mese", mese)
+    .eq("stato", "svolta")
+    .eq("pagato", false)
+
+  const totale_spese_insegnanti =
+    lezioni?.reduce((acc,l)=>{
+
+      const costo =
+        Number(l.ore) * Number(l.costo_orario) +
+        Number(l.rimborso_benzina || 0)
+
+      return acc + costo
+
+    },0) || 0
+
+  const totale_spese =
+    totale_spese_movimenti + totale_spese_insegnanti
 
   return {
     totale_incassi: Number(totale_incassi.toFixed(2)),
@@ -180,9 +195,34 @@ export async function calcolaQuotaSoci(mese: string) {
     .filter(m => m.tipo === "incasso")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
-  const totale_spese = movimentiFiltrati
+  const totale_spese_movimenti = movimentiFiltrati
     .filter(m => m.tipo === "spesa")
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
+
+  /* =========================
+  LEZIONI SVOLTE NON PAGATE
+  ========================= */
+
+  const { data: lezioni } = await supabase
+    .from("lezioni_insegnanti")
+    .select("*")
+    .eq("mese", mese)
+    .eq("stato", "svolta")
+    .eq("pagato", false)
+
+  const totale_spese_insegnanti =
+    lezioni?.reduce((acc,l)=>{
+
+      const costo =
+        Number(l.ore) * Number(l.costo_orario) +
+        Number(l.rimborso_benzina || 0)
+
+      return acc + costo
+
+    },0) || 0
+
+  const totale_spese =
+    totale_spese_movimenti + totale_spese_insegnanti
 
   const risultato_reale =
     saldo_iniziale + totale_incassi - totale_spese
