@@ -25,35 +25,7 @@ const router = useRouter()
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [loading, setLoading] = useState(false)
-useEffect(() => {
 
-  const checkSession = async () => {
-
-    const { data } = await supabase.auth.getSession()
-
-    if (!data.session) {
-      router.replace("/login")
-    }
-
-  }
-
-  const { data: listener } = supabase.auth.onAuthStateChange(
-    (_event, session) => {
-
-      if (!session) {
-        router.replace("/login")
-      }
-
-    }
-  )
-
-  checkSession()
-
-  return () => {
-    listener.subscription.unsubscribe()
-  }
-
-}, [])
   useEffect(() => {
     caricaListaMesi()
   }, [])
