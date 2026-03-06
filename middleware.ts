@@ -3,9 +3,14 @@ import type { NextRequest } from "next/server"
 
 export function middleware(request: NextRequest) {
 
-  const token = request.cookies.get("sb-access-token")
+  const token =
+    request.cookies.get("sb-access-token") ||
+    request.cookies.get("sb-refresh-token")
 
-  if (!token && !request.nextUrl.pathname.startsWith("/login")) {
+  const path = request.nextUrl.pathname
+
+  // lascia libera solo la pagina login
+  if (!token && path !== "/login") {
     return NextResponse.redirect(new URL("/login", request.url))
   }
 
@@ -14,10 +19,6 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/dashboard/:path*",
-    "/report/:path*",
-    "/insegnanti/:path*",
-    "/lezioni/:path*",
-    "/compensi/:path*"
+    "/((?!_next|favicon.ico|api).*)"
   ]
 }
