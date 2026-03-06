@@ -230,35 +230,61 @@ useEffect(() => {
       )}
 
       {/* RIPARTIZIONE SOCI */}
-      {quotaSoci && (
-        <div className="border border-yellow-500 p-6 rounded">
-          <h2 className="text-xl mb-4">Ripartizione Soci</h2>
+{quotaSoci && (
+  <div className="border border-yellow-500 p-6 rounded">
+    <h2 className="text-xl mb-4">Ripartizione Soci</h2>
 
-          {quotaSoci.soci.map((s: any) => (
-            <div
-              key={s.id}
-              className="flex justify-between border-b border-yellow-500 py-2"
-            >
-              <span>{s.nome}</span>
-              <span>
-               Spesa: {(s.quota_spesa ?? 0).toFixed(2)} € |
-Cassa: {(s.quota_cassa ?? 0).toFixed(2)} € |
-Da versare: {(s.quota_calcolata ?? 0).toFixed(2)} € |
-Versato: {(s.versato ?? 0).toFixed(2)} € |
-                <span className={
-                  s.differenza > 0
-                    ? "text-green-400 font-bold"
-                    : s.differenza < 0
-                    ? "text-red-500 font-bold"
-                    : "text-gray-300"
-                }>
-                  Diff: {s.differenza.toFixed(2)} €
-                </span>
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+    {quotaSoci.soci.map((s: any) => (
+      <div
+        key={s.id}
+        className="flex justify-between border-b border-yellow-500 py-2"
+      >
+        <span>{s.nome}</span>
+        <span>
+
+          Spesa:
+          <span className="text-red-500 font-bold ml-1">
+            {(s.quota_spesa ?? 0).toFixed(2)} €
+          </span>
+
+          {" | "}
+
+          Cassa:
+          <span className="text-green-400 font-bold ml-1">
+            {(s.quota_cassa ?? 0).toFixed(2)} €
+          </span>
+
+          {" | "}
+
+          Da versare:
+          <span className="text-red-500 font-bold ml-1">
+            {(s.quota_calcolata ?? 0).toFixed(2)} €
+          </span>
+
+          {" | "}
+
+          Versato:
+          <span className="text-green-400 font-bold ml-1">
+            {(s.versato ?? 0).toFixed(2)} €
+          </span>
+
+          {" | "}
+
+          <span className={
+            s.differenza > 0
+              ? "text-green-400 font-bold"
+              : s.differenza < 0
+              ? "text-red-500 font-bold"
+              : "text-gray-300"
+          }>
+            Diff: {s.differenza.toFixed(2)} €
+          </span>
+
+        </span>
+      </div>
+    ))}
+  </div>
+)}
 
       {/* AFFITTO */}
       {affitto && (
