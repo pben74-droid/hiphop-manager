@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso, calcolaQuotaSoci } from "@/lib/gestioneMese"
-
+import useRequireAuth from "@/lib/useRequireAuth"
 export default function VersamentiPage() {
-
+useRequireAuth()
   const { mese } = useMese()
 
   const [bloccato, setBloccato] = useState(false)
