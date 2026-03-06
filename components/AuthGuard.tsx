@@ -19,17 +19,12 @@ export default function AuthGuard({
     const checkSession = async () => {
 
       const { data } = await supabase.auth.getSession()
-
       const session = data.session
 
       if(!session && pathname !== "/login"){
         router.push("/login")
-        return
-      }
-
-      if(session && pathname === "/login"){
+      } else if(session && pathname === "/login"){
         router.push("/")
-        return
       }
 
       setLoading(false)
@@ -41,7 +36,7 @@ export default function AuthGuard({
   },[pathname,router])
 
   if(loading){
-    return null
+    return <div style={{padding:20}}>Caricamento...</div>
   }
 
   return <>{children}</>
