@@ -12,6 +12,8 @@ export async function sincronizzaCompensi(mese: string) {
     .from("lezioni_insegnanti")
     .select("*")
     .eq("mese", mese)
+    .eq("pagato", false)
+    .neq("stato", "annullata")
 
   if (!lezioni || lezioni.length === 0) return
 
