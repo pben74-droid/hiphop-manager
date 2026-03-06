@@ -169,8 +169,19 @@ export default function DashboardPage() {
         <div className="border border-yellow-500 p-6 rounded space-y-2">
           <h2 className="text-xl">Operativo</h2>
 
-          <p>Incassi: {riepilogo.totale_incassi.toFixed(2)} €</p>
-          <p>Spese: {riepilogo.totale_spese.toFixed(2)} €</p>
+          <p>
+            Incassi:
+            <span className="text-green-400 ml-2 font-bold">
+              {riepilogo.totale_incassi.toFixed(2)} €
+            </span>
+          </p>
+
+          <p>
+            Spese:
+            <span className="text-red-500 ml-2 font-bold">
+              {riepilogo.totale_spese.toFixed(2)} €
+            </span>
+          </p>
 
           <p>
            Totale costi da ripartire:
