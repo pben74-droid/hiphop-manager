@@ -438,10 +438,15 @@ export default function InsegnantiPage() {
               className="flex justify-between border p-2"
             >
 
-              <span>
-                {l.data} — {ins?.nome} —
-                {l.ore}h × {l.costo_orario}€
-              </span>
+             <span>
+  {new Date(l.data).toLocaleDateString("it-IT", {
+    weekday: "long",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  })} — {ins?.nome} —
+  {l.ore}h × {l.costo_orario}€
+</span>
 
               <button
                 onClick={()=>eliminaLezione(l.id)}
