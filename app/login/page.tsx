@@ -19,7 +19,7 @@ alert(JSON.stringify({ data, error }));
 
 console.log("LOGIN RESULT:", data, error);
 
-    if (error) {
+   if (error) {
   alert("Errore login: " + error.message);
 } else {
   window.location.href = "/";
