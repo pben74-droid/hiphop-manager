@@ -229,60 +229,63 @@ useEffect(() => {
         </div>
       )}
 
-      {/* RIPARTIZIONE SOCI */}
+     {/* RIPARTIZIONE SOCI */}
 {quotaSoci && (
   <div className="border border-yellow-500 p-6 rounded">
+
     <h2 className="text-xl mb-4">Ripartizione Soci</h2>
 
+    {/* HEADER TABELLA */}
+    <div className="grid grid-cols-6 font-bold border-b border-yellow-500 pb-2 mb-2 text-sm">
+      <div>Socio</div>
+      <div className="text-red-500">Spesa</div>
+      <div className="text-green-400">Cassa</div>
+      <div className="text-red-500">Da versare</div>
+      <div className="text-green-400">Versato</div>
+      <div>Diff</div>
+    </div>
+
     {quotaSoci.soci.map((s: any) => (
+
       <div
         key={s.id}
-        className="flex justify-between border-b border-yellow-500 py-2"
+        className="grid grid-cols-6 border-b border-yellow-500 py-2 text-sm"
       >
-        <span>{s.nome}</span>
-        <span>
 
-          Spesa:
-          <span className="text-red-500 font-bold ml-1">
-            {(s.quota_spesa ?? 0).toFixed(2)} €
-          </span>
+        <div>{s.nome}</div>
 
-          {" | "}
+        <div className="text-red-500 font-bold">
+          {(s.quota_spesa ?? 0).toFixed(2)} €
+        </div>
 
-          Cassa:
-          <span className="text-green-400 font-bold ml-1">
-            {(s.quota_cassa ?? 0).toFixed(2)} €
-          </span>
+        <div className="text-green-400 font-bold">
+          {(s.quota_cassa ?? 0).toFixed(2)} €
+        </div>
 
-          {" | "}
+        <div className="text-red-500 font-bold">
+          {(s.quota_calcolata ?? 0).toFixed(2)} €
+        </div>
 
-          Da versare:
-          <span className="text-red-500 font-bold ml-1">
-            {(s.quota_calcolata ?? 0).toFixed(2)} €
-          </span>
+        <div className="text-green-400 font-bold">
+          {(s.versato ?? 0).toFixed(2)} €
+        </div>
 
-          {" | "}
-
-          Versato:
-          <span className="text-green-400 font-bold ml-1">
-            {(s.versato ?? 0).toFixed(2)} €
-          </span>
-
-          {" | "}
-
-          <span className={
+        <div
+          className={
             s.differenza > 0
               ? "text-green-400 font-bold"
               : s.differenza < 0
               ? "text-red-500 font-bold"
-              : "text-gray-300"
-          }>
-            Diff: {s.differenza.toFixed(2)} €
-          </span>
+              : "text-gray-400"
+          }
+        >
+          {(s.differenza ?? 0).toFixed(2)} €
+        </div>
 
-        </span>
       </div>
+
     ))}
+
   </div>
 )}
 
