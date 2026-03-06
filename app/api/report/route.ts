@@ -157,7 +157,9 @@ const costo =
 Number(l.ore) * Number(l.costo_orario) +
 Number(l.rimborso_benzina || 0)
 
-const nome="INSEGNANTE"
+const ins = insegnanti?.find(i => i.id === l.insegnante_id)
+
+const nome = (ins?.nome || "ALTRO").toUpperCase()
 
 if(!insegnantiAggregati[nome]){
 insegnantiAggregati[nome]=0
@@ -166,7 +168,6 @@ insegnantiAggregati[nome]=0
 insegnantiAggregati[nome]+=costo
 
 })
-
 const nomiInsegnanti = Object.keys(insegnantiAggregati)
 
 /* =========================
