@@ -25,6 +25,18 @@ const { data:movimenti } = await supabase
 .select("*")
 .eq("mese",mese)
 
+/* =========================
+LEZIONI INSEGNANTI NON PAGATE
+AGGIUNTA
+========================= */
+
+const { data:lezioniInsegnanti } = await supabase
+.from("lezioni_insegnanti")
+.select("*")
+.eq("mese",mese)
+.eq("stato","svolta")
+.eq("pagato",false)
+
 /* LETTURA SOCI DALLO STORICO */
 
 const { data:sociQuote } = await supabase
@@ -89,9 +101,29 @@ m => m.categoria==="insegnante"
 ) || []
 
 const totaleIncassi = incassi.reduce((a,m)=>a+Number(m.importo),0)
-const totaleSpese = spese.reduce((a,m)=>a+Math.abs(Number(m.importo)),0)
 
 /* =========================
+CALCOLO SPESE
+MODIFICA
+========================= */
+
+const totaleSpeseMovimenti =
+spese.reduce((a,m)=>a+Math.abs(Number(m.importo)),0)
+
+const totaleSpeseLezioni =
+lezioniInsegnanti?.reduce((acc,l)=>{
+
+const costo =
+Number(l.ore) * Number(l.costo_orario) +
+Number(l.rimborso_benzina || 0)
+
+return acc + costo
+
+},0) || 0
+
+const totaleSpese =
+totaleSpeseMovimenti + totaleSpeseLezioni
+  /* =========================
 INSEGNANTI
 ========================= */
 
@@ -110,6 +142,26 @@ insegnantiAggregati[nome]=0
 }
 
 insegnantiAggregati[nome]+=Math.abs(Number(m.importo))
+
+})
+
+/* =========================
+AGGIUNTA LEZIONI NON PAGATE
+========================= */
+
+lezioniInsegnanti?.forEach(l=>{
+
+const costo =
+Number(l.ore) * Number(l.costo_orario) +
+Number(l.rimborso_benzina || 0)
+
+const nome="INSEGNANTE"
+
+if(!insegnantiAggregati[nome]){
+insegnantiAggregati[nome]=0
+}
+
+insegnantiAggregati[nome]+=costo
 
 })
 
@@ -179,7 +231,8 @@ if(v>0) return rgb(0,0.6,0)
 if(v<0) return rgb(0.8,0,0)
 return rgb(0,0,0)
 }
-  /* =========================
+
+/* =========================
 TABELLE
 ========================= */
 
@@ -266,8 +319,7 @@ x+=c.width
 y-=rowHeight
 
 }
-
-/* =========================
+  /* =========================
 LOGO
 ========================= */
 
