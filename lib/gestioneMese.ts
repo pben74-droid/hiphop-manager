@@ -224,13 +224,20 @@ export async function calcolaQuotaSoci(mese: string) {
   const totale_spese =
     totale_spese_movimenti + totale_spese_insegnanti
 
-  const risultato_reale =
-    saldo_iniziale + totale_incassi - totale_spese
+  /* =========================
+CASSA DISPONIBILE
+========================= */
 
-  const perdita = risultato_reale < 0
-    ? Math.abs(risultato_reale)
+const cassa_disponibile =
+  saldo_iniziale + totale_incassi
+
+const perdita =
+  totale_spese > cassa_disponibile
+    ? totale_spese - cassa_disponibile
     : 0
 
+const risultato_reale =
+  cassa_disponibile - totale_spese
   const sociCalcolo = soci?.map(s => {
 
     const quota_calcolata =
