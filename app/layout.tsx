@@ -66,6 +66,11 @@ export default function RootLayout({
                   Insegnanti
                 </Link>
 
+                {/* NUOVA PAGINA LEZIONI */}
+                <Link href="/lezioni" className="hover:text-yellow-500 transition">
+                  Lezioni
+                </Link>
+
                 <Link href="/compensi-insegnanti" className="hover:text-yellow-500 transition">
                   Calcolo Compensi
                 </Link>
