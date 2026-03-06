@@ -34,6 +34,8 @@ useEffect(() => {
 
     if (!data.user) {
       router.replace("/login")
+    } else {
+      setCheckingAuth(false)
     }
 
   }
@@ -112,6 +114,9 @@ useEffect(() => {
 }
 
   return (
+   if (checkingAuth) {
+  return <div className="p-10">Caricamento...</div>
+}
     <div className="space-y-8">
 
       {/* HEADER */}
