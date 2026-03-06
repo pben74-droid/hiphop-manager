@@ -25,7 +25,23 @@ const router = useRouter()
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [loading, setLoading] = useState(false)
+const [loading, setLoading] = useState(false)
 
+useEffect(() => {
+
+  const checkUser = async () => {
+
+    const { data } = await supabase.auth.getUser()
+
+    if (!data.user) {
+      router.replace("/login")
+    }
+
+  }
+
+  checkUser()
+
+}, [])
   useEffect(() => {
     caricaListaMesi()
   }, [])
