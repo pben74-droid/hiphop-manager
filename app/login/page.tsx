@@ -10,21 +10,25 @@ export default function LoginPage() {
   const router = useRouter();
 
   const handleLogin = async () => {
- const { data, error } = await supabase.auth.signInWithPassword({
-  email,
-  password,
-});
 
-alert(JSON.stringify({ data, error }));
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email,
+    password,
+  });
 
-console.log("LOGIN RESULT:", data, error);
+  if (error) {
+    alert("Errore login: " + error.message);
+    return;
+  }
 
-   if (error) {
-  alert("Errore login: " + error.message);
-} else {
-  window.location.href = "/";
-}
-  };
+  // aspetta che la sessione sia salvata
+  const { data: sessionData } = await supabase.auth.getSession();
+
+  if (sessionData.session) {
+    router.replace("/");
+  }
+
+};
 
   return (
     <div
