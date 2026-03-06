@@ -3,19 +3,13 @@ import Link from "next/link"
 import Image from "next/image"
 import { ReactNode } from "react"
 import { MeseProvider } from "@/lib/MeseContext"
-import { supabase } from "@/lib/supabaseClient"
-import { redirect } from "next/navigation"
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: ReactNode
 }) {
-  const { data } = await supabase.auth.getUser()
 
-if (!data.user) {
-  redirect("/login")
-}
   return (
     <html lang="it">
       <body className="bg-gray-100 text-gray-900">
