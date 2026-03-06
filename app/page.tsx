@@ -25,8 +25,9 @@ const router = useRouter()
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [loading, setLoading] = useState(false)
+const [checkingAuth, setCheckingAuth] = useState(true)
 
-useEffect(() => {
+  useEffect(() => {
 
   const checkUser = async () => {
 
