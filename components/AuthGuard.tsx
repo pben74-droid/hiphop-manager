@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, usePathname } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 
 export default function AuthGuard({
@@ -11,6 +11,7 @@ export default function AuthGuard({
 }) {
 
   const router = useRouter()
+  const pathname = usePathname()
   const [loading,setLoading] = useState(true)
 
   useEffect(()=>{
@@ -19,11 +20,11 @@ export default function AuthGuard({
 
       const { data } = await supabase.auth.getUser()
 
-      if(!data.user){
-        router.push("/login")
-      } else {
-        setLoading(false)
-      }
+      if(!data.user && pathname !== "/login"){
+  router.push("/login")
+} else {
+  setLoading(false)
+}
 
     }
 
