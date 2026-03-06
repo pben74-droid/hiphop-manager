@@ -522,7 +522,7 @@ soci?.forEach(s=>{
 const perc = Number(s.quota_percentuale)/100
 
 const quotaDisponibile =
-(totaleIncassi + saldoInizialeCassa) * perc
+saldoInizialeCassa * perc
 
 let totaleCosti = 0
 
