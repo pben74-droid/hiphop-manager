@@ -258,12 +258,11 @@ const quota_calcolata = perdita * percentuale
   id: s.id,
   nome: s.nome,
   quota_spesa: Number(quota_spesa.toFixed(2)),
-  quota_cassa: Number(quota_cassa.toFixed(2)),
   quota_calcolata: Number(quota_calcolata.toFixed(2)),
   versato: Number(versato.toFixed(2)),
-  differenza: Number(differenza.toFixed(2))
+  differenza: Number(differenza.toFixed(2)),
 }
-    }
+   
   }) || []
 
   const totale_versamenti =
