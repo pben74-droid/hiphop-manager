@@ -29,11 +29,13 @@ const [checkingAuth, setCheckingAuth] = useState(true)
 
   useEffect(() => {
 
-  const checkSession = async () => {
+  const checkUser = async () => {
 
-    const { data } = await supabase.auth.getSession()
+    const { data, error } = await supabase.auth.getUser()
 
-    if (!data.session) {
+    console.log("USER CHECK:", data, error)
+
+    if (!data.user) {
       router.replace("/login")
     } else {
       setCheckingAuth(false)
@@ -41,7 +43,7 @@ const [checkingAuth, setCheckingAuth] = useState(true)
 
   }
 
-  checkSession()
+  checkUser()
 
 }, [])
   useEffect(() => {
