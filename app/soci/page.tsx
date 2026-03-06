@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
-
+import useRequireAuth from "@/lib/useRequireAuth"
 export default function SociPage() {
+  useRequireAuth()
   const [soci, setSoci] = useState<any[]>([])
   const [nome, setNome] = useState("")
   const [quotaPercentuale, setQuotaPercentuale] = useState("")
