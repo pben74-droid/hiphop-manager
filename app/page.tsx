@@ -113,11 +113,12 @@ useEffect(() => {
   }
 }
 
-  return (
-   if (checkingAuth) {
+  if (checkingAuth) {
   return <div className="p-10">Caricamento...</div>
 }
-    <div className="space-y-8">
+
+return (
+  <div className="space-y-8">
 
       {/* HEADER */}
       <div className="flex justify-between items-center">
