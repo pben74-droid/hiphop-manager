@@ -289,25 +289,66 @@ useEffect(() => {
   </div>
 )}
 
-    {/* AFFITTO */}
+   {/* AFFITTO */}
 {affitto && (
   <div className="border border-yellow-500 p-6 rounded">
-    <h2 className="text-xl mb-4">Affitto (Separato)</h2>
 
-    <p>Costo: {affitto.costo_mensile.toFixed(2)} €</p>
+    <h2 className="text-xl mb-4">Affitto</h2>
 
-    {affitto.soci.map((s: any) => (
-      <div
-        key={s.id}
-        className="flex justify-between border-b border-yellow-500 py-2"
-      >
-        <span>{s.nome}</span>
-        <span>
-          Quota: {s.quota.toFixed(2)} € | 
-          Versato: {s.versato.toFixed(2)} €
-        </span>
-      </div>
-    ))}
+    <div className="mb-4">
+      Costo mensile:
+      <span className="text-red-500 font-bold ml-2">
+        {(affitto.costo_mensile ?? 0).toFixed(2)} €
+      </span>
+    </div>
+
+    {/* HEADER */}
+    <div className="grid grid-cols-4 font-bold border-b border-yellow-500 pb-2 mb-2 text-sm">
+      <div>Socio</div>
+      <div className="text-red-500">Quota</div>
+      <div className="text-green-400">Versato</div>
+      <div>Diff</div>
+    </div>
+
+    {affitto.soci.map((s: any) => {
+
+      const diff = (s.versato ?? 0) - (s.quota ?? 0)
+
+      return (
+
+        <div
+          key={s.id}
+          className="grid grid-cols-4 border-b border-yellow-500 py-2 text-sm"
+        >
+
+          <div>{s.nome}</div>
+
+          <div className="text-red-500 font-bold">
+            {(s.quota ?? 0).toFixed(2)} €
+          </div>
+
+          <div className="text-green-400 font-bold">
+            {(s.versato ?? 0).toFixed(2)} €
+          </div>
+
+          <div
+            className={
+              diff > 0
+                ? "text-green-400 font-bold"
+                : diff < 0
+                ? "text-red-500 font-bold"
+                : "text-gray-400"
+            }
+          >
+            {diff.toFixed(2)} €
+          </div>
+
+        </div>
+
+      )
+
+    })}
+
   </div>
 )}
 
