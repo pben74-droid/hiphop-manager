@@ -27,6 +27,21 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
+
+  const checkSession = async () => {
+
+    const { data } = await supabase.auth.getSession()
+
+    if (!data.session) {
+      window.location.href = "/login"
+    }
+
+  }
+
+  checkSession()
+
+}, [])
+  useEffect(() => {
     caricaListaMesi()
   }, [])
 
