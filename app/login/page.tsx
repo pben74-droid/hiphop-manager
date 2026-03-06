@@ -16,10 +16,10 @@ export default function LoginPage() {
     });
 
     if (error) {
-      alert("Errore login: " + error.message);
-    } else {
-      router.push("/");
-    }
+  alert("Errore login: " + error.message);
+} else {
+  window.location.href = "/";
+}
   };
 
   return (
