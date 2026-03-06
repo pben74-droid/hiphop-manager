@@ -4,9 +4,9 @@ import { useEffect, useState } from "react"
 import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso } from "@/lib/gestioneMese"
-
+import useRequireAuth from "@/lib/useRequireAuth"
 export default function SpesePage() {
-
+useRequireAuth()
   const { mese } = useMese()
 
   const [descrizione, setDescrizione] = useState("")
