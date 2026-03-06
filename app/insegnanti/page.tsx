@@ -153,14 +153,18 @@ export default function InsegnantiPage() {
       .from("insegnanti_fasce")
       .select("*")
 
+    const {data:lezioniEsistenti} = await supabase
+      .from("lezioni_insegnanti")
+      .select("insegnante_id,data")
+      .eq("mese",mese)
+
     const [anno,meseNumero]=mese.split("-").map(Number)
 
     const giorniNelMese =
       new Date(anno,meseNumero,0).getDate()
 
     const nuoveLezioni:any[]=[]
-
-    for(let giorno=1;giorno<=giorniNelMese;giorno++){
+          for(let giorno=1;giorno<=giorniNelMese;giorno++){
 
       const dataLezione =
         new Date(anno,meseNumero-1,giorno)
@@ -181,17 +185,30 @@ export default function InsegnantiPage() {
 
         fasceInsegnante.forEach((f,index)=>{
 
-          nuoveLezioni.push({
+          const dataFormattata =
+            `${anno}-${String(meseNumero).padStart(2,"0")}-${String(giorno).padStart(2,"0")}`
 
-            mese,
-            insegnante_id:i.id,
-            data: `${anno}-${String(meseNumero).padStart(2,"0")}-${String(giorno).padStart(2,"0")}`,
-            ore:f.ore,
-            costo_orario:f.costo_orario,
-            rimborso_benzina:index===0 ? i.rimborso_benzina : 0,
-            stato:"programmata"
+          const esiste = lezioniEsistenti?.some(
+            l =>
+              l.insegnante_id===i.id &&
+              l.data===dataFormattata
+          )
 
-          })
+          if(!esiste){
+
+            nuoveLezioni.push({
+
+              mese,
+              insegnante_id:i.id,
+              data:dataFormattata,
+              ore:f.ore,
+              costo_orario:f.costo_orario,
+              rimborso_benzina:index===0 ? i.rimborso_benzina : 0,
+              stato:"programmata"
+
+            })
+
+          }
 
         })
 
@@ -199,21 +216,21 @@ export default function InsegnantiPage() {
 
     }
 
-    await supabase
-      .from("lezioni_insegnanti")
-      .delete()
-      .eq("mese",mese)
+    if(nuoveLezioni.length>0){
 
-    await supabase
-      .from("lezioni_insegnanti")
-      .insert(nuoveLezioni)
+      await supabase
+        .from("lezioni_insegnanti")
+        .insert(nuoveLezioni)
+
+    }
 
     await sincronizzaCompensi(mese)
 
     carica()
 
   }
-   const salvaLezione = async () => {
+
+  const salvaLezione = async () => {
 
     if(!insegnanteId || !data){
       alert("Inserisci insegnante e data")
@@ -261,8 +278,6 @@ export default function InsegnantiPage() {
       <h1 className="text-2xl font-bold">
         Gestione Insegnanti
       </h1>
-
-      {/* CREAZIONE INSEGNANTE */}
 
       <div className="border p-4 rounded bg-white space-y-4">
 
@@ -350,8 +365,6 @@ export default function InsegnantiPage() {
 
       </div>
 
-      {/* ELENCO INSEGNANTI */}
-
       <div className="border p-4 rounded bg-white space-y-2">
 
         <h2 className="font-bold">
@@ -411,16 +424,12 @@ export default function InsegnantiPage() {
 
       </div>
 
-      {/* GENERA CALENDARIO */}
-
       <button
         onClick={generaCalendario}
         className="bg-green-600 text-white px-4 py-2 rounded"
       >
         Genera Calendario Mese
       </button>
-
-      {/* ELENCO LEZIONI */}
 
       <div className="space-y-2">
 
@@ -438,15 +447,15 @@ export default function InsegnantiPage() {
               className="flex justify-between border p-2"
             >
 
-             <span>
-  {new Date(l.data).toLocaleDateString("it-IT", {
-    weekday: "long",
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric"
-  })} — {ins?.nome} —
-  {l.ore}h × {l.costo_orario}€
-</span>
+              <span>
+                {new Date(l.data).toLocaleDateString("it-IT",{
+                  weekday:"long",
+                  day:"2-digit",
+                  month:"2-digit",
+                  year:"numeric"
+                })} — {ins?.nome} —
+                {l.ore}h × {l.costo_orario}€
+              </span>
 
               <button
                 onClick={()=>eliminaLezione(l.id)}
