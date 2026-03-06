@@ -289,27 +289,27 @@ useEffect(() => {
   </div>
 )}
 
-      {/* AFFITTO */}
-      {affitto && (
-        <div className="border border-yellow-500 p-6 rounded">
-          <h2 className="text-xl mb-4">Affitto (Separato)</h2>
+    {/* AFFITTO */}
+{affitto && (
+  <div className="border border-yellow-500 p-6 rounded">
+    <h2 className="text-xl mb-4">Affitto (Separato)</h2>
 
-          <p>Costo: {affitto.costo_mensile.toFixed(2)} €</p>
+    <p>Costo: {affitto.costo_mensile.toFixed(2)} €</p>
 
-          {affitto.soci.map((s: any) => (
-            <div
-              key={s.id}
-              className="flex justify-between border-b border-yellow-500 py-2"
-            >
-              <span>{s.nome}</span>
-              <span>
-                Quota: {s.quota.toFixed(2)} € | 
-                Versato: {s.versato.toFixed(2)} €
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
+    {affitto.soci.map((s: any) => (
+      <div
+        key={s.id}
+        className="flex justify-between border-b border-yellow-500 py-2"
+      >
+        <span>{s.nome}</span>
+        <span>
+          Quota: {s.quota.toFixed(2)} € | 
+          Versato: {s.versato.toFixed(2)} €
+        </span>
+      </div>
+    ))}
+  </div>
+)}
 
       {/* AZIONI */}
 <div className="flex justify-between">
