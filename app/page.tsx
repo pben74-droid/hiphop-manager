@@ -27,17 +27,31 @@ const router = useRouter()
   const [loading, setLoading] = useState(false)
 useEffect(() => {
 
-  const controllaUtente = async () => {
+  const checkSession = async () => {
 
     const { data } = await supabase.auth.getSession()
 
     if (!data.session) {
-      router.push("/login")
+      router.replace("/login")
     }
 
   }
 
-  controllaUtente()
+  const { data: listener } = supabase.auth.onAuthStateChange(
+    (_event, session) => {
+
+      if (!session) {
+        router.replace("/login")
+      }
+
+    }
+  )
+
+  checkSession()
+
+  return () => {
+    listener.subscription.unsubscribe()
+  }
 
 }, [])
   useEffect(() => {
