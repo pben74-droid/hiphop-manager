@@ -5,30 +5,29 @@ import { supabase } from "@/lib/supabaseClient";
 import { useRouter } from "next/navigation";
 
 export default function LoginPage() {
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
   const router = useRouter();
 
   const handleLogin = async () => {
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) {
-    alert("Errore login: " + error.message);
-    return;
-  }
+    if (error) {
+      alert("Errore login: " + error.message);
+      return;
+    }
 
-  // aspetta che la sessione sia salvata
-  const { data: sessionData } = await supabase.auth.getSession();
+    if (data.user) {
+      router.replace("/");
+    }
 
-  if (sessionData.session) {
-    router.replace("/");
-  }
-
-};
+  };
 
   return (
     <div
@@ -44,6 +43,7 @@ export default function LoginPage() {
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h2>Login Gestionale</h2>
+
         <input
           type="email"
           placeholder="Email"
@@ -51,6 +51,7 @@ export default function LoginPage() {
           onChange={(e) => setEmail(e.target.value)}
           style={{ padding: 10 }}
         />
+
         <input
           type="password"
           placeholder="Password"
@@ -58,6 +59,7 @@ export default function LoginPage() {
           onChange={(e) => setPassword(e.target.value)}
           style={{ padding: 10 }}
         />
+
         <button
           onClick={handleLogin}
           style={{
@@ -70,6 +72,7 @@ export default function LoginPage() {
         >
           Accedi
         </button>
+
       </div>
     </div>
   );
