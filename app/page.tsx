@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useMese } from "@/lib/MeseContext"
+import { supabase } from "@/lib/supabaseClient"
+import { useRouter } from "next/navigation"
 import {
   inizializzaMese,
   calcolaSaldi,
@@ -12,7 +14,7 @@ import {
 } from "@/lib/gestioneMese"
 
 export default function DashboardPage() {
-
+const router = useRouter()
   const { mese, setMese } = useMese()
 
   const [listaMesi, setListaMesi] = useState<string[]>([])
@@ -23,7 +25,21 @@ export default function DashboardPage() {
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [loading, setLoading] = useState(false)
+useEffect(() => {
 
+  const controllaUtente = async () => {
+
+    const { data } = await supabase.auth.getUser()
+
+    if (!data.user) {
+      router.push("/login")
+    }
+
+  }
+
+  controllaUtente()
+
+}, [])
   useEffect(() => {
     caricaListaMesi()
   }, [])
