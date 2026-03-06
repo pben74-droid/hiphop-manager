@@ -225,9 +225,10 @@ export default function DashboardPage() {
             >
               <span>{s.nome}</span>
               <span>
-                Spesa: {s.quota_spesa.toFixed(2)} € |
+               Spesa: {s.quota_spesa.toFixed(2)} € |
+Cassa: {s.quota_cassa.toFixed(2)} € |
 Da versare: {s.quota_calcolata.toFixed(2)} € |
-                Versato: {s.versato.toFixed(2)} € | 
+Versato: {s.versato.toFixed(2)} € |
                 <span className={
                   s.differenza > 0
                     ? "text-green-400 font-bold"
