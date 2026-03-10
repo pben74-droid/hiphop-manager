@@ -26,7 +26,8 @@ useRequireAuth()
   const [affitto, setAffitto] = useState<any>(null)
   const [meseChiuso, setMeseChiuso] = useState(false)
   const [loading, setLoading] = useState(false)
-
+  const [certificatiAlert, setCertificatiAlert] = useState<any[]>([])
+  
   useEffect(() => {
 
   const checkSession = async () => {
@@ -75,7 +76,28 @@ useRequireAuth()
       setRiepilogo(riepilogoOperativo)
       setQuotaSoci(quote)
       setAffitto(affittoData)
+// ALERT CERTIFICATI MEDICI
 
+const { data: certificati } = await supabase
+  .from("certificati_medici")
+  .select("*")
+
+const oggi = new Date()
+
+const alertCertificati = (certificati || []).filter((c:any) => {
+
+  const scadenza = new Date(c.data_scadenza)
+
+  const diff = Math.ceil(
+    (scadenza.getTime() - oggi.getTime()) /
+    (1000 * 60 * 60 * 24)
+  )
+
+  return diff <= 30
+
+})
+
+setCertificatiAlert(alertCertificati)
     } catch (err) {
       console.error("Errore caricamento dashboard:", err)
     } finally {
@@ -353,7 +375,58 @@ return (
 
   </div>
 )}
+{/* ALERT CERTIFICATI MEDICI */}
 
+{certificatiAlert.length > 0 && (
+
+<div className="border border-red-500 p-6 rounded">
+
+<h2 className="text-xl mb-4 text-red-500">
+⚠ Certificati Medici
+</h2>
+
+{certificatiAlert.map((c:any)=>{
+
+const oggi = new Date()
+const scadenza = new Date(c.data_scadenza)
+
+const diff = Math.ceil(
+(scadenza.getTime() - oggi.getTime()) /
+(1000*60*60*24)
+)
+
+return (
+
+<div
+key={c.id}
+className="flex justify-between border-b border-red-500 py-2"
+>
+
+<span>
+{c.cognome} {c.nome}
+</span>
+
+<span className={
+diff < 0
+? "text-red-500 font-bold"
+: "text-orange-500 font-bold"
+}>
+
+{diff < 0
+? `Scaduto il ${scadenza.toLocaleDateString("it-IT")}`
+: `Scade il ${scadenza.toLocaleDateString("it-IT")}`}
+
+</span>
+
+</div>
+
+)
+
+})}
+
+</div>
+
+)}
       {/* AZIONI */}
 <div className="flex justify-between">
 
