@@ -144,11 +144,22 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 
   const totale_spese =
     totale_spese_movimenti + totale_spese_insegnanti
+const spese_pagate_cassa = totale_spese_movimenti
 
-  return {
-    totale_incassi: Number(totale_incassi.toFixed(2)),
-    totale_spese: Number(totale_spese.toFixed(2))
-  }
+const saldi = await calcolaSaldi(mese)
+
+const cassa_reale = saldi.saldo_cassa
+
+const differenza_da_ripartire =
+  totale_spese > cassa_reale
+    ? totale_spese - cassa_reale
+    : 0
+ return {
+  totale_incassi: Number(totale_incassi.toFixed(2)),
+  totale_spese: Number(totale_spese.toFixed(2)),
+  spese_pagate_cassa: Number(spese_pagate_cassa.toFixed(2)),
+  differenza_da_ripartire: Number(differenza_da_ripartire.toFixed(2))
+}
 }
 /* =====================================================
    CALCOLO QUOTA SOCI
