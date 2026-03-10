@@ -222,16 +222,21 @@ return (
               {riepilogo.totale_spese.toFixed(2)} €
             </span>
           </p>
-
+<p>
+di cui pagate per cassa:
+<span className="text-red-400 ml-2 font-bold">
+{riepilogo.spese_pagate_cassa.toFixed(2)} €
+</span>
+</p>
           <p>
-           Totale costi da ripartire:
-  <span className={
-    quotaSoci.perdita > 0
-      ? "text-red-500 ml-2 font-bold"
-      : "text-green-400 ml-2 font-bold"
-  }>
-    {quotaSoci.perdita.toFixed(2)} €
-  </span>
+Differenza da ripartire:
+<span className={
+riepilogo.differenza_da_ripartire > 0
+? "text-red-500 ml-2 font-bold"
+: "text-green-400 ml-2 font-bold"
+}>
+{riepilogo.differenza_da_ripartire.toFixed(2)} €
+</span>
 </p>
          
           <p>
