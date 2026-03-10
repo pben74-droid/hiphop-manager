@@ -8,7 +8,7 @@ export default function CertificatiPage() {
   useRequireAuth();
 
   const [atleti, setAtleti] = useState<any[]>([]);
-
+const [editId, setEditId] = useState<string | null>(null)
   const [form, setForm] = useState({
     nome: "",
     cognome: "",
@@ -31,27 +31,55 @@ export default function CertificatiPage() {
   };
 
   const salva = async () => {
-    if (!form.nome || !form.cognome || !form.data_scadenza) {
-      alert("Compila i campi obbligatori");
-      return;
-    }
 
-    await supabase.from("certificati_medici").insert(form);
+  if (!form.nome || !form.cognome || !form.data_scadenza) {
+    alert("Compila i campi obbligatori")
+    return
+  }
 
-    setForm({
-      nome: "",
-      cognome: "",
-      indirizzo: "",
-      codice_fiscale: "",
-      data_scadenza: "",
-    });
+  if (editId) {
 
-    loadData();
-  };
+    await supabase
+      .from("certificati_medici")
+      .update(form)
+      .eq("id", editId)
+
+  } else {
+
+    await supabase
+      .from("certificati_medici")
+      .insert(form)
+
+  }
+
+  setForm({
+    nome: "",
+    cognome: "",
+    indirizzo: "",
+    codice_fiscale: "",
+    data_scadenza: "",
+  })
+
+  setEditId(null)
+
+  loadData()
+};
 
   const elimina = async (id: string) => {
     await supabase.from("certificati_medici").delete().eq("id", id);
     loadData();
+  const modifica = (a:any) => {
+
+  setForm({
+    nome: a.nome,
+    cognome: a.cognome,
+    indirizzo: a.indirizzo || "",
+    codice_fiscale: a.codice_fiscale || "",
+    data_scadenza: a.data_scadenza,
+  })
+
+  setEditId(a.id)
+}
   };
 
   const getStato = (data: string) => {
@@ -172,11 +200,18 @@ export default function CertificatiPage() {
             <br />
 
             <button
-              onClick={() => elimina(a.id)}
-              style={{ marginTop: 5 }}
-            >
-              Elimina
-            </button>
+  onClick={() => modifica(a)}
+  style={{ marginTop: 5, marginRight: 10 }}
+>
+  Modifica
+</button>
+
+<button
+  onClick={() => elimina(a.id)}
+  style={{ marginTop: 5 }}
+>
+  Elimina
+</button>
           </div>
         );
       })}
