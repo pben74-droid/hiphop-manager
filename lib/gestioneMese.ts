@@ -227,8 +227,9 @@ export async function calcolaQuotaSoci(mese: string) {
 CASSA DISPONIBILE
 ========================= */
 
-const cassa_disponibile =
-  saldo_iniziale + totale_incassi
+const saldi = await calcolaSaldi(mese)
+
+const cassa_disponibile = saldi.saldo_cassa
 
 const perdita =
   totale_spese > cassa_disponibile
