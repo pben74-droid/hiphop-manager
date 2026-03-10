@@ -2,10 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import useRequireAuth from "@/lib/useRequireAuth"
+import useRequireAuth from "@/lib/useRequireAuth";
+
 export default function CertificatiPage() {
-  useRequireAuth()
+  useRequireAuth();
+
   const [atleti, setAtleti] = useState<any[]>([]);
+
   const [form, setForm] = useState({
     nome: "",
     cognome: "",
@@ -71,6 +74,10 @@ export default function CertificatiPage() {
     return { testo: "Certificato Valido", colore: "green" };
   };
 
+  const formattaData = (data: string) => {
+    return new Date(data).toLocaleDateString("it-IT");
+  };
+
   return (
     <div>
       <h1>Certificati Medici</h1>
@@ -83,6 +90,7 @@ export default function CertificatiPage() {
             setForm({ ...form, nome: e.target.value })
           }
         />
+
         <input
           placeholder="Cognome"
           value={form.cognome}
@@ -90,20 +98,27 @@ export default function CertificatiPage() {
             setForm({ ...form, cognome: e.target.value })
           }
         />
+
         <input
-          placeholder="Indirizzo"
+          placeholder="Residenza"
           value={form.indirizzo}
           onChange={(e) =>
             setForm({ ...form, indirizzo: e.target.value })
           }
         />
+
         <input
+          type="text"
           placeholder="Codice Fiscale"
           value={form.codice_fiscale}
           onChange={(e) =>
-            setForm({ ...form, codice_fiscale: e.target.value })
+            setForm({
+              ...form,
+              codice_fiscale: e.target.value.toUpperCase(),
+            })
           }
         />
+
         <input
           type="date"
           value={form.data_scadenza}
@@ -135,16 +150,27 @@ export default function CertificatiPage() {
             <strong>
               {a.cognome} {a.nome}
             </strong>
+
             <br />
-            CF: {a.codice_fiscale}
+
+            Codice fiscale: {a.codice_fiscale}
+
             <br />
-            Scadenza: {a.data_scadenza}
+
+            Residenza: {a.indirizzo || "-"}
+
             <br />
+
+            Scadenza: {formattaData(a.data_scadenza)}
+
+            <br />
+
             <span style={{ color: stato.colore }}>
               {stato.testo}
             </span>
 
             <br />
+
             <button
               onClick={() => elimina(a.id)}
               style={{ marginTop: 5 }}
