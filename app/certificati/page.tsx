@@ -5,10 +5,12 @@ import { supabase } from "@/lib/supabaseClient";
 import useRequireAuth from "@/lib/useRequireAuth";
 
 export default function CertificatiPage() {
+
   useRequireAuth();
 
   const [atleti, setAtleti] = useState<any[]>([]);
-const [editId, setEditId] = useState<string | null>(null)
+  const [editId, setEditId] = useState<string | null>(null);
+
   const [form, setForm] = useState({
     nome: "",
     cognome: "",
@@ -22,73 +24,84 @@ const [editId, setEditId] = useState<string | null>(null)
   }, []);
 
   const loadData = async () => {
+
     const { data } = await supabase
       .from("certificati_medici")
       .select("*")
       .order("cognome");
 
     setAtleti(data || []);
+
   };
 
   const salva = async () => {
 
-  if (!form.nome || !form.cognome || !form.data_scadenza) {
-    alert("Compila i campi obbligatori")
-    return
-  }
+    if (!form.nome || !form.cognome || !form.data_scadenza) {
+      alert("Compila i campi obbligatori");
+      return;
+    }
 
-  if (editId) {
+    if (editId) {
 
-    await supabase
-      .from("certificati_medici")
-      .update(form)
-      .eq("id", editId)
+      await supabase
+        .from("certificati_medici")
+        .update(form)
+        .eq("id", editId);
 
-  } else {
+    } else {
 
-    await supabase
-      .from("certificati_medici")
-      .insert(form)
+      await supabase
+        .from("certificati_medici")
+        .insert(form);
 
-  }
+    }
 
-  setForm({
-    nome: "",
-    cognome: "",
-    indirizzo: "",
-    codice_fiscale: "",
-    data_scadenza: "",
-  })
+    setForm({
+      nome: "",
+      cognome: "",
+      indirizzo: "",
+      codice_fiscale: "",
+      data_scadenza: "",
+    });
 
-  setEditId(null)
+    setEditId(null);
 
-  loadData()
-};
+    loadData();
+  };
 
   const elimina = async (id: string) => {
-    await supabase.from("certificati_medici").delete().eq("id", id);
+
+    await supabase
+      .from("certificati_medici")
+      .delete()
+      .eq("id", id);
+
     loadData();
-  const modifica = (a:any) => {
 
-  setForm({
-    nome: a.nome,
-    cognome: a.cognome,
-    indirizzo: a.indirizzo || "",
-    codice_fiscale: a.codice_fiscale || "",
-    data_scadenza: a.data_scadenza,
-  })
+  };
 
-  setEditId(a.id)
-}
+  const modifica = (a: any) => {
+
+    setForm({
+      nome: a.nome,
+      cognome: a.cognome,
+      indirizzo: a.indirizzo || "",
+      codice_fiscale: a.codice_fiscale || "",
+      data_scadenza: a.data_scadenza,
+    });
+
+    setEditId(a.id);
+
   };
 
   const getStato = (data: string) => {
+
     const oggi = new Date();
     const scadenza = new Date(data);
 
     const diff = Math.ceil(
       (scadenza.getTime() - oggi.getTime()) /
-        (1000 * 60 * 60 * 24)
+      (1000 * 60 * 60 * 24)
     );
 
     if (diff < 0) {
@@ -100,6 +113,7 @@ const [editId, setEditId] = useState<string | null>(null)
     }
 
     return { testo: "Certificato Valido", colore: "green" };
+
   };
 
   const formattaData = (data: string) => {
@@ -107,10 +121,13 @@ const [editId, setEditId] = useState<string | null>(null)
   };
 
   return (
+
     <div>
+
       <h1>Certificati Medici</h1>
 
       <div style={{ marginBottom: 30 }}>
+
         <input
           placeholder="Nome"
           value={form.nome}
@@ -158,15 +175,20 @@ const [editId, setEditId] = useState<string | null>(null)
           }
         />
 
-        <button onClick={salva}>Salva</button>
+        <button onClick={salva}>
+          {editId ? "Aggiorna" : "Salva"}
+        </button>
+
       </div>
 
       <h2>Elenco Atleti</h2>
 
       {atleti.map((a) => {
+
         const stato = getStato(a.data_scadenza);
 
         return (
+
           <div
             key={a.id}
             style={{
@@ -175,6 +197,7 @@ const [editId, setEditId] = useState<string | null>(null)
               marginBottom: 10,
             }}
           >
+
             <strong>
               {a.cognome} {a.nome}
             </strong>
@@ -200,21 +223,27 @@ const [editId, setEditId] = useState<string | null>(null)
             <br />
 
             <button
-  onClick={() => modifica(a)}
-  style={{ marginTop: 5, marginRight: 10 }}
->
-  Modifica
-</button>
+              onClick={() => modifica(a)}
+              style={{ marginTop: 5, marginRight: 10 }}
+            >
+              Modifica
+            </button>
 
-<button
-  onClick={() => elimina(a.id)}
-  style={{ marginTop: 5 }}
->
-  Elimina
-</button>
+            <button
+              onClick={() => elimina(a.id)}
+              style={{ marginTop: 5 }}
+            >
+              Elimina
+            </button>
+
           </div>
+
         );
+
       })}
+
     </div>
+
   );
+
 }
