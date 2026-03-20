@@ -222,13 +222,15 @@ return (
               {riepilogo.totale_spese.toFixed(2)} €
             </span>
           </p>
+
 <p>
 di cui pagate per cassa:
 <span className="text-red-400 ml-2 font-bold">
 {riepilogo.spese_pagate_cassa.toFixed(2)} €
 </span>
 </p>
-          <p>
+
+<p>
 Differenza da ripartire:
 <span className={
 riepilogo.differenza_da_ripartire > 0
@@ -267,11 +269,11 @@ riepilogo.differenza_da_ripartire > 0
     {/* HEADER TABELLA */}
     <div className="grid grid-cols-6 font-bold border-b border-yellow-500 pb-2 mb-2 text-sm">
       <div>Socio</div>
-      <div className="text-red-500">Spesa</div>
-      <div className="text-green-400">Cassa</div>
-      <div className="text-red-500">Da versare</div>
+      <div className="text-red-500">Quota Spese</div>
+      <div className="text-green-400">Quota Cassa</div>
+      <div className="text-red-500">Saldo</div>
       <div className="text-green-400">Versato</div>
-      <div>Diff</div>
+      <div>Da Regolare</div>
     </div>
 
     {quotaSoci.soci.map((s: any) => (
@@ -292,7 +294,7 @@ riepilogo.differenza_da_ripartire > 0
         </div>
 
         <div className="text-red-500 font-bold">
-          {(s.quota_calcolata ?? 0).toFixed(2)} €
+          {((s.quota_spesa ?? 0) - (s.quota_cassa ?? 0)).toFixed(2)} €
         </div>
 
         <div className="text-green-400 font-bold">
@@ -380,6 +382,7 @@ riepilogo.differenza_da_ripartire > 0
 
   </div>
 )}
+
 {/* ALERT CERTIFICATI MEDICI */}
 
 {certificatiAlert.length > 0 && (
@@ -432,7 +435,8 @@ diff < 0
 </div>
 
 )}
-      {/* AZIONI */}
+
+{/* AZIONI */}
 <div className="flex justify-between">
 
   <button
