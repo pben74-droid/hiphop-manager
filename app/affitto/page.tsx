@@ -5,8 +5,10 @@ import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso } from "@/lib/gestioneMese"
 import useRequireAuth from "@/lib/useRequireAuth"
+
 export default function AffittoPage() {
-useRequireAuth()
+  useRequireAuth()
+
   const { mese } = useMese()
 
   const [bloccato, setBloccato] = useState(false)
@@ -145,6 +147,9 @@ useRequireAuth()
             .filter(p => p.socio_id === s.id)
             .reduce((acc, p) => acc + Number(p.importo), 0)
 
+          // ✅ NUOVA LOGICA
+          const pagato = versato >= quota
+
           return (
             <div
               key={s.id}
@@ -158,12 +163,15 @@ useRequireAuth()
 
               <div className="flex gap-2">
 
-                <button
-                  onClick={() => registraPagamento(s.id, quota)}
-                  className="bg-green-500 px-3 py-1 rounded"
-                >
-                  Registra Pagamento
-                </button>
+                {/* ✅ MOSTRA SOLO SE NON PAGATO */}
+                {!pagato && (
+                  <button
+                    onClick={() => registraPagamento(s.id, quota)}
+                    className="bg-green-500 px-3 py-1 rounded"
+                  >
+                    Registra Pagamento
+                  </button>
+                )}
 
                 {pagamenti
                   .filter(p => p.socio_id === s.id)
