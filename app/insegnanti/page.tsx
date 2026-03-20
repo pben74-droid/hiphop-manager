@@ -251,7 +251,12 @@ useRequireAuth()
       })
 
     await sincronizzaCompensi(mese)
-
+// RESET FORM
+setInsegnanteId("")
+setData("")
+setOre("")
+setCosto("")
+setBenzina("")
     carica()
 
   }
