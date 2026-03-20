@@ -78,9 +78,7 @@ export async function calcolaSaldi(mese: string) {
 
     const importo = Number(m.importo) || 0
 
-    if (
-      m.categoria === "insegnante"
-       ) return
+    if (m.categoria === "insegnante") return
 
     if (m.contenitore === "cassa_operativa") {
       saldo_cassa += importo
@@ -121,7 +119,7 @@ export async function calcolaRiepilogoOperativo(mese: string) {
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   /* =========================
-  LEZIONI INSEGNANTI NON PAGATE
+     LEZIONI NON PAGATE
   ========================= */
 
   const { data: lezioni } = await supabase
@@ -144,23 +142,26 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 
   const totale_spese =
     totale_spese_movimenti + totale_spese_insegnanti
-const spese_pagate_cassa = totale_spese_movimenti
 
-const saldi = await calcolaSaldi(mese)
+  const spese_pagate_cassa = totale_spese_movimenti
 
-const cassa_reale = saldi.saldo_cassa
+  const saldi = await calcolaSaldi(mese)
 
-const differenza_da_ripartire =
-  totale_spese > cassa_reale
-    ? totale_spese - cassa_reale
-    : 0
- return {
-  totale_incassi: Number(totale_incassi.toFixed(2)),
-  totale_spese: Number(totale_spese.toFixed(2)),
-  spese_pagate_cassa: Number(spese_pagate_cassa.toFixed(2)),
-  differenza_da_ripartire: Number(differenza_da_ripartire.toFixed(2))
+  const cassa_reale = saldi.saldo_cassa
+
+  const differenza_da_ripartire =
+    totale_spese > cassa_reale
+      ? totale_spese - cassa_reale
+      : 0
+
+  return {
+    totale_incassi: Number(totale_incassi.toFixed(2)),
+    totale_spese: Number(totale_spese.toFixed(2)),
+    spese_pagate_cassa: Number(spese_pagate_cassa.toFixed(2)),
+    differenza_da_ripartire: Number(differenza_da_ripartire.toFixed(2))
+  }
 }
-}
+
 /* =====================================================
    CALCOLO QUOTA SOCI
 ===================================================== */
@@ -210,7 +211,7 @@ export async function calcolaQuotaSoci(mese: string) {
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   /* =========================
-  LEZIONI SVOLTE NON PAGATE
+     LEZIONI NON PAGATE
   ========================= */
 
   const { data: lezioni } = await supabase
@@ -235,47 +236,51 @@ export async function calcolaQuotaSoci(mese: string) {
     totale_spese_movimenti + totale_spese_insegnanti
 
   /* =========================
-CASSA DISPONIBILE
-========================= */
+     CASSA
+  ========================= */
 
-const saldi = await calcolaSaldi(mese)
+  const saldi = await calcolaSaldi(mese)
+  const cassa_disponibile = saldi.saldo_cassa
 
-const cassa_disponibile = saldi.saldo_cassa
+  const perdita =
+    totale_spese > cassa_disponibile
+      ? totale_spese - cassa_disponibile
+      : 0
 
-const perdita =
-  totale_spese > cassa_disponibile
-    ? totale_spese - cassa_disponibile
-    : 0
+  const risultato_reale =
+    cassa_disponibile - totale_spese
 
-const risultato_reale =
-  cassa_disponibile - totale_spese
+  const spese_totali = totale_spese
 
-const spese_totali = totale_spese
+  const sociCalcolo = soci?.map(s => {
 
-const sociCalcolo = soci?.map(s => {
     const percentuale = Number(s.quota_percentuale) / 100
 
-const quota_spesa = spese_totali * percentuale
+    const quota_spesa = spese_totali * percentuale
+    const quota_cassa = cassa_disponibile * percentuale
 
-const quota_cassa = cassa_disponibile * percentuale
-
-const quota_calcolata = perdita * percentuale
     const versato = versamenti
       ?.filter(v => v.socio_id === s.id)
       .reduce((acc, v) => acc + Number(v.importo), 0) || 0
 
-    const differenza = versato - quota_calcolata
+    // ✅ LOGICA CORRETTA
+    const saldo = quota_cassa - quota_spesa
+
+    // compatibilità UI
+    const quota_calcolata = quota_spesa - quota_cassa
+
+    const differenza = versato + saldo
 
     return {
-  id: s.id,
-  nome: s.nome,
-  quota_spesa: Number(quota_spesa.toFixed(2)),
-  quota_cassa: Number(quota_cassa.toFixed(2)),
-  quota_calcolata: Number(quota_calcolata.toFixed(2)),
-  versato: Number(versato.toFixed(2)),
-  differenza: Number(differenza.toFixed(2)),
-}
-   
+      id: s.id,
+      nome: s.nome,
+      quota_spesa: Number(quota_spesa.toFixed(2)),
+      quota_cassa: Number(quota_cassa.toFixed(2)),
+      quota_calcolata: Number(quota_calcolata.toFixed(2)),
+      versato: Number(versato.toFixed(2)),
+      differenza: Number(differenza.toFixed(2)),
+    }
+
   }) || []
 
   const totale_versamenti =
