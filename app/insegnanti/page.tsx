@@ -247,7 +247,7 @@ useRequireAuth()
         ore:Number(ore),
         costo_orario:Number(costo),
         rimborso_benzina:Number(benzina),
-        stato:"svolta"
+        stato:"programmata"
       })
 
     await sincronizzaCompensi(mese)
