@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso } from "@/lib/gestioneMese"
 import useRequireAuth from "@/lib/useRequireAuth"
+
 export default function TrasferimentiPage() {
 useRequireAuth()
   const { mese } = useMese()
@@ -13,9 +14,12 @@ useRequireAuth()
   const [direzione, setDirezione] = useState<"banca_cassa" | "cassa_banca">("banca_cassa")
   const [trasferimenti, setTrasferimenti] = useState<any[]>([])
   const [meseChiuso, setMeseChiuso] = useState(false)
+
+  // ✅ AGGIUNTI
+  const [rettifiche, setRettifiche] = useState<any[]>([])
   const [rettificaImporto, setRettificaImporto] = useState("")
   const [rettificaConto, setRettificaConto] = useState<"cassa_operativa" | "banca">("cassa_operativa")
-  
+
   useEffect(() => {
     caricaTrasferimenti()
     controllaMese()
@@ -35,6 +39,16 @@ useRequireAuth()
       .order("data", { ascending: false })
 
     setTrasferimenti(data || [])
+
+    // ✅ AGGIUNTO
+    const { data: rett } = await supabase
+      .from("movimenti_finanziari")
+      .select("*")
+      .eq("mese", mese)
+      .eq("tipo", "rettifica")
+      .order("data", { ascending: false })
+
+    setRettifiche(rett || [])
   }
 
   const salvaTrasferimento = async () => {
@@ -47,39 +61,7 @@ useRequireAuth()
       alert("Importo non valido")
       return
     }
-const salvaRettifica = async () => {
 
-  if (!rettificaImporto) return
-
-  const valore = Number(rettificaImporto)
-
-  if (valore === 0) {
-    alert("Importo non valido")
-    return
-  }
-
-  const oggi = new Date().toISOString().slice(0, 10)
-
-  const { error } = await supabase
-    .from("movimenti_finanziari")
-    .insert({
-      mese,
-      tipo: "rettifica",
-      categoria: "rettifica",
-      contenitore: rettificaConto,
-      importo: valore,
-      data: oggi,
-      descrizione: "Rettifica contabile"
-    })
-
-  if (error) {
-    alert("Errore salvataggio rettifica")
-    return
-  }
-
-  setRettificaImporto("")
-  caricaTrasferimenti()
-}
     const oggi = new Date().toISOString().slice(0, 10)
 
     let movimentoUscita
@@ -134,6 +116,32 @@ const salvaRettifica = async () => {
     }
 
     setImporto("")
+    caricaTrasferimenti()
+  }
+
+  // ✅ AGGIUNTA
+  const salvaRettifica = async () => {
+
+    if (!rettificaImporto) return
+
+    const valore = Number(rettificaImporto)
+    if (valore === 0) return
+
+    const oggi = new Date().toISOString().slice(0, 10)
+
+    await supabase
+      .from("movimenti_finanziari")
+      .insert({
+        mese,
+        tipo: "rettifica",
+        categoria: "rettifica",
+        contenitore: rettificaConto,
+        importo: valore,
+        data: oggi,
+        descrizione: "Rettifica contabile"
+      })
+
+    setRettificaImporto("")
     caricaTrasferimenti()
   }
 
@@ -194,36 +202,40 @@ const salvaRettifica = async () => {
         </button>
 
       </div>
-<div className="border border-yellow-500 p-6 rounded space-y-4">
 
-  <h2 className="text-xl">Rettifica Contabile</h2>
+      {/* ✅ RETTIFICA */}
+      <div className="border border-yellow-500 p-6 rounded space-y-4">
 
-  <select
-    value={rettificaConto}
-    onChange={(e) => setRettificaConto(e.target.value as any)}
-    disabled={meseChiuso}
-    className="bg-black text-white border border-yellow-500 p-2 rounded"
-  >
-    <option value="cassa_operativa">Cassa</option>
-    <option value="banca">Banca</option>
-  </select>
+        <h2 className="text-xl">Rettifica Contabile</h2>
 
-  <input
-    type="number"
-    placeholder="Importo (+ o -)"
-    value={rettificaImporto}
-    onChange={(e) => setRettificaImporto(e.target.value)}
-    disabled={meseChiuso}
-    className="bg-black text-white border border-yellow-500 p-2 rounded"
-  />
+        <select
+          value={rettificaConto}
+          onChange={(e) => setRettificaConto(e.target.value as any)}
+          disabled={meseChiuso}
+          className="bg-black text-white border border-yellow-500 p-2 rounded"
+        >
+          <option value="cassa_operativa">Cassa</option>
+          <option value="banca">Banca</option>
+        </select>
 
-  <button
-    onClick={salvaRettifica}
-    disabled={meseChiuso}
-    className="bg-yellow-600 text-black px-4 py-2 rounded disabled:opacity-50"
-  >
-    Registra Rettifica
-  </button>
+        <input
+          type="number"
+          placeholder="Importo (+ o -)"
+          value={rettificaImporto}
+          onChange={(e) => setRettificaImporto(e.target.value)}
+          disabled={meseChiuso}
+          className="bg-black text-white border border-yellow-500 p-2 rounded"
+        />
+
+        <button
+          onClick={salvaRettifica}
+          disabled={meseChiuso}
+          className="bg-yellow-600 text-black px-4 py-2 rounded disabled:opacity-50"
+        >
+          Registra Rettifica
+        </button>
+
+      </div>
 
       <div className="border border-yellow-500 p-6 rounded">
 
@@ -241,6 +253,33 @@ const salvaRettifica = async () => {
             {!meseChiuso && (
               <button
                 onClick={() => eliminaMovimento(t.id)}
+                className="bg-red-600 text-white px-3 py-1 rounded text-sm"
+              >
+                Cancella
+              </button>
+            )}
+          </div>
+        ))}
+
+      </div>
+
+      {/* ✅ ELENCO RETTIFICHE */}
+      <div className="border border-yellow-500 p-6 rounded">
+
+        <h2 className="text-xl mb-4">Elenco Rettifiche</h2>
+
+        {rettifiche.map((r) => (
+          <div
+            key={r.id}
+            className="flex justify-between items-center border-b border-yellow-500 py-2 text-yellow-400"
+          >
+            <span>{r.data}</span>
+            <span>{r.contenitore}</span>
+            <span>{Number(r.importo).toFixed(2)} €</span>
+
+            {!meseChiuso && (
+              <button
+                onClick={() => eliminaMovimento(r.id)}
                 className="bg-red-600 text-white px-3 py-1 rounded text-sm"
               >
                 Cancella
