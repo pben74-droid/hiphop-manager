@@ -225,11 +225,16 @@ return (
 
 <p>
 di cui pagate per cassa:
-<span className="text-red-400 ml-2 font-bold">
+<span className="text-green-400 ml-2 font-bold">
 {riepilogo.spese_pagate_cassa.toFixed(2)} €
 </span>
 </p>
-
+<p>
+di cui pagate per banca:
+<span className="text-green-400 ml-2 font-bold">
+{riepilogo.spese_pagate_banca.toFixed(2)} €
+</span>
+</p>
 <p>
 Differenza da ripartire:
 <span className={
