@@ -530,7 +530,7 @@ DETTAGLIO SPESE
 
 ensureTableSpace(spese.length + 2)
 
-drawHeader("DETTAGLIO SPESE")
+drawHeader("DETTAGLIO SPESE PAGATE")
 
 const speseCols=[
 {label:"DESCRIZIONE",width:450},
