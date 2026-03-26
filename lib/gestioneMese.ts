@@ -115,11 +115,7 @@ export async function calcolaRiepilogoOperativo(mese: string) {
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   const totale_spese_movimenti = movimentiFiltrati
-  .filter(m =>
-    m.tipo === "spesa" &&
-    m.contenitore === "cassa_operativa" &&
-    m.categoria !== "pagamento_insegnante" // 👈 ESCLUDI INSEGNANTI PAGATI
-  )
+  .filter(m => m.tipo === "spesa")
   .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
   /* =========================
      LEZIONI NON PAGATE
@@ -146,23 +142,37 @@ export async function calcolaRiepilogoOperativo(mese: string) {
   const totale_spese =
     totale_spese_movimenti + totale_spese_insegnanti
 
-  const spese_pagate_cassa = totale_spese_movimenti
+  // 🔹 spese pagate per cassa (solo insegnanti)
+const spese_pagate_cassa = movimentiFiltrati
+  .filter(m =>
+    m.tipo === "spesa" &&
+    m.contenitore === "cassa_operativa" &&
+    m.categoria === "pagamento_insegnante"
+  )
+  .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
-  const saldi = await calcolaSaldi(mese)
+// 🔹 spese pagate per banca
+const spese_pagate_banca = movimentiFiltrati
+  .filter(m =>
+    m.tipo === "spesa" &&
+    m.contenitore === "banca"
+  )
+  .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
-  const cassa_reale = saldi.saldo_cassa
-
-  const differenza_da_ripartire =
-    totale_spese > cassa_reale
-      ? totale_spese - cassa_reale
-      : 0
+// 🔹 differenza reale da coprire dai soci
+const differenza_da_ripartire =
+  totale_spese
+  - totale_incassi
+  - spese_pagate_banca
+  - spese_pagate_cassa
 
   return {
-    totale_incassi: Number(totale_incassi.toFixed(2)),
-    totale_spese: Number(totale_spese.toFixed(2)),
-    spese_pagate_cassa: Number(spese_pagate_cassa.toFixed(2)),
-    differenza_da_ripartire: Number(differenza_da_ripartire.toFixed(2))
-  }
+  totale_incassi: Number(totale_incassi.toFixed(2)),
+  totale_spese: Number(totale_spese.toFixed(2)),
+  spese_pagate_cassa: Number(spese_pagate_cassa.toFixed(2)),
+  spese_pagate_banca: Number(spese_pagate_banca.toFixed(2)),
+  differenza_da_ripartire: Number(differenza_da_ripartire.toFixed(2))
+}
 }
 
 /* =====================================================
