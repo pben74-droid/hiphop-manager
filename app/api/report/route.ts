@@ -399,7 +399,19 @@ drawTableHeader(situazioneCols,margin)
 
 drawRow(situazioneCols,["Totale Costi",`${totaleSpese.toFixed(2)} €`],margin,[undefined,getColor(-totaleSpese)])
 
+drawRow(
+situazioneCols,
+["di cui pagati per cassa",`${spesePagateCassa.toFixed(2)} €`],
+margin,
+[undefined,getColor(spesePagateCassa)]
+)
 
+drawRow(
+situazioneCols,
+["di cui pagati per banca",`${spesePagateBanca.toFixed(2)} €`],
+margin,
+[undefined,getColor(spesePagateBanca)]
+)
 
 drawRow(
 situazioneCols,
