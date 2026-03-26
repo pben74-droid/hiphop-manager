@@ -62,8 +62,8 @@ export default function VersamentiPage() {
     const valore = Number(importo)
     const oggi = new Date().toISOString().slice(0, 10)
 
-    // 1️⃣ Salvo il versamento (MA NON in cassa)
-    const { error: erroreVersamento } = await supabase
+    // 1️⃣ Salvo versamento (NON in cassa)
+    const { error } = await supabase
       .from("versamenti_soci")
       .insert({
         mese,
@@ -73,13 +73,13 @@ export default function VersamentiPage() {
         data: oggi
       })
 
-    if (erroreVersamento) {
-      alert("Errore salvataggio versamento: " + erroreVersamento.message)
+    if (error) {
+      alert("Errore salvataggio versamento: " + error.message)
       return
     }
 
     // 2️⃣ Recupero dati aggiornati
-    const { data: soci } = await supabase
+    const { data: sociList } = await supabase
       .from("soci")
       .select("id")
 
@@ -90,16 +90,20 @@ export default function VersamentiPage() {
 
     const quota = await calcolaQuotaSoci(mese)
 
-    // 3️⃣ Controllo se tutti hanno pagato
-    const tuttiPagati = soci.every(s => {
+    // 3️⃣ Controllo tutti pagati (FIX QUI)
+    const tuttiPagati = sociList.every(s => {
+
       const totaleVersato = versamentiAggiornati
         .filter(v => v.socio_id === s.id)
         .reduce((acc, v) => acc + Number(v.importo), 0)
 
-      return totaleVersato >= quota.quota
+      const socioRiepilogo = quota.soci.find(x => x.id === s.id)
+      const quotaSocio = socioRiepilogo?.quota_calcolata || 0
+
+      return totaleVersato >= quotaSocio
     })
 
-    // 4️⃣ SOLO SE tutti hanno pagato → entra in cassa
+    // 4️⃣ Se tutti pagano → entra in cassa UNA VOLTA
     if (tuttiPagati) {
 
       const totaleVersamenti = versamentiAggiornati.reduce(
@@ -107,7 +111,6 @@ export default function VersamentiPage() {
         0
       )
 
-      // controllo duplicato
       const { data: giàInserito } = await supabase
         .from("movimenti_finanziari")
         .select("*")
@@ -228,7 +231,6 @@ export default function VersamentiPage() {
         <h2 className="text-lg mb-4">Elenco Versamenti</h2>
 
         {versamenti.map(v => {
-
           const socio = soci.find(s => s.id === v.socio_id)
 
           return (
