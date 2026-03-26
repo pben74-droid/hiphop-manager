@@ -36,7 +36,7 @@ export default function RootLayout({
               <nav className="flex flex-col space-y-3 text-sm">
 
                 {/* SEZIONE CONTROLLO */}
-                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Controllo
                 </div>
 
@@ -51,7 +51,7 @@ export default function RootLayout({
                 <div className="border-t border-gray-700 my-4 opacity-40" />
 
                 {/* SEZIONE OPERATIVA */}
-                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Operativo
                 </div>
 
@@ -96,7 +96,7 @@ export default function RootLayout({
                 <div className="border-t border-gray-700 my-4 opacity-40" />
 
                 {/* SEZIONE FINANZIARIA */}
-                <div className="text-xs text-gray-500 uppercase tracking-widest mb-2">
+                <div className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
                   Finanziario
                 </div>
 
