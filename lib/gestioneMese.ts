@@ -147,8 +147,7 @@ const spese_pagate_cassa = movimentiFiltrati
   .filter(m =>
     m.tipo === "spesa" &&
     m.contenitore === "cassa_operativa" &&
-    m.categoria === "pagamento_insegnante"
-  )
+    )
   .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
 // 🔹 spese pagate per banca
