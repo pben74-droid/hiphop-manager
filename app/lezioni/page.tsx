@@ -106,7 +106,33 @@ useRequireAuth()
     carica()
 
   }
+const eliminaPagamento = async (l:any) => {
 
+  if (!l.pagato) return
+
+  const costo =
+    Number(l.ore) * Number(l.costo_orario) +
+    Number(l.rimborso_benzina || 0)
+
+  // 1️⃣ elimina movimento finanziario
+  await supabase
+    .from("movimenti_finanziari")
+    .delete()
+    .eq("mese", mese)
+    .eq("categoria", "pagamento_insegnante")
+    .eq("importo", -Math.abs(costo))
+
+  // 2️⃣ aggiorna lezione
+  await supabase
+    .from("lezioni_insegnanti")
+    .update({
+      pagato: false,
+      data_pagamento: null
+    })
+    .eq("id", l.id)
+
+  carica()
+}
   if(loading)
     return <div className="p-6">Caricamento...</div>
 
@@ -226,7 +252,16 @@ useRequireAuth()
                   </button>
 
                 )}
+{l.pagato && (
 
+  <button
+    onClick={()=>eliminaPagamento(l)}
+    className="bg-red-700 text-white px-3 py-1 rounded"
+  >
+    Elimina Pagamento
+  </button>
+
+)}
               </div>
 
             </div>
