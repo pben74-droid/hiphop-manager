@@ -5,8 +5,10 @@ import { supabase } from "@/lib/supabaseClient"
 import { useMese } from "@/lib/MeseContext"
 import { verificaMeseChiuso, calcolaQuotaSoci } from "@/lib/gestioneMese"
 import useRequireAuth from "@/lib/useRequireAuth"
+
 export default function VersamentiPage() {
-useRequireAuth()
+  useRequireAuth()
+
   const { mese } = useMese()
 
   const [bloccato, setBloccato] = useState(false)
@@ -23,7 +25,6 @@ useRequireAuth()
   }, [mese])
 
   const inizializza = async () => {
-
     setLoading(true)
 
     const chiuso = await verificaMeseChiuso(mese)
@@ -51,7 +52,6 @@ useRequireAuth()
   }
 
   const salva = async () => {
-
     if (bloccato) return
 
     if (!socioSelezionato || !importo) {
@@ -62,6 +62,7 @@ useRequireAuth()
     const valore = Number(importo)
     const oggi = new Date().toISOString().slice(0, 10)
 
+    // 1️⃣ Salvo il versamento (MA NON in cassa)
     const { error: erroreVersamento } = await supabase
       .from("versamenti_soci")
       .insert({
@@ -77,21 +78,56 @@ useRequireAuth()
       return
     }
 
-    const { error: erroreMovimento } = await supabase
-      .from("movimenti_finanziari")
-      .insert({
-        mese,
-        tipo: "incasso",
-        categoria: "versamento_socio",
-        contenitore: "cassa_operativa",
-        importo: valore,
-        data: oggi,
-        descrizione: "Versamento socio"
-      })
+    // 2️⃣ Recupero dati aggiornati
+    const { data: soci } = await supabase
+      .from("soci")
+      .select("id")
 
-    if (erroreMovimento) {
-      alert("Errore salvataggio movimento cassa: " + erroreMovimento.message)
-      return
+    const { data: versamentiAggiornati } = await supabase
+      .from("versamenti_soci")
+      .select("*")
+      .eq("mese", mese)
+
+    const quota = await calcolaQuotaSoci(mese)
+
+    // 3️⃣ Controllo se tutti hanno pagato
+    const tuttiPagati = soci.every(s => {
+      const totaleVersato = versamentiAggiornati
+        .filter(v => v.socio_id === s.id)
+        .reduce((acc, v) => acc + Number(v.importo), 0)
+
+      return totaleVersato >= quota.quota
+    })
+
+    // 4️⃣ SOLO SE tutti hanno pagato → entra in cassa
+    if (tuttiPagati) {
+
+      const totaleVersamenti = versamentiAggiornati.reduce(
+        (acc, v) => acc + Number(v.importo),
+        0
+      )
+
+      // controllo duplicato
+      const { data: giàInserito } = await supabase
+        .from("movimenti_finanziari")
+        .select("*")
+        .eq("mese", mese)
+        .eq("categoria", "versamenti_soci_batch")
+        .maybeSingle()
+
+      if (!giàInserito) {
+        await supabase
+          .from("movimenti_finanziari")
+          .insert({
+            mese,
+            tipo: "incasso",
+            categoria: "versamenti_soci_batch",
+            contenitore: "cassa_operativa",
+            importo: totaleVersamenti,
+            data: oggi,
+            descrizione: "Versamenti soci consolidati"
+          })
+      }
     }
 
     setImporto("")
@@ -99,28 +135,8 @@ useRequireAuth()
   }
 
   const elimina = async (id: string) => {
-
     if (bloccato) return
 
-    // 1️⃣ Recupero il versamento prima di eliminarlo
-    const { data: versamento } = await supabase
-      .from("versamenti_soci")
-      .select("*")
-      .eq("id", id)
-      .single()
-
-    if (!versamento) return
-
-    // 2️⃣ Elimino movimento finanziario collegato
-    await supabase
-      .from("movimenti_finanziari")
-      .delete()
-      .eq("mese", versamento.mese)
-      .eq("categoria", "versamento_socio")
-      .eq("importo", versamento.importo)
-      .eq("data", versamento.data)
-
-    // 3️⃣ Elimino versamento socio
     await supabase
       .from("versamenti_soci")
       .delete()
