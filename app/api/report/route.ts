@@ -96,9 +96,12 @@ m.categoria!=="versamento_socio"
 ) || []
 
 const spese = movimenti?.filter(
-m => m.tipo==="spesa"
+m =>
+m.tipo==="spesa" &&
+m.categoria !== "rettifica" &&
+m.categoria !== "versamento_socio" &&
+m.categoria !== "versamenti_soci_batch"
 ) || []
-
 const insegnantiRaw = movimenti?.filter(
 m => m.categoria==="insegnante"
 ) || []
@@ -126,6 +129,20 @@ return acc + costo
 
 const totaleSpese =
 totaleSpeseMovimenti + totaleSpeseLezioni
+  /* =========================
+SPESE PAGATE (NUOVA LOGICA)
+========================= */
+
+const spesePagateCassa = movimenti?.filter(m =>
+m.tipo === "spesa" &&
+m.categoria === "pagamento_insegnante" &&
+m.contenitore === "cassa_operativa"
+).reduce((a,m)=>a+Math.abs(Number(m.importo)),0) || 0
+
+const spesePagateBanca = movimenti?.filter(m =>
+m.tipo === "spesa" &&
+m.contenitore === "banca"
+).reduce((a,m)=>a+Math.abs(Number(m.importo)),0) || 0
   /* =========================
 INSEGNANTI
 ========================= */
@@ -367,11 +384,11 @@ drawHeader("SITUAZIONE DEL MESE")
 const totaleVersamenti =
 versamentiSoci?.reduce((a,v)=>a+Number(v.importo),0) || 0
 
-const differenzaDaCoprire =
-Math.max(0, totaleSpese - totaleIncassi - saldoInizialeCassa)
+const differenzaDaRipartire =
+totaleSpese - spesePagateCassa - spesePagateBanca
 
-const residuoDaVersare =
-Math.max(0, differenzaDaCoprire - totaleVersamenti)
+const differenzaFinale =
+totaleVersamenti - differenzaDaRipartire
 
 const situazioneCols=[
 {label:"VOCE",width:450},
@@ -384,10 +401,26 @@ drawRow(situazioneCols,["Totale Costi",`${totaleSpese.toFixed(2)} €`],margin,[
 drawRow(situazioneCols,["Incassi Corsi",`${totaleIncassi.toFixed(2)} €`],margin,[undefined,getColor(totaleIncassi)])
 drawRow(situazioneCols,["Saldo Cassa",`${saldoInizialeCassa.toFixed(2)} €`],margin,[undefined,getColor(saldoInizialeCassa)])
 drawRow(situazioneCols,["Saldo Banca",`${saldoInizialeBanca.toFixed(2)} €`],margin,[undefined,getColor(saldoInizialeBanca)])
-drawRow(situazioneCols,["Differenza da Coprire",`${differenzaDaCoprire.toFixed(2)} €`],margin,[undefined,getColor(-differenzaDaCoprire)])
-drawRow(situazioneCols,["Versamenti Soci",`${totaleVersamenti.toFixed(2)} €`],margin,[undefined,getColor(totaleVersamenti)])
-drawRow(situazioneCols,["Residuo da Versare",`${residuoDaVersare.toFixed(2)} €`],margin,[undefined,getColor(-residuoDaVersare)])
+drawRow(
+situazioneCols,
+["Differenza da Ripartire",`${differenzaDaRipartire.toFixed(2)} €`],
+margin,
+[undefined,getColor(-differenzaDaRipartire)]
+)
 
+drawRow(
+situazioneCols,
+["Versamenti Soci",`${totaleVersamenti.toFixed(2)} €`],
+margin,
+[undefined,getColor(totaleVersamenti)]
+)
+
+drawRow(
+situazioneCols,
+["Differenza Finale",`${differenzaFinale.toFixed(2)} €`],
+margin,
+[undefined,getColor(differenzaFinale)]
+)
 y -= sectionSpacing
 
 /* =========================
