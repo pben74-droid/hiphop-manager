@@ -146,7 +146,7 @@ export async function calcolaRiepilogoOperativo(mese: string) {
 const spese_pagate_cassa = movimentiFiltrati
   .filter(m =>
     m.tipo === "spesa" &&
-    m.contenitore === "cassa_operativa" &&
+    m.contenitore === "cassa_operativa"
     )
   .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
