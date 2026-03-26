@@ -13,7 +13,9 @@ useRequireAuth()
   const [direzione, setDirezione] = useState<"banca_cassa" | "cassa_banca">("banca_cassa")
   const [trasferimenti, setTrasferimenti] = useState<any[]>([])
   const [meseChiuso, setMeseChiuso] = useState(false)
-
+  const [rettificaImporto, setRettificaImporto] = useState("")
+  const [rettificaConto, setRettificaConto] = useState<"cassa_operativa" | "banca">("cassa_operativa")
+  
   useEffect(() => {
     caricaTrasferimenti()
     controllaMese()
@@ -45,7 +47,39 @@ useRequireAuth()
       alert("Importo non valido")
       return
     }
+const salvaRettifica = async () => {
 
+  if (!rettificaImporto) return
+
+  const valore = Number(rettificaImporto)
+
+  if (valore === 0) {
+    alert("Importo non valido")
+    return
+  }
+
+  const oggi = new Date().toISOString().slice(0, 10)
+
+  const { error } = await supabase
+    .from("movimenti_finanziari")
+    .insert({
+      mese,
+      tipo: "rettifica",
+      categoria: "rettifica",
+      contenitore: rettificaConto,
+      importo: valore,
+      data: oggi,
+      descrizione: "Rettifica contabile"
+    })
+
+  if (error) {
+    alert("Errore salvataggio rettifica")
+    return
+  }
+
+  setRettificaImporto("")
+  caricaTrasferimenti()
+}
     const oggi = new Date().toISOString().slice(0, 10)
 
     let movimentoUscita
@@ -160,6 +194,36 @@ useRequireAuth()
         </button>
 
       </div>
+<div className="border border-yellow-500 p-6 rounded space-y-4">
+
+  <h2 className="text-xl">Rettifica Contabile</h2>
+
+  <select
+    value={rettificaConto}
+    onChange={(e) => setRettificaConto(e.target.value as any)}
+    disabled={meseChiuso}
+    className="bg-black text-white border border-yellow-500 p-2 rounded"
+  >
+    <option value="cassa_operativa">Cassa</option>
+    <option value="banca">Banca</option>
+  </select>
+
+  <input
+    type="number"
+    placeholder="Importo (+ o -)"
+    value={rettificaImporto}
+    onChange={(e) => setRettificaImporto(e.target.value)}
+    disabled={meseChiuso}
+    className="bg-black text-white border border-yellow-500 p-2 rounded"
+  />
+
+  <button
+    onClick={salvaRettifica}
+    disabled={meseChiuso}
+    className="bg-yellow-600 text-black px-4 py-2 rounded disabled:opacity-50"
+  >
+    Registra Rettifica
+  </button>
 
       <div className="border border-yellow-500 p-6 rounded">
 
