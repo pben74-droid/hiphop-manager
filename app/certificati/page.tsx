@@ -226,19 +226,23 @@ setTimeout(() => {
 
             <br />
 
-            <button
-              onClick={() => modifica(a)}
-              style={{ marginTop: 5, marginRight: 10 }}
-            >
-              Modifica
-            </button>
+            <div className="mt-2 flex gap-2">
 
-            <button
-              onClick={() => elimina(a.id)}
-              style={{ marginTop: 5 }}
-            >
-              Elimina
-            </button>
+  <button
+    onClick={() => modifica(a)}
+    className="px-3 py-1 rounded bg-blue-500 text-white text-sm hover:bg-blue-600 transition"
+  >
+    Modifica
+  </button>
+
+  <button
+    onClick={() => elimina(a.id)}
+    className="px-3 py-1 rounded bg-red-500 text-white text-sm hover:bg-red-600 transition"
+  >
+    Elimina
+  </button>
+
+</div>
 
           </div>
 
