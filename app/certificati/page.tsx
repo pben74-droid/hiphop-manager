@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import useRequireAuth from "@/lib/useRequireAuth";
 
@@ -18,7 +18,7 @@ export default function CertificatiPage() {
     codice_fiscale: "",
     data_scadenza: "",
   });
-
+const formRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     loadData();
   }, []);
@@ -91,7 +91,9 @@ export default function CertificatiPage() {
     });
 
     setEditId(a.id);
-
+setTimeout(() => {
+  formRef.current?.scrollIntoView({ behavior: "smooth" });
+}, 100);
   };
 
   const getStato = (data: string) => {
@@ -124,9 +126,11 @@ export default function CertificatiPage() {
 
     <div>
 
-      <h1>Certificati Medici</h1>
+      <h1>
+  {editId ? "Modifica Certificato" : "Certificati Medici"}
+</h1>
 
-      <div style={{ marginBottom: 30 }}>
+      <div ref={formRef} style={{ marginBottom: 30 }}>
 
         <input
           placeholder="Nome"
