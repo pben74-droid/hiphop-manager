@@ -145,6 +145,12 @@ export default function VersamentiPage() {
       .delete()
       .eq("id", id)
 
+    await supabase
+    .from("movimenti_finanziari")
+    .delete()
+    .eq("mese", mese)
+    .eq("categoria", "versamenti_soci_batch")
+   
     inizializza()
   }
 
