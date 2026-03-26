@@ -115,9 +115,8 @@ export async function calcolaRiepilogoOperativo(mese: string) {
     .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
 
   const totale_spese_movimenti = movimentiFiltrati
-    .filter(m => m.tipo === "spesa")
-    .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
-
+  .filter(m => m.tipo === "spesa" && m.contenitore === "cassa_operativa")
+  .reduce((acc, m) => acc + Math.abs(Number(m.importo)), 0)
   /* =========================
      LEZIONI NON PAGATE
   ========================= */
