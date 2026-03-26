@@ -161,7 +161,6 @@ const spese_pagate_banca = movimentiFiltrati
 // 🔹 differenza reale da coprire dai soci
 const differenza_da_ripartire =
   totale_spese
-  - totale_incassi
   - spese_pagate_banca
   - spese_pagate_cassa
 
