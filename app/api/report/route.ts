@@ -398,9 +398,9 @@ const situazioneCols=[
 drawTableHeader(situazioneCols,margin)
 
 drawRow(situazioneCols,["Totale Costi",`${totaleSpese.toFixed(2)} €`],margin,[undefined,getColor(-totaleSpese)])
-drawRow(situazioneCols,["Incassi Corsi",`${totaleIncassi.toFixed(2)} €`],margin,[undefined,getColor(totaleIncassi)])
-drawRow(situazioneCols,["Saldo Cassa",`${saldoInizialeCassa.toFixed(2)} €`],margin,[undefined,getColor(saldoInizialeCassa)])
-drawRow(situazioneCols,["Saldo Banca",`${saldoInizialeBanca.toFixed(2)} €`],margin,[undefined,getColor(saldoInizialeBanca)])
+
+
+
 drawRow(
 situazioneCols,
 ["Differenza da Ripartire",`${differenzaDaRipartire.toFixed(2)} €`],
@@ -422,7 +422,36 @@ margin,
 [undefined,getColor(differenzaFinale)]
 )
 y -= sectionSpacing
+/* =========================
+SALDI DISPONIBILI
+========================= */
 
+drawHeader("SALDI DISPONIBILI")
+
+drawTableHeader(situazioneCols,margin)
+
+drawRow(
+situazioneCols,
+["Cassa",`${saldoInizialeCassa.toFixed(2)} €`],
+margin,
+[undefined,getColor(saldoInizialeCassa)]
+)
+
+drawRow(
+situazioneCols,
+["Banca",`${saldoInizialeBanca.toFixed(2)} €`],
+margin,
+[undefined,getColor(saldoInizialeBanca)]
+)
+
+drawRow(
+situazioneCols,
+["Totale",`${(saldoInizialeCassa + saldoInizialeBanca).toFixed(2)} €`],
+margin,
+[undefined,getColor(saldoInizialeCassa + saldoInizialeBanca)]
+)
+
+y -= sectionSpacing
 /* =========================
 RIEPILOGO CONTABILE
 ========================= */
