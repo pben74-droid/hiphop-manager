@@ -17,6 +17,9 @@ export default function AffittoPage() {
   const [pagamenti, setPagamenti] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
+  // ✅ NUOVO: stato importi per acconti
+  const [importi, setImporti] = useState<{ [key: string]: string }>({})
+
   useEffect(() => {
     if (!mese) return
     inizializza()
@@ -148,7 +151,12 @@ export default function AffittoPage() {
             .reduce((acc, p) => acc + Number(p.importo), 0)
 
           // ✅ NUOVA LOGICA
-          const pagato = versato >= quota
+          const saldo = versato - quota
+
+          let stato = "DA PAGARE"
+          if (saldo === 0) stato = "PAGATO"
+          if (saldo < 0) stato = "PARZIALE"
+          if (saldo > 0) stato = "CREDITO"
 
           return (
             <div
@@ -159,29 +167,55 @@ export default function AffittoPage() {
                 <p className="font-bold">{s.nome}</p>
                 <p>Quota: {quota.toFixed(2)} €</p>
                 <p>Versato: {versato.toFixed(2)} €</p>
+                <p>Saldo: {saldo.toFixed(2)} €</p>
+                <p className="font-bold">{stato}</p>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex flex-col gap-2">
 
-                {/* ✅ MOSTRA SOLO SE NON PAGATO */}
-                {!pagato && (
-                  <button
-                    onClick={() => registraPagamento(s.id, quota)}
-                    className="bg-green-500 px-3 py-1 rounded"
-                  >
-                    Registra Pagamento
-                  </button>
-                )}
+                {/* INPUT ACCONTO */}
+                <input
+                  type="number"
+                  step="0.01"
+                  placeholder="Importo"
+                  value={importi[s.id] || ""}
+                  onChange={(e) =>
+                    setImporti({
+                      ...importi,
+                      [s.id]: e.target.value
+                    })
+                  }
+                  className="bg-black text-white border border-yellow-500 p-1 w-24 rounded"
+                />
 
+                {/* BOTTONE PAGAMENTO */}
+                <button
+                  onClick={() => {
+                    const importo = Number(importi[s.id] || 0)
+                    if (!importo) return alert("Inserisci importo")
+
+                    registraPagamento(s.id, importo)
+
+                    setImporti({
+                      ...importi,
+                      [s.id]: ""
+                    })
+                  }}
+                  className="bg-green-500 px-3 py-1 rounded"
+                >
+                  Registra Pagamento
+                </button>
+
+                {/* STORICO PAGAMENTI */}
                 {pagamenti
                   .filter(p => p.socio_id === s.id)
                   .map(p => (
                     <button
                       key={p.id}
                       onClick={() => annullaPagamento(p.id)}
-                      className="bg-red-500 px-3 py-1 rounded"
+                      className="bg-red-500 px-3 py-1 rounded text-xs"
                     >
-                      Annulla
+                      Annulla {p.importo} €
                     </button>
                   ))
                 }
